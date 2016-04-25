@@ -763,217 +763,6 @@ namespace osmscout {
     }
   }
 
-  /**
-   *
-   * @throws IOException
-   */
-  void FileWriter::Write(const std::vector<GeoCoord>& nodes)
-  {
-    // Quick exit for empty vector arrays
-    if (nodes.empty()) {
-      uint8_t size=0;
-
-      Write(size);
-
-      return;
-    }
-
-    // A lat and a lon delta for each coordinate delta
-    deltaBuffer.resize((nodes.size()-1)*2);
-
-    //
-    // Calculate deltas and required space
-    //
-
-    uint32_t lastLat=(uint32_t)round((nodes[0].GetLat()+90.0)*latConversionFactor);
-    uint32_t lastLon=(uint32_t)round((nodes[0].GetLon()+180.0)*lonConversionFactor);
-    size_t   deltaBufferPos=0;
-    size_t   coordBitSize=16;
-
-    for (size_t i=1; i<nodes.size(); i++) {
-      uint32_t currentLat=(uint32_t)round((nodes[i].GetLat()+90.0)*latConversionFactor);
-      uint32_t currentLon=(uint32_t)round((nodes[i].GetLon()+180.0)*lonConversionFactor);
-
-      // lat
-
-      int32_t latDelta=currentLat-lastLat;
-
-      if (latDelta>=-128 && latDelta<=127) {
-        coordBitSize=std::max(coordBitSize,(size_t)16); // 2x 8 bit
-      }
-      else if (latDelta>=-32768 && latDelta<=32767) {
-        coordBitSize=std::max(coordBitSize,(size_t)32); // 2* 16 bit
-      }
-      else if (latDelta>=-8388608 && latDelta<=8388608) {
-        coordBitSize=std::max(coordBitSize,(size_t)48); // 2 * 24 bit
-      }
-      else {
-        throw IOException(filename,"Cannot write coordinate","Delta between coordinates too big");
-      }
-
-      deltaBuffer[deltaBufferPos]=latDelta;
-      deltaBufferPos++;
-
-      // lon
-
-      int32_t lonDelta=currentLon-lastLon;
-
-      if (lonDelta>=-128 && lonDelta<=127) {
-        coordBitSize=std::max(coordBitSize,(size_t)16); // 2x 8 bit
-      }
-      else if (lonDelta>=-32768 && lonDelta<=32767) {
-        coordBitSize=std::max(coordBitSize,(size_t)32); // 2* 16 bit
-      }
-      else if (lonDelta>=-8388608 && lonDelta<=8388608) {
-        coordBitSize=std::max(coordBitSize,(size_t)48); // 2 * 24 bit
-      }
-      else {
-        throw IOException(filename,"Cannot write coordinate","Delta between coordinates too big");
-      }
-      
-      deltaBuffer[deltaBufferPos]=lonDelta;
-      deltaBufferPos++;
-
-      lastLat=currentLat;
-      lastLon=currentLon;
-    }
-
-    size_t bytesNeeded=(nodes.size()-1)*coordBitSize/8; // all coordinates in the same encoding
-
-    //
-    // Write starting length / signal bit section
-    //
-
-    if (nodes.size()<32) {
-      uint8_t size;
-      uint8_t nodeSize=(nodes.size() & 0x1f) << 2;
-
-      if (coordBitSize==16) {
-        size=0x00 | nodeSize;
-      }
-      else if (coordBitSize==32) {
-        size=0x01 | nodeSize;
-      }
-      else {
-        size=0x02 | nodeSize;
-      }
-
-      Write(size);
-    }
-    else if (nodes.size()<4096) {
-      uint8_t size[2];
-      uint8_t nodeSize1=((nodes.size() & 0x1f) << 2) | 0x80; // The initial 5 bits + continuation bit
-      uint8_t nodeSize2=nodes.size() >> 5; // The final bits
-
-      if (coordBitSize==16) {
-        size[0]=0x00 | nodeSize1;
-      }
-      else if (coordBitSize==32) {
-        size[0]=0x01 | nodeSize1;
-      }
-      else {
-        size[0]=0x02 | nodeSize1;
-      }
-
-      size[1]=nodeSize2;
-
-      Write((char*)size,2);
-    }
-    else {
-      uint8_t size[3];
-      uint8_t nodeSize1=((nodes.size() & 0x1f) << 2) | 0x80; // The initial 5 bits + continuation bit
-      uint8_t nodeSize2=((nodes.size() >> 5) & 0x7f) | 0x80; // Further 7 bits + continuation bit
-      uint8_t nodeSize3=nodes.size() >> 12; // The final bits
-
-      if (coordBitSize==16) {
-        size[0]=0x00 | nodeSize1;
-      }
-      else if (coordBitSize==32) {
-        size[0]=0x01 | nodeSize1;
-      }
-      else {
-        size[0]=0x02 | nodeSize1;
-      }
-
-      size[1]=nodeSize2;
-      size[2]=nodeSize3;
-
-      Write((char*)size,3);
-    }
-
-    //std::cout << "Write " << std::dec << nodes.size() << " nodes, " << coordBitSize << " bits per coordinate pair" << std::endl;
-
-    /*
-    std::cout << "Write - Calculated deltas: ";
-    for (size_t i=0; i<deltaBuffer.size(); i++) {
-      std::cout << std::hex << deltaBuffer[i] << " ";
-    }
-    std::cout << std::endl;*/
-
-    //
-    // Write data array
-    //
-
-    WriteCoord(nodes[0]);
-
-    byteBuffer.resize(bytesNeeded);
-
-    if (coordBitSize==16) {
-      size_t byteBufferPos=0;
-
-      for (size_t i=0; i<deltaBuffer.size(); i++) {
-        byteBuffer[byteBufferPos]=deltaBuffer[i];
-        byteBufferPos++;
-      }
-    }
-    else if (coordBitSize==32) {
-      size_t byteBufferPos=0;
-
-      for (size_t i=0; i<deltaBuffer.size(); i++) {
-        byteBuffer[byteBufferPos]=deltaBuffer[i] & 0xff;
-        ++byteBufferPos;
-
-        byteBuffer[byteBufferPos]=(deltaBuffer[i] >> 8);
-        ++byteBufferPos;
-      }
-    }
-    else {
-      for (size_t i=0; i<deltaBuffer.size(); i++) {
-        size_t byteBufferPos=0;
-
-        for (size_t i=0; i<deltaBuffer.size(); i+=2) {
-          byteBuffer[byteBufferPos]=deltaBuffer[i] & 0xff;
-          ++byteBufferPos;
-
-          byteBuffer[byteBufferPos]=(deltaBuffer[i] >> 8) & 0xff;
-          ++byteBufferPos;
-
-          byteBuffer[byteBufferPos]=deltaBuffer[i] >> 16;
-          ++byteBufferPos;
-
-          byteBuffer[byteBufferPos]=deltaBuffer[i+1] & 0xff;
-          ++byteBufferPos;
-
-          byteBuffer[byteBufferPos]=(deltaBuffer[i+1] >> 8) & 0xff;
-          ++byteBufferPos;
-
-          byteBuffer[byteBufferPos]=deltaBuffer[i+1] >> 16;
-          ++byteBufferPos;
-        }
-      }
-    }
-
-    Write((char*)byteBuffer.data(),byteBuffer.size());
-
-    /*
-    std::cout << "Write - byte buffer: ";
-    for (size_t i=0; i<byteBuffer.size(); i++) {
-      std::cout << std::hex << (unsigned int) byteBuffer[i] << " ";
-    }
-    std::cout << std::endl;*/
-  }
-
-
   void FileWriter::Write(const std::vector<Point>& nodes, bool writeIds)
   {
     // Quick exit for empty vector arrays
@@ -985,8 +774,10 @@ namespace osmscout {
       return;
     }
 
+    size_t nodesSize=nodes.size();
+
     // A lat and a lon delta for each coordinate delta
-    deltaBuffer.resize((nodes.size()-1)*2);
+    deltaBuffer.resize((nodesSize-1)*2);
 
     //
     // Calculate deltas and required space
@@ -997,7 +788,7 @@ namespace osmscout {
     size_t   deltaBufferPos=0;
     size_t   coordBitSize=16;
 
-    for (size_t i=1; i<nodes.size(); i++) {
+    for (size_t i=1; i<nodesSize; i++) {
       uint32_t currentLat=(uint32_t)round((nodes[i].GetLat()+90.0)*latConversionFactor);
       uint32_t currentLon=(uint32_t)round((nodes[i].GetLon()+180.0)*lonConversionFactor);
 
@@ -1045,67 +836,102 @@ namespace osmscout {
       lastLon=currentLon;
     }
 
-    size_t bytesNeeded=(nodes.size()-1)*coordBitSize/8; // all coordinates in the same encoding
+    size_t bytesNeeded=(nodesSize-1)*coordBitSize/8; // all coordinates in the same encoding
+
+    //
+    // do we need to store node ids?
+    //
+
+    bool hasNodes=false;
+
+    if (writeIds) {
+      for (const auto& node : nodes) {
+        if (node.IsRelevant()) {
+          hasNodes=true;
+          break;
+        }
+      }
+    }
 
     //
     // Write starting length / signal bit section
     //
 
-    if (nodes.size()<32) {
-      uint8_t size;
-      uint8_t nodeSize=(nodes.size() & 0x1f) << 2;
+    // We use the first two bits to signal encoding size for coordinates
 
-      if (coordBitSize==16) {
-        size=0x00 | nodeSize;
-      }
-      else if (coordBitSize==32) {
-        size=0x01 | nodeSize;
-      }
-      else {
-        size=0x02 | nodeSize;
-      }
+    uint8_t coordSizeFlags;
 
-      Write(size);
+    if (coordBitSize==16) {
+      coordSizeFlags=0x00;
     }
-    else if (nodes.size()<4096) {
-      uint8_t size[2];
-      uint8_t nodeSize1=((nodes.size() & 0x1f) << 2) | 0x80; // The initial 5 bits + continuation bit
-      uint8_t nodeSize2=nodes.size() >> 5; // The final bits
-
-      if (coordBitSize==16) {
-        size[0]=0x00 | nodeSize1;
-      }
-      else if (coordBitSize==32) {
-        size[0]=0x01 | nodeSize1;
-      }
-      else {
-        size[0]=0x02 | nodeSize1;
-      }
-
-      size[1]=nodeSize2;
-
-      Write((char*)size,2);
+    else if (coordBitSize==32) {
+      coordSizeFlags=0x01;
     }
     else {
-      uint8_t size[3];
-      uint8_t nodeSize1=((nodes.size() & 0x1f) << 2) | 0x80; // The initial 5 bits + continuation bit
-      uint8_t nodeSize2=((nodes.size() >> 5) & 0x7f) | 0x80; // Further 7 bits + continuation bit
-      uint8_t nodeSize3=nodes.size() >> 12; // The final bits
+      coordSizeFlags=0x02;
+    }
 
-      if (coordBitSize==16) {
-        size[0]=0x00 | nodeSize1;
+    if (writeIds) {
+      uint8_t hasNodesFlags=hasNodes ? 0x04 : 0x00;
+
+      if (nodesSize<16) {
+        uint8_t nodeSize1=(nodesSize & 0x0f) << 3;
+        uint8_t size=coordSizeFlags | hasNodesFlags | nodeSize1;
+
+        Write(size);
       }
-      else if (coordBitSize==32) {
-        size[0]=0x01 | nodeSize1;
+      else if (nodesSize<2048) {
+        uint8_t size[2];
+        uint8_t nodeSize1=((nodesSize & 0x0f) << 3) | 0x80; // The initial 4 bits + continuation bit
+        uint8_t nodeSize2=nodesSize >> 4;                   // The final bits
+
+        size[0]=coordSizeFlags  | hasNodesFlags | nodeSize1;
+        size[1]=nodeSize2;
+
+        Write((char*)size,2);
       }
       else {
-        size[0]=0x02 | nodeSize1;
+        uint8_t size[3];
+        uint8_t nodeSize1=((nodesSize & 0x0f) << 3) | 0x80; // The initial 4 bits + continuation bit
+        uint8_t nodeSize2=((nodesSize >> 4) & 0x7f) | 0x80; // Further 7 bits + continuation bit
+        uint8_t nodeSize3=nodesSize >> 11;                  // The final bits
+
+        size[0]=coordSizeFlags  | hasNodesFlags | nodeSize1;
+        size[1]=nodeSize2;
+        size[2]=nodeSize3;
+
+        Write((char*)size,3);
       }
+    }
+    else {
+      if (nodesSize<32) {
+        uint8_t nodeSize1=(nodesSize & 0x1f) << 2;
+        uint8_t size=coordSizeFlags | nodeSize1;
 
-      size[1]=nodeSize2;
-      size[2]=nodeSize3;
+        Write(size);
+      }
+      else if (nodesSize<4096) {
+        uint8_t size[2];
+        uint8_t nodeSize1=((nodesSize & 0x1f) << 2) | 0x80; // The initial 5 bits + continuation bit
+        uint8_t nodeSize2=nodesSize >> 5; // The final bits
 
-      Write((char*)size,3);
+        size[0]=coordSizeFlags | nodeSize1;
+        size[1]=nodeSize2;
+
+        Write((char*)size,2);
+      }
+      else {
+        uint8_t size[3];
+        uint8_t nodeSize1=((nodesSize & 0x1f) << 2) | 0x80; // The initial 5 bits + continuation bit
+        uint8_t nodeSize2=((nodesSize >> 5) & 0x7f) | 0x80; // Further 7 bits + continuation bit
+        uint8_t nodeSize3=nodesSize >> 12; // The final bits
+
+        size[0]=coordSizeFlags | nodeSize1;
+        size[1]=nodeSize2;
+        size[2]=nodeSize3;
+
+        Write((char*)size,3);
+      }
     }
 
     //
@@ -1163,50 +989,37 @@ namespace osmscout {
 
     Write((char*)byteBuffer.data(),byteBuffer.size());
 
-    if (writeIds) {
-      bool hasNodes=false;
+    if (hasNodes) {
+      size_t idCurrent=0;
 
-      for (const auto& node : nodes) {
-        if (node.IsRelevant()) {
-          hasNodes=true;
-          break;
-        }
-      }
+      while (idCurrent<nodesSize) {
+        uint8_t bitset=0;
+        uint8_t bitMask=1;
+        size_t idEnd=std::min(idCurrent+8,nodesSize);
 
-      Write(hasNodes);
-
-      if (hasNodes) {
-        size_t idCurrent=0;
-
-        while (idCurrent<nodes.size()) {
-          uint8_t bitset=0;
-          uint8_t bitMask=1;
-          size_t idEnd=std::min(idCurrent+8,nodes.size());
-
-          for (size_t i=idCurrent; i<idEnd; i++) {
-            if (nodes[i].IsRelevant()) {
-              bitset=bitset | bitMask;
-            }
-
-            bitMask*=2;
+        for (size_t i=idCurrent; i<idEnd; i++) {
+          if (nodes[i].IsRelevant()) {
+            bitset=bitset | bitMask;
           }
 
-          Write(bitset);
+          bitMask*=2;
+        }
 
-          for (size_t i=idCurrent; i<idEnd; i++) {
-            if (nodes[i].IsRelevant()) {
-              Write(nodes[i].GetSerial());
-            }
+        Write(bitset);
 
-            bitMask=bitMask*2;
+        for (size_t i=idCurrent; i<idEnd; i++) {
+          if (nodes[i].IsRelevant()) {
+            Write(nodes[i].GetSerial());
           }
 
-          idCurrent+=8;
+          bitMask=bitMask*2;
         }
+
+        idCurrent+=8;
       }
 
       /*
-      size_t bytes=nodes.size();
+      size_t bytes=nodesSize;
 
       byteBuffer.resize(bytes);
       for (size_t i=0; i<bytes; i++) {

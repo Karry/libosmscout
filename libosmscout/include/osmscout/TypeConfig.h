@@ -990,16 +990,22 @@ namespace osmscout {
     void Read(FileScanner& scanner);
     void Read(FileScanner& scanner,
               bool& specialFlag);
+    void Read(FileScanner& scanner,
+              bool& specialFlag1,
+              bool& specialFlag2);
     void Write(FileWriter& writer) const;
     void Write(FileWriter& writer,
                bool specialFlag) const;
+    void Write(FileWriter& writer,
+               bool specialFlag1,
+               bool specialFlag2) const;
 
     FeatureValueBuffer& operator=(const FeatureValueBuffer& other);
     bool operator==(const FeatureValueBuffer& other) const;
     bool operator!=(const FeatureValueBuffer& other) const;
   };
 
-  static const uint32_t FILE_FORMAT_VERSION = 4;
+  static const uint32_t FILE_FORMAT_VERSION = 5;
 
   /**
    * \ingroup type

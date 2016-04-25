@@ -31,6 +31,17 @@ namespace osmscout {
   const size_t Area::masterRingId = 0;
   const size_t Area::outerRingId = 1;
 
+  bool Area::Ring::HasAnyFeaturesSet() const
+  {
+    for (size_t f=0; f<featureValueBuffer.GetType()->GetFeatureCount(); f++) {
+      if (featureValueBuffer.HasFeature(f)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   bool Area::Ring::GetCenter(GeoCoord& center) const
   {
     double minLat=0.0;
@@ -162,6 +173,7 @@ namespace osmscout {
   {
     TypeId             ringType;
     bool               multipleRings;
+    bool               hasMaster;
     uint32_t           ringCount=1;
     FeatureValueBuffer featureValueBuffer;
 
@@ -175,7 +187,8 @@ namespace osmscout {
     featureValueBuffer.SetType(type);
 
     featureValueBuffer.Read(scanner,
-                            multipleRings);
+                            multipleRings,
+                            hasMaster);
 
     if (multipleRings) {
       scanner.ReadNumber(ringCount);
@@ -187,11 +200,11 @@ namespace osmscout {
 
     rings[0].featureValueBuffer=std::move(featureValueBuffer);
 
-    if (ringCount>1) {
-      rings[0].ring=masterRingId;
+    if (hasMaster) {
+      rings[0].MarkAsMasterRing();
     }
     else {
-      rings[0].ring=outerRingId;
+      rings[0].MarkAsOuterRing();
     }
 
     scanner.Read(rings[0].nodes,
@@ -226,6 +239,7 @@ namespace osmscout {
   {
     TypeId             ringType;
     bool               multipleRings;
+    bool               hasMaster;
     uint32_t           ringCount=1;
     FeatureValueBuffer featureValueBuffer;
 
@@ -239,7 +253,8 @@ namespace osmscout {
     featureValueBuffer.SetType(type);
 
     featureValueBuffer.Read(scanner,
-                            multipleRings);
+                            multipleRings,
+                            hasMaster);
 
     if (multipleRings) {
       scanner.ReadNumber(ringCount);
@@ -251,11 +266,11 @@ namespace osmscout {
 
     rings[0].featureValueBuffer=featureValueBuffer;
 
-    if (ringCount>1) {
-      rings[0].ring=masterRingId;
+    if (hasMaster) {
+      rings[0].MarkAsMasterRing();
     }
     else {
-      rings[0].ring=outerRingId;
+      rings[0].MarkAsOuterRing();
     }
 
     scanner.Read(rings[0].nodes,
@@ -290,6 +305,7 @@ namespace osmscout {
   {
     TypeId             ringType;
     bool               multipleRings;
+    bool               hasMaster;
     uint32_t           ringCount=1;
     FeatureValueBuffer featureValueBuffer;
 
@@ -303,7 +319,8 @@ namespace osmscout {
     featureValueBuffer.SetType(type);
 
     featureValueBuffer.Read(scanner,
-                            multipleRings);
+                            multipleRings,
+                            hasMaster);
 
     if (multipleRings) {
       scanner.ReadNumber(ringCount);
@@ -315,11 +332,11 @@ namespace osmscout {
 
     rings[0].featureValueBuffer=featureValueBuffer;
 
-    if (ringCount>1) {
-      rings[0].ring=masterRingId;
+    if (hasMaster) {
+      rings[0].MarkAsMasterRing();
     }
     else {
-      rings[0].ring=outerRingId;
+      rings[0].MarkAsOuterRing();
     }
 
     scanner.Read(rings[0].nodes,
@@ -354,6 +371,14 @@ namespace osmscout {
   {
     std::vector<Ring>::const_iterator ring=rings.begin();
     bool                              multipleRings=rings.size()>1;
+    bool                              hasMaster=rings[0].IsMasterRing();
+
+    // TODO: We would like to have a bit flag here, if we have a simple area,
+    // an area with one master (and multiple rings) or an area with
+    // multiple outer but no master
+    //
+    // Also for each ring we would like to have a bit flag, if
+    // we stor eids or not
 
     // Outer ring
 
@@ -361,7 +386,8 @@ namespace osmscout {
                        typeConfig.GetAreaTypeIdBytes());
 
     ring->featureValueBuffer.Write(writer,
-                                   multipleRings);
+                                   multipleRings,
+                                   hasMaster);
 
     if (multipleRings) {
       writer.WriteNumber((uint32_t)(rings.size()-1));
@@ -401,6 +427,7 @@ namespace osmscout {
   {
     std::vector<Ring>::const_iterator ring=rings.begin();
     bool                              multipleRings=rings.size()>1;
+    bool                              hasMaster=rings[0].IsMasterRing();
 
     // Outer ring
 
@@ -408,7 +435,8 @@ namespace osmscout {
                        typeConfig.GetAreaTypeIdBytes());
 
     ring->featureValueBuffer.Write(writer,
-                                   multipleRings);
+                                   multipleRings,
+                                   hasMaster);
 
     if (multipleRings) {
       writer.WriteNumber((uint32_t)(rings.size()-1));
@@ -448,6 +476,7 @@ namespace osmscout {
   {
     std::vector<Ring>::const_iterator ring=rings.begin();
     bool                              multipleRings=rings.size()>1;
+    bool                              hasMaster=rings[0].IsMasterRing();
 
     // Outer ring
 
@@ -455,7 +484,8 @@ namespace osmscout {
                        typeConfig.GetAreaTypeIdBytes());
 
     ring->featureValueBuffer.Write(writer,
-                                   multipleRings);
+                                   multipleRings,
+                                   hasMaster);
 
     if (multipleRings) {
       writer.WriteNumber((uint32_t)(rings.size()-1));
