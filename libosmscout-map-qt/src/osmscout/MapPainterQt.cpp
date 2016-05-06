@@ -17,6 +17,9 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307  USA
 */
 
+#include <QDebug>
+#include <QDir>
+
 #include <osmscout/MapPainterQt.h>
 
 #include <iostream>
@@ -93,7 +96,7 @@ namespace osmscout {
          path!=parameter.GetIconPaths().end();
          ++path) {
 
-      std::string filename=*path+style.GetIconName()+".png";
+      std::string filename= *path + QDir::separator().toLatin1() + style.GetIconName() + ".png";
 
       QImage image;
 
@@ -104,13 +107,13 @@ namespace osmscout {
 
         images[idx]=image;
 
-        std::cout << "Loaded image '" << filename << "'" << std::endl;
+        qDebug() << "Loaded image '" << QString::fromStdString(filename) << "'";
 
         return true;
       }
     }
 
-    std::cerr << "ERROR while loading image '" << style.GetIconName() << "'" << std::endl;
+    qWarning() << "ERROR while loading image '" << QString::fromStdString(style.GetIconName()) << "'";
     style.SetIconId(0);
 
     return false;
@@ -136,7 +139,7 @@ namespace osmscout {
     for (std::list<std::string>::const_iterator path=parameter.GetPatternPaths().begin();
          path!=parameter.GetPatternPaths().end();
          ++path) {
-      std::string filename=*path+style.GetPatternName()+".png";
+      std::string filename = *path + QDir::separator().toLatin1() + style.GetPatternName() + ".png";
 
       QImage image;
 
@@ -153,13 +156,13 @@ namespace osmscout {
 
         patterns[idx].setTextureImage(image);
 
-        std::cout << "Loaded image '" << filename << "'" << std::endl;
+        qDebug() << "Loaded image '" << QString::fromStdString(filename) << "'";
 
         return true;
       }
     }
 
-    std::cerr << "ERROR while loading image '" << style.GetPatternName() << "'" << std::endl;
+    qWarning() << "ERROR while loading image '" << QString::fromStdString(style.GetPatternName()) << "'";
     style.SetPatternId(0);
 
     return false;
