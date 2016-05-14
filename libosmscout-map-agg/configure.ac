@@ -22,9 +22,8 @@ AC_LANG(C++)
 AX_CXX_COMPILE_STDCXX_11([],[mandatory])
 
 AX_CXXFLAGS_WARN_ALL
-if test "$GXX" = yes; then
-  CXXFLAGS="$CXXFLAGS -Wpointer-arith -Wsign-compare -Wundef -Wcast-qual -Wcast-align -Wwrite-strings -Wredundant-decls -Wno-long-long"
-fi
+AS_IF([test "x$GXX" = xyes],
+      [CXXFLAGS="$CXXFLAGS -Wextra -Wpointer-arith -Wundef -Wcast-qual -Wcast-align -Wredundant-decls -Wno-long-long -Wunused-variable"])
 
 AC_SEARCH_LIBS([sqrt],[m],[])
 
@@ -67,23 +66,23 @@ if test "$HASLIBFREETYPE" == "true"; then
   HASAGGFREETYPE="false"
 
   AC_MSG_CHECKING([for libagg support library 'aggfontfreetype_pic'])
-  LDFLAGS="$SAVED_LDFLAGS -laggfontfreetype_pic"
+  LDFLAGS="$SAVED_LDFLAGS -laggfontfreetype_pic $LIBAGG_LIBS"
   AC_LINK_IFELSE(
     [AC_LANG_PROGRAM([#include <agg2/agg_font_freetype.h>],
                      [ agg::font_engine_freetype_int32 fontEngine;])],
     [AC_MSG_RESULT([yes])
-     LIBAGG_LIBS="$LIBAGG_LIBS -laggfontfreetype_pic"
+     LIBAGG_LIBS="-laggfontfreetype_pic $LIBAGG_LIBS"
      HASAGGFREETYPE=true],
     [AC_MSG_RESULT([no])])
 
   if test "$HASAGGFREETYPE" == "false"; then
-    LDFLAGS="$SAVED_LDFLAGS -laggfontfreetype"
+    LDFLAGS="$SAVED_LDFLAGS -laggfontfreetype $LIBAGG_LIBS"
     AC_MSG_CHECKING([for libagg support library 'aggfontfreetype'])
     AC_LINK_IFELSE(
       [AC_LANG_PROGRAM([#include <agg2/agg_font_freetype.h>],
                        [ agg::font_engine_freetype_int32 fontEngine;])],
       [AC_MSG_RESULT([yes])
-       LIBAGG_LIBS="$LIBAGG_LIBS -laggfontfreetype"],
+       LIBAGG_LIBS="-laggfontfreetype $LIBAGG_LIBS"],
       [AC_MSG_RESULT([no])])
   fi
 
