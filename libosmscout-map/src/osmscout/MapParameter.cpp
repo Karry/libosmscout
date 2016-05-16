@@ -25,9 +25,10 @@ namespace osmscout {
   : fontName("sans-serif"),
     fontSize(2.0),
     lineMinWidthPixel(0.2),
+    areaMinDimensionMM(1.0),
     optimizeWayNodes(TransPolygon::none),
     optimizeAreaNodes(TransPolygon::none),
-    optimizeErrorToleranceMm(0.25),
+    optimizeErrorToleranceMm(0.5),
     drawFadings(true),
     drawWaysWithFixedWidth(false),
     labelLineCharCount(1000/*20*/),
@@ -72,6 +73,11 @@ namespace osmscout {
   void MapParameter::SetLineMinWidthPixel(double lineMinWidthPixel)
   {
     this->lineMinWidthPixel=lineMinWidthPixel;
+  }
+
+  void MapParameter::SetAreaMinDimensionMM(double areaMinDimensionMM)
+  {
+    this->areaMinDimensionMM=areaMinDimensionMM;
   }
 
   void MapParameter::SetOptimizeWayNodes(TransPolygon::OptimizeMethod optimize)

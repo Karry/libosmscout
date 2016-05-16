@@ -334,8 +334,8 @@ namespace osmscout {
     double yMin=std::min(y1,y2);
     double yMax=std::max(y1,y2);
 
-    if (x2-x1<=oneMMInPixel &&
-        y2-y1<=oneMMInPixel) {
+    if (x2-x1<=areaMinDimension &&
+        y2-y1<=areaMinDimension) {
       return false;
     }
 
@@ -1902,7 +1902,11 @@ namespace osmscout {
                         const MapParameter& parameter,
                         const MapData& data)
   {
-    errorTolerancePixel=parameter.GetOptimizeErrorToleranceMm()*projection.GetDPI()/25.4;
+    errorTolerancePixel=projection.ConvertWidthToPixel(parameter.GetOptimizeErrorToleranceMm());
+    labelSpace=projection.ConvertWidthToPixel(parameter.GetLabelSpace());
+    shieldLabelSpace=projection.ConvertWidthToPixel(parameter.GetPlateLabelSpace());
+    sameLabelSpace=projection.ConvertWidthToPixel(parameter.GetSameLabelSpace());
+    areaMinDimension=projection.ConvertWidthToPixel(parameter.GetAreaMinDimensionMM());
 
     waysSegments=0;
     waysDrawn=0;
@@ -1919,11 +1923,6 @@ namespace osmscout {
     overlayLabels.clear();
 
     transBuffer.Reset();
-
-    labelSpace=projection.ConvertWidthToPixel(parameter.GetLabelSpace());
-    shieldLabelSpace=projection.ConvertWidthToPixel(parameter.GetPlateLabelSpace());
-    sameLabelSpace=projection.ConvertWidthToPixel(parameter.GetSameLabelSpace());
-    oneMMInPixel=projection.ConvertWidthToPixel(1);
 
     GetFontHeight(projection,
                   parameter,
