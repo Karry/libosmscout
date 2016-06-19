@@ -167,7 +167,7 @@ namespace osmscout {
       DataStatistic& entry=statistics[way->GetType()];
 
       entry.wayCount++;
-      entry.coordCount+=way->nodes.size();
+      entry.coordCount+=way->GetNodes().size();
 
       PathShieldStyleRef shieldStyle;
       PathTextStyleRef   pathTextStyle;
@@ -192,7 +192,7 @@ namespace osmscout {
       DataStatistic& entry=statistics[way->GetType()];
 
       entry.wayCount++;
-      entry.coordCount+=way->nodes.size();
+      entry.coordCount+=way->GetNodes().size();
 
       PathShieldStyleRef shieldStyle;
       PathTextStyleRef   pathTextStyle;
@@ -219,7 +219,7 @@ namespace osmscout {
       entry.areaCount++;
 
       for (const auto& ring : area->rings) {
-        entry.coordCount+=ring.nodes.size();
+        entry.coordCount+=ring.GetNodes().size();
 
         if (ring.IsMasterRing()) {
           IconStyleRef iconStyle;
@@ -248,7 +248,7 @@ namespace osmscout {
       entry.areaCount++;
 
       for (const auto& ring : area->rings) {
-        entry.coordCount+=ring.nodes.size();
+        entry.coordCount+=ring.GetNodes().size();
 
         if (ring.IsMasterRing()) {
           IconStyleRef iconStyle;
@@ -297,35 +297,31 @@ namespace osmscout {
                                  const std::vector<Point>& nodes,
                                  double pixelOffset) const
   {
+      return IsVisibleArea(projection, TempVectorPointSequence(&nodes), pixelOffset);
+  }
+  
+  bool MapPainter::IsVisibleArea(const Projection& projection,
+                                 const PointSequence& nodes,
+                                 double pixelOffset) const
+  {
     if (nodes.empty()) {
       return false;
     }
 
-    // Bounding box
-    double lonMin=nodes[0].GetLon();
-    double lonMax=lonMin;
-    double latMin=nodes[0].GetLat();
-    double latMax=latMin;
-
-    for (size_t i=1; i<nodes.size(); i++) {
-      lonMin=std::min(lonMin,nodes[i].GetLon());
-      lonMax=std::max(lonMax,nodes[i].GetLon());
-      latMin=std::min(latMin,nodes[i].GetLat());
-      latMax=std::max(latMax,nodes[i].GetLat());
-    }
+    const GeoBox bbox = nodes.bbox();
 
     double x1;
     double x2;
     double y1;
     double y2;
 
-    projection.GeoToPixel(lonMin,
-                          latMin,
+    projection.GeoToPixel(bbox.GetMinLon(),
+                          bbox.GetMinLat(),
                           x1,
                           y1);
 
-    projection.GeoToPixel(lonMax,
-                          latMax,
+    projection.GeoToPixel(bbox.GetMaxLon(),
+                          bbox.GetMaxLat(),
                           x2,
                           y2);
 
@@ -355,38 +351,35 @@ namespace osmscout {
                                 const std::vector<Point>& nodes,
                                 double pixelOffset) const
   {
+      return IsVisibleWay(projection, TempVectorPointSequence(&nodes), pixelOffset);
+  }
+  
+  bool MapPainter::IsVisibleWay(const Projection& projection,
+                                const PointSequence& nodes,
+                                double pixelOffset) const
+  {
     if (nodes.empty()) {
       return false;
     }
 
     // Bounding box
-    double lonMin=nodes[0].GetLon();
-    double lonMax=lonMin;
-    double latMin=nodes[0].GetLat();
-    double latMax=latMin;
-
-    for (size_t i=1; i<nodes.size(); i++) {
-      lonMin=std::min(lonMin,nodes[i].GetLon());
-      lonMax=std::max(lonMax,nodes[i].GetLon());
-      latMin=std::min(latMin,nodes[i].GetLat());
-      latMax=std::max(latMax,nodes[i].GetLat());
-    }
+    const GeoBox bbox = nodes.bbox();
 
     double x1;
     double x2;
     double y1;
     double y2;
 
-    projection.GeoToPixel(lonMin,
-                          latMin,
+    projection.GeoToPixel(bbox.GetMinLon(),
+                          bbox.GetMinLat(),
                           x1,
                           y1);
 
-    projection.GeoToPixel(lonMax,
-                          latMax,
+    projection.GeoToPixel(bbox.GetMaxLon(),
+                          bbox.GetMaxLat(),
                           x2,
-                          y2);
-
+                          y2);    
+    
     double xMin=std::min(x1,x2);
     double xMax=std::max(x1,x2);
     double yMin=std::min(y1,y2);
@@ -1642,7 +1635,7 @@ namespace osmscout {
 
         transBuffer.TransformArea(projection,
                                   parameter.GetOptimizeAreaNodes(),
-                                  area->rings[i].nodes,
+                                  area->rings[i].GetNodes(),
                                   data[i].transStart,data[i].transEnd,
                                   errorTolerancePixel);
       }
@@ -1682,7 +1675,7 @@ namespace osmscout {
             foundRing=true;
 
             if (!IsVisibleArea(projection,
-                               ring.nodes,
+                               ring.GetNodes(),
                                fillStyle->GetBorderWidth()/2)) {
               continue;
             }
@@ -1731,7 +1724,7 @@ namespace osmscout {
                                      const MapParameter& parameter,
                                      const ObjectFileRef& ref,
                                      const FeatureValueBuffer& buffer,
-                                     const std::vector<Point>& nodes)
+                                     const PointSequence& nodes)
   {
     styleConfig.GetWayLineStyles(buffer,
                                  projection,
@@ -1854,7 +1847,7 @@ namespace osmscout {
                         parameter,
                         ObjectFileRef(way->GetFileOffset(),refWay),
                         way->GetFeatureValueBuffer(),
-                        way->nodes);
+                        way->GetNodes());
     }
 
     for (const auto& way : data.poiWays) {
@@ -1863,7 +1856,7 @@ namespace osmscout {
                         parameter,
                         ObjectFileRef(way->GetFileOffset(),refWay),
                         way->GetFeatureValueBuffer(),
-                        way->nodes);
+                        way->GetNodes());
     }
 
     wayData.sort();
