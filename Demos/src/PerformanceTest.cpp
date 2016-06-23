@@ -131,8 +131,11 @@ int main(int argc, char* argv[])
   unsigned int  tileWidth;
   unsigned int  tileHeight;
   std::string   driver;
+
+#if defined(HAVE_LIB_GPERFTOOLS)
   bool          heapProfile;
   std::string   heapProfilePrefix;
+#endif
 
   if (argc<12) {
     std::cerr << "DrawMap " << std::endl;
@@ -146,8 +149,10 @@ int main(int argc, char* argv[])
 #endif
     return 1;
   }
+
+#if defined(HAVE_LIB_GPERFTOOLS)
   heapProfile = false;
-#if defined(HAVE_LIB_GPERFTOOLS)    
+
   if (argc>12) {
       heapProfile = true;
       heapProfilePrefix = argv[12];
@@ -288,10 +293,10 @@ int main(int argc, char* argv[])
   }
 #endif
 
-  osmscout::ApproximateTileProjection   projection;
-  osmscout::MapParameter                drawParameter;
-  osmscout::AreaSearchParameter         searchParameter;
-  std::list<LevelStats>                 statistics;
+  osmscout::TileProjection      projection;
+  osmscout::MapParameter        drawParameter;
+  osmscout::AreaSearchParameter searchParameter;
+  std::list<LevelStats>         statistics;
 
   searchParameter.SetUseMultithreading(true);
 
@@ -360,6 +365,7 @@ int main(int argc, char* argv[])
                        tileHeight);
 
         projection.GetDimensions(boundingBox);
+        projection.SetLinearInterpolationUsage(level >= 10);
 
         osmscout::StopClock dbTimer;
 

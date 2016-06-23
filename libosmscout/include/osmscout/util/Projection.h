@@ -31,8 +31,6 @@
 
 namespace osmscout {
 
-#define MAG_LEVEL_LINEAR_OPT_THRESHOLD 10
-
   /**
    * \ingroup Geometry
    *
@@ -298,8 +296,8 @@ namespace osmscout {
     /**
      * Converts a geo coordinate to a pixel coordinate
      */
-    virtual inline void GeoToPixel(const GeoCoord& coord,
-                            double& x, double& y) const
+    inline void GeoToPixel(const GeoCoord& coord,
+                           double& x, double& y) const
     {
       GeoToPixel(coord.GetLon(), coord.GetLat(), x, y);
     }
@@ -442,6 +440,9 @@ namespace osmscout {
     double scale;
     double scaleGradtorad; //!< Precalculated scale*Gradtorad
 
+    double scaledLatDeriv; //!< precalculated derivation of "latToYPixel" function in projection center scaled by gradtorad * scale
+    bool   useLinearInterpolation; //!< switch to enable linear interpolation of latitude to pixel computation
+
   public:
     MercatorProjection();
 
@@ -490,15 +491,6 @@ namespace osmscout {
     void GeoToPixel(double lon, double lat,
                     double& x, double& y) const;
 
-    /**
-     * Converts a geo coordinate to a pixel coordinate
-     */
-    virtual inline void GeoToPixel(const GeoCoord& coord,
-                            double& x, double& y) const
-    {
-      GeoToPixel(coord.GetLon(), coord.GetLat(), x, y);
-    }
-
     bool Move(double horizPixel,
               double vertPixel);
 
@@ -522,64 +514,24 @@ namespace osmscout {
       return Move(pixel,0);
     }
 
+    inline bool IsLinearInterpolationEnabled()
+    {
+      return useLinearInterpolation;
+    }
+
+    /**
+     * Switch to enable/disable linear interpolation of latitude to pixel computation.
+     * It speedup GeoToPixel calculation with fractional error on small render area.
+     */
+    inline void SetLinearInterpolationUsage(bool b)
+    {
+      useLinearInterpolation=b;
+    }
+
   protected:
     void GeoToPixel(const BatchTransformer& transformData) const;
   };
 
-  /**
-   * MercatorProjection that use some approximations on higher magnification levels.
-   */
-  class OSMSCOUT_API ApproximateMercatorProjection : public MercatorProjection
-  {
-  protected:
-    double scaledLatDeriv; //!< precalculated derivation of "latToYPixel" function in projection center scaled by gradtorad * scale
-
-  public:
-    inline ApproximateMercatorProjection(): MercatorProjection()
-    {
-    };
-
-    inline bool Set(double lon,double lat,
-                    const Magnification& magnification,
-                    size_t width,size_t height)
-    {
-      return Set(lon,lat,0,magnification,GetDPI(),width,height);
-    }
-
-    inline bool Set(double lon, double lat,
-                    double angle,
-                    const Magnification& magnification,
-                    size_t width, size_t height)
-    {
-      return Set(lon,lat,angle,magnification,GetDPI(),width,height);
-    }
-
-    inline bool Set(double lon, double lat,
-                    const Magnification& magnification,
-                    double dpi,
-                    size_t width, size_t height)
-    {
-      return Set(lon,lat,0,magnification,dpi,width,height);
-    }
-
-    bool Set(double lon, double lat,
-             double angle,
-             const Magnification& magnification,
-             double dpi,
-             size_t width, size_t height);
-
-    void GeoToPixel(double lon, double lat,
-                    double& x, double& y) const;
-
-    /**
-     * Converts a geo coordinate to a pixel coordinate
-     */
-    virtual inline void GeoToPixel(const GeoCoord& coord,
-                            double& x, double& y) const
-    {
-      GeoToPixel(coord.GetLon(), coord.GetLat(), x, y);
-    }
-  };
 
   /**
    * Mercator projection as used by the OpenStreetMap tile rendering code.
@@ -596,6 +548,9 @@ namespace osmscout {
     double latOffset;
     double scale;
     double scaleGradtorad; //!< Precalculated scale*Gradtorad
+
+    double scaledLatDeriv; //!< precalculated derivation of "latToYPixel" function in projection center scaled by gradtorad * scale
+    bool   useLinearInterpolation; //!< switch to enable linear interpolation of latitude to pixel computation
 
 #ifdef OSMSCOUT_HAVE_SSE2
     //some extra vars for special sse needs
@@ -650,13 +605,18 @@ namespace osmscout {
     void GeoToPixel(double lon, double lat,
                     double& x, double& y) const;
 
-    /**
-     * Converts a geo coordinate to a pixel coordinate
-     */
-    virtual inline void GeoToPixel(const GeoCoord& coord,
-                            double& x, double& y) const
+    inline bool IsLinearInterpolationEnabled()
     {
-      GeoToPixel(coord.GetLon(), coord.GetLat(), x, y);
+      return useLinearInterpolation;
+    }
+
+    /**
+     * Switch to enable/disable linear interpolation of latitude to pixel computation.
+     * It speedup GeoToPixel calculation with fractional error on small render area.
+     */
+    inline void SetLinearInterpolationUsage(bool b)
+    {
+      useLinearInterpolation = b;
     }
 
   protected:
@@ -664,38 +624,6 @@ namespace osmscout {
     void GeoToPixel(const BatchTransformer& transformData) const;
   };
 
-  /**
-   * TileProjection that use some approximations on higher magnification levels.
-   */
-  class OSMSCOUT_API ApproximateTileProjection : public TileProjection
-  {
-  protected:
-    double scaledLatDeriv; //!< precalculated derivation of "latToYPixel" function in projection center scaled by gradtorad * scale
-
-    virtual bool SetInternal(double lonMin,double latMin,
-                     double lonMax,double latMax,
-                     const Magnification& magnification,
-                     double dpi,
-                     size_t width,size_t height);
-
-  public:
-    inline ApproximateTileProjection(): TileProjection()
-    {
-    }
-
-    void GeoToPixel(double lon, double lat,
-                    double& x, double& y) const;
-
-    /**
-     * Converts a geo coordinate to a pixel coordinate
-     */
-    virtual inline void GeoToPixel(const GeoCoord& coord,
-                            double& x, double& y) const
-    {
-      GeoToPixel(coord.GetLon(), coord.GetLat(), x, y);
-    }
-
-  };
 }
 
 #endif
