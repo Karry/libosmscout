@@ -315,13 +315,11 @@ namespace osmscout {
     double y1;
     double y2;
 
-    projection.GeoToPixel(bbox.GetMinLon(),
-                          bbox.GetMinLat(),
+    projection.GeoToPixel(bbox.GetMinCoord(),
                           x1,
                           y1);
 
-    projection.GeoToPixel(bbox.GetMaxLon(),
-                          bbox.GetMaxLat(),
+    projection.GeoToPixel(bbox.GetMaxCoord(),
                           x2,
                           y2);
 
@@ -370,13 +368,11 @@ namespace osmscout {
     double y1;
     double y2;
 
-    projection.GeoToPixel(bbox.GetMinLon(),
-                          bbox.GetMinLat(),
+    projection.GeoToPixel(bbox.GetMinCoord(),
                           x1,
                           y1);
 
-    projection.GeoToPixel(bbox.GetMaxLon(),
-                          bbox.GetMaxLat(),
+    projection.GeoToPixel(bbox.GetMaxCoord(),
                           x2,
                           y2);    
     
@@ -506,12 +502,11 @@ namespace osmscout {
 
   void MapPainter::Transform(const Projection& projection,
                              const MapParameter& /*parameter*/,
-                             double lon,
-                             double lat,
+                             const GeoCoord& coord,
                              double& x,
                              double& y)
   {
-    projection.GeoToPixel(lon,lat,
+    projection.GeoToPixel(coord,
                           x,y);
   }
 
@@ -1293,8 +1288,7 @@ namespace osmscout {
 
     Transform(projection,
               parameter,
-              node->GetCoords().GetLon(),
-              node->GetCoords().GetLat(),
+              node->GetCoords(),
               x,y);
 
     LayoutPointLabels(projection,
