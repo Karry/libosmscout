@@ -47,6 +47,8 @@
 namespace osmscout {
 
   /**
+   * \ingroup Renderer
+   *
    * This is the data structure holding all to be rendered data.
    */
   struct OSMSCOUT_MAP_API MapData
@@ -646,6 +648,12 @@ namespace osmscout {
                CoordBuffer *buffer);
     virtual ~MapPainter();
   };
+
+  /**
+   * \defgroup Renderer Map rendering
+   *
+   * Classes and methods related to rendering of maps.
+   */
 }
 
 #endif
