@@ -111,6 +111,8 @@ int main(int argc, char* argv[])
       osmscout::MapPainterQt        mapPainter(styleConfig);
       double                        dpi=application.screens().at(application.desktop()->primaryScreen())->physicalDotsPerInch();
 
+      drawParameter.SetFontSize(3.0);
+
       projection.Set(osmscout::GeoCoord(lat,lon),
                      osmscout::Magnification(zoom),
                      dpi,
