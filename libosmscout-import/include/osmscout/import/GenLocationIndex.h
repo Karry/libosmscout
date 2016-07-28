@@ -356,12 +356,11 @@ namespace osmscout {
      *
      * This method try to fix some simple errors at least.
      *
-     * @retrun true if success, false otherwise
+     * @return a valid iterator to the location else locations.end()
      */
-    bool FindLocation(Progress& progress,
-                      std::map<std::string,RegionLocation> &locations,
-                      const std::string &locationName,
-                      RegionLocation **location);
+    std::map<std::string,RegionLocation>::iterator FindLocation(Progress& progress,
+                                                                std::map<std::string,RegionLocation> &locations,
+                                                                const std::string &locationName);
     
     void AddAddressNodeToRegion(Progress& progress,
                                 Region& region,
