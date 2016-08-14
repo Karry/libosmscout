@@ -92,7 +92,7 @@ void DumpHelp(osmscout::ImportParameter& parameter)
   std::cout << " -d                                   show debug output" << std::endl;
   std::cout << " -s <start step>                      set starting step" << std::endl;
   std::cout << " -e <end step>                        set final step" << std::endl;
-  std::cout << " --eco                                do delete temporary fiels ASAP" << std::endl;
+  std::cout << " --eco true|false                     do delete temporary fiels ASAP" << std::endl;
   std::cout << " --typefile <path>                    path and name of the map.ost file (default: " << parameter.GetTypefile() << ")" << std::endl;
   std::cout << " --destinationDirectory <path>        destination for generated map files (default: " << parameter.GetDestinationDirectory() << ")" << std::endl;
 
@@ -824,23 +824,28 @@ int main(int argc, char* argv[])
   progress.Info(std::string("RouteNodeBlockSize: ")+
                 osmscout::NumberToString(parameter.GetRouteNodeBlockSize()));
 
-  osmscout::Importer importer(parameter);
+  try {
+    osmscout::Importer importer(parameter);
 
-  bool result=importer.Import(progress);
+    bool result=importer.Import(progress);
 
-  progress.SetStep("Summary");
+    progress.SetStep("Summary");
 
-  if (result) {
+    if (result) {
 
-    if (!DumpDataSize(parameter,
-                      importer,
-                      progress)) {
-      progress.Error("Error while retrieving data size");
+      if (!DumpDataSize(parameter,
+                        importer,
+                        progress)) {
+        progress.Error("Error while retrieving data size");
+      }
+      progress.Info("Import OK!");
     }
-    progress.Info("Import OK!");
+    else {
+      progress.Error("Import failed!");
+    }
   }
-  else {
-    progress.Error("Import failed!");
+  catch (osmscout::IOException& e) {
+    progress.Error("Import failed: "+e.GetDescription());
   }
 
   return 0;

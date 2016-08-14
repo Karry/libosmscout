@@ -1,5 +1,5 @@
-#ifndef ROUTINGMODEL_H
-#define ROUTINGMODEL_H
+#ifndef OSMSCOUT_CLIENT_QT_ROUTINGMODEL_H
+#define OSMSCOUT_CLIENT_QT_ROUTINGMODEL_H
 
 /*
  OSMScout - a Qt backend for libosmscout and libosmscout-map
@@ -28,10 +28,12 @@
 #include <osmscout/Location.h>
 #include <osmscout/Route.h>
 
-#include "SearchLocationModel.h"
-#include "DBThread.h"
+#include <osmscout/private/ClientQtImportExport.h>
 
-class RouteStep : public QObject
+#include <osmscout/SearchLocationModel.h>
+#include <osmscout/DBThread.h>
+
+class OSMSCOUT_CLIENT_QT_API RouteStep : public QObject
 {
     Q_OBJECT
     Q_PROPERTY(QString distance READ getDistance)
@@ -79,7 +81,7 @@ public:
   }
 };
 
-class RoutingListModel : public QAbstractListModel
+class OSMSCOUT_CLIENT_QT_API RoutingListModel : public QAbstractListModel
 {
     Q_OBJECT
     Q_PROPERTY(int count READ rowCount)

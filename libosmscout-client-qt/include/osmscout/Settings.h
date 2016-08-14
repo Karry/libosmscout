@@ -1,3 +1,6 @@
+#ifndef OSMSCOUT_CLIENT_QT_SETTINGS_H
+#define OSMSCOUT_CLIENT_QT_SETTINGS_H
+
 /*
   OSMScout - a Qt backend for libosmscout and libosmscout-map
   Copyright (C) 2013  Tim Teulings
@@ -17,30 +20,30 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-#include "Settings.h"
+#include <memory>
 
-Settings::Settings()
+#include <QSettings>
+
+#include <osmscout/RoutingProfile.h>
+
+#include <osmscout/private/ClientQtImportExport.h>
+
+class OSMSCOUT_CLIENT_QT_API Settings
 {
-  // no code
-}
+private:
+  QSettings settings;
 
-Settings::~Settings()
-{
-  // no code
-}
+public:
+  Settings();
+  ~Settings();
 
-size_t Settings::GetDPI() const
-{
-  return (size_t)settings.value("settings/dpi",92).toUInt();
-}
+  void SetDPI(size_t dpi);
+  size_t GetDPI() const;
 
-osmscout::Vehicle Settings::GetRoutingVehicle() const
-{
-  return (osmscout::Vehicle)settings.value("routing/vehicle",osmscout::vehicleCar).toUInt();
-}
+  osmscout::Vehicle GetRoutingVehicle() const;
+  void SetRoutingVehicle(const osmscout::Vehicle& vehicle);
+};
 
-void Settings::SetRoutingVehicle(const osmscout::Vehicle& vehicle)
-{
-  settings.setValue("routing/vehicle", (unsigned int)vehicle);
-}
+typedef std::shared_ptr<Settings> SettingsRef;
 
+#endif

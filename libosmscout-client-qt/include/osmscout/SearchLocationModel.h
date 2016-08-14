@@ -1,5 +1,5 @@
-#ifndef SEARCHLOCATIONMODEL_H
-#define SEARCHLOCATIONMODEL_H
+#ifndef OSMSCOUT_CLIENT_QT_SEARCHLOCATIONMODEL_H
+#define OSMSCOUT_CLIENT_QT_SEARCHLOCATIONMODEL_H
 
 /*
  OSMScout - a Qt backend for libosmscout and libosmscout-map
@@ -23,19 +23,38 @@
 #include <QObject>
 #include <QAbstractListModel>
 
+#include <osmscout/GeoCoord.h>
 #include <osmscout/Location.h>
 
-class Location : public QObject
+#include <osmscout/private/ClientQtImportExport.h>
+
+class OSMSCOUT_CLIENT_QT_API Location : public QObject
 {
     Q_OBJECT
     Q_PROPERTY(QString name READ getName)
+public:
+    enum Type {
+        typeNone,
+        typeObject,
+        typeCoordinate
+    };
 
 private:
+    Type                           type;
     QString                        name;
+    QString                        label;
     QList<osmscout::ObjectFileRef> references;
+    osmscout::GeoCoord             coord;
 
 public:
+    Location(Type type,
+             const QString& name,
+             const QString& label,
+             QObject* parent = 0);
+
     Location(const QString& name,
+             const QString& label,
+             const osmscout::GeoCoord& coord,
              QObject* parent = 0);
 
     Location(QObject* parent = 0);
@@ -44,11 +63,14 @@ public:
 
     void addReference(const osmscout::ObjectFileRef reference);
 
+    Type getType() const;
     QString getName() const;
+    QString getLabel() const;
+    osmscout::GeoCoord getCoord() const;
     const QList<osmscout::ObjectFileRef>& getReferences() const;
 };
 
-class LocationListModel : public QAbstractListModel
+class OSMSCOUT_CLIENT_QT_API LocationListModel : public QAbstractListModel
 {
     Q_OBJECT
     Q_PROPERTY(int count READ rowCount)
@@ -61,7 +83,8 @@ private:
 
 public:
     enum Roles {
-        LabelRole = Qt::UserRole
+        LabelRole = Qt::UserRole,
+        TextRole = Qt::UserRole+1
     };
 
 public:

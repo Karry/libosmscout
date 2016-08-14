@@ -8,6 +8,7 @@ programs = libosmscout \
            libosmscout-map-iOSX \
            libosmscout-map-opengl \
            libosmscout-map-qt \
+           libosmscout-client-qt \
            libosmscout-map-svg \
            DumpData \
            Demos \
@@ -25,6 +26,7 @@ programs = libosmscout \
         libosmscout-map-iOSX \
         libosmscout-map-opengl \
         libosmscout-map-qt \
+        libosmscout-client-qt \
         libosmscout-map-svg \
         DumpData \
         Demos \
@@ -41,6 +43,7 @@ all: libosmscout \
      libosmscout-map-iOSX \
      libosmscout-map-opengl \
      libosmscout-map-qt \
+     libosmscout-client-qt \
      libosmscout-map-svg \
      DumpData \
      Demos \
@@ -137,6 +140,11 @@ libosmscout-map-qt: libosmscout libosmscout-map
 	  (cd libosmscout-map-qt && $(MAKE)) \
 	fi
 
+libosmscout-client-qt: libosmscout libosmscout-map libosmscout-map-qt
+	if [ -f libosmscout-client-qt/Makefile ]; then \
+	  (cd libosmscout-client-qt && $(MAKE)) \
+	fi
+
 libosmscout-map-iOSX: libosmscout libosmscout-map
 	if [ -f libosmscout-map-iOSX/Makefile ]; then \
 	  (cd libosmscout-map-iOSX && $(MAKE)) \
@@ -168,12 +176,12 @@ Tests: libosmscout \
        libosmscout-map
 	(cd Tests && $(MAKE))
 
-OSMScout2: libosmscout libosmscout-map libosmscout-map-qt
+OSMScout2: libosmscout libosmscout-map libosmscout-map-qt libosmscout-client-qt
 	if [ -f OSMScout2/Makefile ]; then \
 	  (cd OSMScout2 && $(MAKE)) \
 	fi
 
-StyleEditor: libosmscout libosmscout-map libosmscout-map-qt
+StyleEditor: libosmscout libosmscout-map libosmscout-map-qt libosmscout-client-qt
 	if [ -f StyleEditor/Makefile ]; then \
 	  (cd StyleEditor && $(MAKE)) \
 	fi
