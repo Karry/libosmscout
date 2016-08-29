@@ -37,6 +37,8 @@
 
 namespace osmscout {
 
+  const uint64_t FileWriter::MAX_NODES=0x07FFF; // 19 bits
+
   FileWriter::FileWriter()
    : file(NULL),
      hasError(true)
@@ -775,6 +777,8 @@ namespace osmscout {
     }
 
     size_t nodesSize=nodes.size();
+
+    assert(nodesSize<=MAX_NODES);
 
     // A lat and a lon delta for each coordinate delta
     deltaBuffer.resize((nodesSize-1)*2);
