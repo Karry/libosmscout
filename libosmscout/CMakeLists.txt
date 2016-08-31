@@ -77,6 +77,7 @@ set(HEADER_FILES
     include/osmscout/TypeFeatures.h
     include/osmscout/Types.h
     include/osmscout/WaterIndex.h
+    include/osmscout/WaterIndex6.h
     include/osmscout/Way.h
     include/osmscout/WayDataFile.h
 )
@@ -149,6 +150,7 @@ set(SOURCE_FILES
     src/osmscout/TypeFeatures.cpp
     src/osmscout/Types.cpp
     src/osmscout/WaterIndex.cpp
+    src/osmscout/WaterIndex6.cpp
     src/osmscout/Way.cpp
     src/osmscout/WayDataFile.cpp
 )
