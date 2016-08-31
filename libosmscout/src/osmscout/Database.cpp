@@ -398,7 +398,11 @@ namespace osmscout {
     }
 
     if (!waterIndex) {
-      waterIndex=std::make_shared<WaterIndex>();
+      if (GetTypeConfig()->GetFileFormatVersion() == 6){
+        waterIndex=std::make_shared<WaterIndex6>();          
+      }else{
+        waterIndex=std::make_shared<WaterIndex>();
+      }
 
       StopClock timer;
 
