@@ -49,6 +49,7 @@
 
 // Water index
 #include <osmscout/WaterIndex.h>
+#include <osmscout/WaterIndex6.h>
 
 #include <osmscout/Route.h>
 

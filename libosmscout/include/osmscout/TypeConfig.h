@@ -1051,6 +1051,7 @@ namespace osmscout {
   };
 
   static const uint32_t FILE_FORMAT_VERSION = 7;
+  static const uint32_t FILE_FORMAT_MIN_VERSION = 6;
 
   /**
    * \ingroup type
@@ -1064,6 +1065,8 @@ namespace osmscout {
     static const char* FILE_TYPES_DAT;
 
   private:
+    
+    uint32_t                                    fileFormatVersion;
 
     // Tags
 
@@ -1133,6 +1136,11 @@ namespace osmscout {
     TypeConfig();
     virtual ~TypeConfig();
 
+    inline uint32_t GetFileFormatVersion() const 
+    {
+      return fileFormatVersion;
+    }
+    
     /**
      * Methods for dealing with tags
      */
