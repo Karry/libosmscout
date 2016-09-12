@@ -39,9 +39,10 @@ namespace osmscout {
     // no code
   }
 
-  bool LocationIndex::Load(const std::string& path)
+  bool LocationIndex::Load(const std::string& path, const uint32_t fileFormatVersion)
   {
     this->path=path;
+    this->fileFormatVersion=fileFormatVersion;
 
     FileScanner scanner;
 
@@ -384,7 +385,9 @@ namespace osmscout {
       address.regionOffset=location.regionOffset;
 
       scanner.Read(address.name);
-      scanner.Read(address.postalCode);
+      if (fileFormatVersion >= 8){
+        scanner.Read(address.postalCode);
+      }
 
       objectFileRefReader.Read(address.object);
 

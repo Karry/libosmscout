@@ -49,6 +49,7 @@ namespace osmscout {
 
   private:
     std::string                     path;
+    uint32_t                        fileFormatVersion;
     mutable uint8_t                 bytesForNodeFileOffset;
     mutable uint8_t                 bytesForAreaFileOffset;
     mutable uint8_t                 bytesForWayFileOffset;
