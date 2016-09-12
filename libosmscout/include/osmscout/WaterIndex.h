@@ -91,14 +91,14 @@ namespace osmscout {
     WaterIndex();
     virtual ~WaterIndex();
 
-    bool Open(const std::string& path);
-    void Close();
+    virtual bool Open(const std::string& path);
+    virtual void Close();
 
-    bool GetRegions(const GeoBox& boundingBox,
+    virtual bool GetRegions(const GeoBox& boundingBox,
                     const Magnification& magnification,
                     std::list<GroundTile>& tiles) const;
 
-    void DumpStatistics();
+    virtual void DumpStatistics();
   };
 
   typedef std::shared_ptr<WaterIndex> WaterIndexRef;

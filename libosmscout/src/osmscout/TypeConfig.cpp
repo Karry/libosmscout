@@ -1592,12 +1592,13 @@ namespace osmscout {
                    FileScanner::Sequential,
                    true);
 
-      uint32_t fileFormatVersion;
+      //uint32_t fileFormatVersion;
 
       scanner.Read(fileFormatVersion);
 
-      if (fileFormatVersion!=FILE_FORMAT_VERSION) {
-        log.Error() << "File '" << scanner.GetFilename() << "' does not have the expected format version! Actual " << fileFormatVersion << ", expected: " << FILE_FORMAT_VERSION;
+      if (fileFormatVersion < FILE_FORMAT_MIN_VERSION || fileFormatVersion > FILE_FORMAT_VERSION) {
+        log.Error() << "File '" << scanner.GetFilename() << "' does not have the expected format version! Actual " << 
+                fileFormatVersion << ", expected: <" << FILE_FORMAT_MIN_VERSION << ", " << FILE_FORMAT_VERSION << ">";
         return false;
       }
 
