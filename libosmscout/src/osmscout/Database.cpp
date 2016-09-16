@@ -374,7 +374,7 @@ namespace osmscout {
 
       StopClock timer;
 
-      if (!locationIndex->Load(path)) {
+      if (!locationIndex->Load(path, GetTypeConfig()->GetFileFormatVersion())) {
         log.Error() << "Cannot load location index!";
         locationIndex=NULL;
 

@@ -1604,8 +1604,6 @@ namespace osmscout {
                    FileScanner::Sequential,
                    true);
 
-      //uint32_t fileFormatVersion;
-
       scanner.Read(fileFormatVersion);
 
       if (fileFormatVersion < FILE_FORMAT_MIN_VERSION || fileFormatVersion > FILE_FORMAT_VERSION) {
