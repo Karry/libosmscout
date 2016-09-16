@@ -1012,13 +1012,13 @@ namespace osmscout {
     if (fileFormatVersion>=8){
       featurePostalCode = std::make_shared<PostalCodeFeature>();
       RegisterFeature(featurePostalCode);
+      
+      featureWebsite = std::make_shared<WebsiteFeature>();
+      RegisterFeature(featureWebsite);
+
+      featurePhone = std::make_shared<PhoneFeature>();
+      RegisterFeature(featurePhone);
     }
-
-    featureWebsite = std::make_shared<WebsiteFeature>();
-    RegisterFeature(featureWebsite);
-
-    featurePhone = std::make_shared<PhoneFeature>();
-    RegisterFeature(featurePhone);
 
     featureBridge=std::make_shared<BridgeFeature>();
     RegisterFeature(featureBridge);
@@ -1237,11 +1237,13 @@ namespace osmscout {
       if (!typeInfo->HasFeature(AddressFeature::NAME)) {
         typeInfo->AddFeature(featureAddress);
       }
-      if (!typeInfo->HasFeature(WebsiteFeature::NAME)) {
-        typeInfo->AddFeature(featureWebsite);
-      }
-      if (!typeInfo->HasFeature(PhoneFeature::NAME)) {
-        typeInfo->AddFeature(featurePhone);
+      if (fileFormatVersion>=8){
+        if (!typeInfo->HasFeature(WebsiteFeature::NAME)) {
+          typeInfo->AddFeature(featureWebsite);
+        }
+        if (!typeInfo->HasFeature(PhoneFeature::NAME)) {
+          typeInfo->AddFeature(featurePhone);
+        }
       }
     }
 
