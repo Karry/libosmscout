@@ -1014,6 +1014,12 @@ namespace osmscout {
       RegisterFeature(featurePostalCode);
     }
 
+    featureWebsite = std::make_shared<WebsiteFeature>();
+    RegisterFeature(featureWebsite);
+
+    featurePhone = std::make_shared<PhoneFeature>();
+    RegisterFeature(featurePhone);
+
     featureBridge=std::make_shared<BridgeFeature>();
     RegisterFeature(featureBridge);
 
@@ -1222,7 +1228,7 @@ namespace osmscout {
     }
 
     // Something that has a name and is a POI automatically get the
-    // location and address features, too.
+    // location, address website and phone features, too.
     if (typeInfo->HasFeature(NameFeature::NAME) &&
         typeInfo->GetIndexAsPOI()) {
       if (!typeInfo->HasFeature(LocationFeature::NAME)) {
@@ -1230,6 +1236,12 @@ namespace osmscout {
       }
       if (!typeInfo->HasFeature(AddressFeature::NAME)) {
         typeInfo->AddFeature(featureAddress);
+      }
+      if (!typeInfo->HasFeature(WebsiteFeature::NAME)) {
+        typeInfo->AddFeature(featureWebsite);
+      }
+      if (!typeInfo->HasFeature(PhoneFeature::NAME)) {
+        typeInfo->AddFeature(featurePhone);
       }
     }
 

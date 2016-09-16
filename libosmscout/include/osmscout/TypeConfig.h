@@ -1050,6 +1050,8 @@ namespace osmscout {
     bool operator!=(const FeatureValueBuffer& other) const;
   };
 
+  typedef std::shared_ptr<FeatureValueBuffer> FeatureValueBufferRef;
+
   static const uint32_t FILE_FORMAT_VERSION = 8;
   static const uint32_t FILE_FORMAT_MIN_VERSION = 6;
 
@@ -1106,6 +1108,8 @@ namespace osmscout {
     FeatureRef                                  featureLocation;
     FeatureRef                                  featureAddress;
     FeatureRef                                  featurePostalCode;
+    FeatureRef                                  featureWebsite;
+    FeatureRef                                  featurePhone;
     FeatureRef                                  featureAccess;
     FeatureRef                                  featureAccessRestricted;
     FeatureRef                                  featureLayer;
