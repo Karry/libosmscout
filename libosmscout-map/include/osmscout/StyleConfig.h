@@ -1067,13 +1067,17 @@ namespace osmscout {
     enum Attribute {
       attrLabel,
       attrSize,
-      attrTextColor
+      attrTextColor,
+      attrDisplayOffset,
+      attrOffset
     };
 
   private:
     LabelProviderRef label;
     double           size;
     Color            textColor;
+    double           displayOffset;
+    double           offset;
 
   public:
     PathTextStyle();
@@ -1082,6 +1086,8 @@ namespace osmscout {
     PathTextStyle& SetLabel(const LabelProviderRef& label);
     PathTextStyle& SetSize(double size);
     PathTextStyle& SetTextColor(const Color& color);
+    PathTextStyle& SetDisplayOffset(double value);
+    PathTextStyle& SetOffset(double value);
 
     inline bool IsVisible() const
     {
@@ -1102,6 +1108,16 @@ namespace osmscout {
     inline const Color& GetTextColor() const
     {
       return textColor;
+    }
+
+    inline double GetDisplayOffset() const
+    {
+      return displayOffset;
+    }
+
+    inline double GetOffset() const
+    {
+      return offset;
     }
 
     void CopyAttributes(const PathTextStyle& other,
@@ -1374,12 +1390,16 @@ namespace osmscout {
 
     enum Attribute {
       attrSymbol,
-      attrSymbolSpace
+      attrSymbolSpace,
+      attrDisplayOffset,
+      attrOffset
     };
 
   private:
     SymbolRef symbol;
     double    symbolSpace;
+    double    displayOffset;
+    double    offset;
 
   public:
     PathSymbolStyle();
@@ -1387,6 +1407,8 @@ namespace osmscout {
 
     PathSymbolStyle& SetSymbol(const SymbolRef& symbol);
     PathSymbolStyle& SetSymbolSpace(double space);
+    PathSymbolStyle& SetDisplayOffset(double value);
+    PathSymbolStyle& SetOffset(double value);
 
     inline bool IsVisible() const
     {
@@ -1401,6 +1423,16 @@ namespace osmscout {
     inline double GetSymbolSpace() const
     {
       return symbolSpace;
+    }
+
+    inline double GetDisplayOffset() const
+    {
+      return displayOffset;
+    }
+
+    inline double GetOffset() const
+    {
+      return offset;
     }
 
     void CopyAttributes(const PathSymbolStyle& other,
@@ -1476,11 +1508,13 @@ namespace osmscout {
     std::list<TextConditionalStyle>            areaTextStyleConditionals;
     std::list<IconConditionalStyle>            areaIconStyleConditionals;
     std::list<PathTextConditionalStyle>        areaBorderTextStyleConditionals;
+    std::list<PathSymbolConditionalStyle>      areaBorderSymbolStyleConditionals;
 
     FillStyleLookupTable                       areaFillStyleSelectors;
     std::vector<TextStyleLookupTable>          areaTextStyleSelectors;
     IconStyleLookupTable                       areaIconStyleSelectors;
     PathTextStyleLookupTable                   areaBorderTextStyleSelectors;
+    PathSymbolStyleLookupTable                 areaBorderSymbolStyleSelectors;
 
     std::vector<TypeInfoSet>                   areaTypeSets;
 
@@ -1556,6 +1590,8 @@ namespace osmscout {
                           IconPartialStyle& style);
     void AddAreaBorderTextStyle(const StyleFilter& filter,
                                 PathTextPartialStyle& style);
+    void AddAreaBorderSymbolStyle(const StyleFilter& filter,
+                                  PathSymbolPartialStyle& style);
 
     void GetNodeTypesWithMaxMag(const Magnification& maxMag,
                                 TypeInfoSet& types) const;
@@ -1617,6 +1653,10 @@ namespace osmscout {
                                 const FeatureValueBuffer& buffer,
                                 const Projection& projection,
                                 PathTextStyleRef& pathTextStyle) const;
+    void GetAreaBorderSymbolStyle(const TypeInfoRef& type,
+                                  const FeatureValueBuffer& buffer,
+                                  const Projection& projection,
+                                  PathSymbolStyleRef& pathSymbolStyle) const;
 
     void GetLandFillStyle(const Projection& projection,
                           FillStyleRef& fillStyle) const;

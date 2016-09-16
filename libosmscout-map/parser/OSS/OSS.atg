@@ -1036,6 +1036,7 @@ PRODUCTIONS
                     AREATEXTSTYLE<filter,state>
                   | AREAICONSTYLE<filter,state>
                   | AREABORDERTEXTSTYLE<filter,state>
+                  | AREABORDERSYMBOLSTYLE<filter,state>
                   )
                 )
                 .
@@ -1110,6 +1111,23 @@ PRODUCTIONS
                 (.
                   if (state) {
                     config.AddAreaBorderTextStyle(filter,style);
+                  }
+                .)
+                .
+
+  AREABORDERSYMBOLSTYLE<StyleFilter filter, bool state>
+              = SYNC "BORDERSYMBOL"
+                (.
+                  PathSymbolPartialStyle style;
+                .)
+                SYNC "{"
+                {
+                  PATHSYMBOLSTYLEATTR<style> WEAK ";"
+                }
+                SYNC "}"
+                (.
+                  if (state) {
+                    config.AddAreaBorderSymbolStyle(filter,style);
                   }
                 .)
                 .
@@ -1385,6 +1403,18 @@ PRODUCTIONS
                      style.style->SetSize(size);
                      style.attributes.insert(PathTextStyle::attrSize);
                   .)
+                | (. double displayOffset; .)
+                  "displayOffset" ":"  DISPLAYSIZE<displayOffset>
+                  (.
+                     style.style->SetDisplayOffset(displayOffset);
+                     style.attributes.insert(PathTextStyle::attrDisplayOffset);
+                  .)
+                | (. double offset; .)
+                  "offset" ":" MAPSIZE<offset>
+                  (.
+                     style.style->SetOffset(offset);
+                     style.attributes.insert(PathTextStyle::attrOffset);
+                  .)
                 )
                 .
 
@@ -1413,6 +1443,18 @@ PRODUCTIONS
                   (.
                      style.style->SetSymbolSpace(symbolSpace);
                      style.attributes.insert(PathSymbolStyle::attrSymbolSpace);
+                  .)
+                | (. double displayOffset; .)
+                  "displayOffset" ":"  DISPLAYSIZE<displayOffset>
+                  (.
+                     style.style->SetDisplayOffset(displayOffset);
+                     style.attributes.insert(PathSymbolStyle::attrDisplayOffset);
+                  .)
+                | (. double offset; .)
+                  "offset" ":" MAPSIZE<offset>
+                  (.
+                     style.style->SetOffset(offset);
+                     style.attributes.insert(PathSymbolStyle::attrOffset);
                   .)
                 )
                 .

@@ -1101,6 +1101,9 @@ namespace osmscout {
       return;
     }
 
+    double      lineOffset=0.0;
+    size_t      transStart=areaData.transStart;
+    size_t      transEnd=areaData.transEnd;
     std::string label=borderTextStyle->GetLabel()->GetLabel(parameter,
                                                             *areaData.buffer);
 
@@ -1108,13 +1111,74 @@ namespace osmscout {
       return;
     }
 
+    if (borderTextStyle->GetOffset()!=0.0) {
+      lineOffset+=GetProjectedWidth(projection,
+                                    borderTextStyle->GetOffset());
+    }
+
+    if (borderTextStyle->GetDisplayOffset()!=0.0) {
+      lineOffset+=projection.ConvertWidthToPixel(borderTextStyle->GetDisplayOffset());
+    }
+
+    if (lineOffset!=0.0) {
+      coordBuffer->GenerateParallelWay(transStart,
+                                       transEnd,
+                                       lineOffset,
+                                       transStart,
+                                       transEnd);
+    }
 
     DrawContourLabel(projection,
                      parameter,
                      *borderTextStyle,
                      label,
-                     areaData.transStart,
-                     areaData.transEnd);
+                     transStart,
+                     transEnd);
+  }
+
+  void MapPainter::DrawAreaBorderSymbol(const StyleConfig& styleConfig,
+                                        const Projection& projection,
+                                        const MapParameter& parameter,
+                                        const AreaData& areaData)
+  {
+    PathSymbolStyleRef borderSymbolStyle;
+
+    styleConfig.GetAreaBorderSymbolStyle(areaData.type,
+                                         *areaData.buffer,
+                                         projection,
+                                         borderSymbolStyle);
+
+    if (!borderSymbolStyle) {
+      return;
+    }
+
+    double lineOffset=0.0;
+    size_t transStart=areaData.transStart;
+    size_t transEnd=areaData.transEnd;
+    double symbolSpace=projection.ConvertWidthToPixel(borderSymbolStyle->GetSymbolSpace());
+
+    if (borderSymbolStyle->GetOffset()!=0.0) {
+      lineOffset+=GetProjectedWidth(projection,
+                                    borderSymbolStyle->GetOffset());
+    }
+
+    if (borderSymbolStyle->GetDisplayOffset()!=0.0) {
+      lineOffset+=projection.ConvertWidthToPixel(borderSymbolStyle->GetDisplayOffset());
+    }
+
+    if (lineOffset!=0.0) {
+      coordBuffer->GenerateParallelWay(transStart,
+                                       transEnd,
+                                       lineOffset,
+                                       transStart,
+                                       transEnd);
+    }
+
+    DrawContourSymbol(projection,
+                      parameter,
+                      *borderSymbolStyle->GetSymbol(),
+                      symbolSpace,
+                      transStart,transEnd);
   }
 
   void MapPainter::DrawAreaLabels(const StyleConfig& styleConfig,
@@ -1132,6 +1196,11 @@ namespace osmscout {
                           projection,
                           parameter,
                           area);
+
+      DrawAreaBorderSymbol(styleConfig,
+                           projection,
+                           parameter,
+                           area);
 
       areasDrawn++;
     }
@@ -1224,15 +1293,37 @@ namespace osmscout {
                                         projection,
                                         pathSymbolStyle);
 
-      if (pathSymbolStyle) {
-        double symbolSpace=projection.ConvertWidthToPixel(pathSymbolStyle->GetSymbolSpace());
-
-        DrawContourSymbol(projection,
-                          parameter,
-                          *pathSymbolStyle->GetSymbol(),
-                          symbolSpace,
-                          way.transStart,way.transEnd);
+      if (!pathSymbolStyle) {
+        continue;
       }
+
+      double lineOffset=0.0;
+      size_t transStart=way.transStart;
+      size_t transEnd=way.transEnd;
+      double symbolSpace=projection.ConvertWidthToPixel(pathSymbolStyle->GetSymbolSpace());
+
+      if (pathSymbolStyle->GetOffset()!=0.0) {
+        lineOffset+=GetProjectedWidth(projection,
+                                      pathSymbolStyle->GetOffset());
+      }
+
+      if (pathSymbolStyle->GetDisplayOffset()!=0.0) {
+        lineOffset+=projection.ConvertWidthToPixel(pathSymbolStyle->GetDisplayOffset());
+      }
+
+      if (lineOffset!=0.0) {
+        coordBuffer->GenerateParallelWay(transStart,
+                                         transEnd,
+                                         lineOffset,
+                                         transStart,
+                                         transEnd);
+      }
+
+      DrawContourSymbol(projection,
+                        parameter,
+                        *pathSymbolStyle->GetSymbol(),
+                        symbolSpace,
+                        transStart,transEnd);
     }
   }
 
@@ -1275,19 +1366,41 @@ namespace osmscout {
                                     projection,
                                     pathTextStyle);
 
-    if (pathTextStyle) {
-      std::string textLabel=pathTextStyle->GetLabel()->GetLabel(parameter,
-                                                                *data.buffer);
+    if (!pathTextStyle) {
+      return;
+    }
 
-      if (!textLabel.empty()) {
-        DrawContourLabel(projection,
-                         parameter,
-                         *pathTextStyle,
-                         textLabel,
-                         data.transStart,
-                         data.transEnd);
-        waysLabelDrawn++;
-      }
+    double      lineOffset=0.0;
+    size_t      transStart=data.transStart;
+    size_t      transEnd=data.transEnd;
+    std::string textLabel=pathTextStyle->GetLabel()->GetLabel(parameter,
+                                                              *data.buffer);
+
+    if (pathTextStyle->GetOffset()!=0.0) {
+      lineOffset+=GetProjectedWidth(projection,
+                                    pathTextStyle->GetOffset());
+    }
+
+    if (pathTextStyle->GetDisplayOffset()!=0.0) {
+      lineOffset+=projection.ConvertWidthToPixel(pathTextStyle->GetDisplayOffset());
+    }
+
+    if (lineOffset!=0.0) {
+      coordBuffer->GenerateParallelWay(transStart,
+                                       transEnd,
+                                       lineOffset,
+                                       transStart,
+                                       transEnd);
+    }
+
+    if (!textLabel.empty()) {
+      DrawContourLabel(projection,
+                       parameter,
+                       *pathTextStyle,
+                       textLabel,
+                       transStart,
+                       transEnd);
+      waysLabelDrawn++;
     }
   }
 
@@ -1661,48 +1774,10 @@ namespace osmscout {
       data.ref=ref;
       data.lineWidth=lineWidth;
 
-      if (data.ref.GetFileOffset()==56252645) {
-        osmscout::GeoBox boundingBox;
-
-        osmscout::GetBoundingBox(nodes,
-                                 boundingBox);
-
-        std::cout << data.ref.GetName() << " " << boundingBox.GetDisplayText() << std::endl;
-
-        double pixelOffset=lineWidth/2;
-
-        double x1;
-        double x2;
-        double y1;
-        double y2;
-
-        projection.GeoToPixel(boundingBox.GetMinCoord(),
-                              x1,
-                              y1);
-
-        projection.GeoToPixel(boundingBox.GetMaxCoord(),
-                              x2,
-                              y2);
-
-        double xMin=std::min(x1,x2)-pixelOffset;
-        double xMax=std::max(x1,x2)+pixelOffset;
-        double yMin=std::min(y1,y2)-pixelOffset;
-        double yMax=std::max(y1,y2)+pixelOffset;
-
-        std::cout << xMin << " - " << xMax << " | " << yMin << " - " << yMax << " | " << pixelOffset << std::endl;
-      }
-
       if (!IsVisibleWay(projection,
                         nodes,
                         lineWidth/2)) {
-        if (data.ref.GetFileOffset()==56252645) {
-          std::cout << " => NOT visible!" << std::endl;
-        }
         continue;
-      }
-
-      if (data.ref.GetFileOffset()==56252645) {
-        std::cout << " => visible!" << std::endl;
       }
 
       if (!transformed) {

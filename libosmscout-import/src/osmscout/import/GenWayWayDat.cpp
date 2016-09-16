@@ -394,6 +394,7 @@ namespace osmscout {
             continue;
           }
 
+          /*
           if (way->GetNodeCount()+candidate->GetNodeCount()>300) {
             // Do not merge ways that are too big in result.
             //  If we already had the data, we would get the resulting bounding box
@@ -401,6 +402,7 @@ namespace osmscout {
             // of its nodes and the covered area)
             continue;
           }
+           */
 
           // This is a match
           hasMerged=true;
@@ -458,6 +460,138 @@ namespace osmscout {
       }
     }
 
+    return true;
+  }
+  
+  bool WayWayDataGenerator::SplitLongWays(Progress& progress,
+                     std::list<RawWayRef>& ways,
+                     CoordDataFile::ResultMap& coordsMap)
+  {
+    std::list<RawWayRef> newWays;
+
+    size_t currentWay=1;
+    size_t wayCount=ways.size();
+
+    for (auto way: ways){
+      //*wayIt;
+      double length=0.0;
+      bool split = way->GetNodeCount() > 300;
+      if ((!split) && way->GetNodeCount() >= 2){
+        // check real length (in km)
+        auto osmIdIt = way->GetNodes().begin();
+        auto endIt = way->GetNodes().end();
+        auto prev = coordsMap.find(*osmIdIt);
+        osmIdIt ++;
+        while (osmIdIt != endIt && (!split)){
+          auto current = coordsMap.find(*osmIdIt);
+          if (prev == coordsMap.end() || current == coordsMap.end()){
+            split = true;
+          }else{
+            length += GetSphericalDistance(prev->second.GetCoord(), current->second.GetCoord());
+          }
+          prev = current;
+          osmIdIt ++;
+        }
+        split = length > 30.0;
+      }
+
+      progress.SetProgress(currentWay,wayCount);
+      currentWay++;
+
+      if (!split){
+        newWays.push_back(way);
+        continue;
+      }
+      
+      std::string msg = "Splitting long way " + NumberToString(way->GetId()) + 
+        " with " + NumberToString(way->GetNodeCount()) + " nodes";
+      if (length > 0.0){
+        msg += " and real length " + std::to_string(length) + " km";
+      }
+      progress.Debug(msg);
+      
+      double segmentLength=0.0;
+      size_t segmentNodeCnt=1;
+      RawWayRef segment = std::make_shared<RawWay>();
+      
+      auto osmIdIt = way->GetNodes().begin();
+      auto endIt = way->GetNodes().end();
+      auto segmentStart = osmIdIt;
+      auto segmentEnd = osmIdIt;
+      
+      auto prev = coordsMap.find(*osmIdIt);
+      // jump to first valid node
+      while (prev==coordsMap.end() && osmIdIt != endIt){
+        progress.Error("Cannot resolve node with id "+
+                       NumberToString(*osmIdIt)+
+                       " for way "+
+                       NumberToString(way->GetId())+
+                       ", skipping");
+        osmIdIt ++;    
+        segmentStart = osmIdIt;
+        prev = coordsMap.find(*osmIdIt);
+      }
+      osmIdIt ++;
+      segmentEnd=osmIdIt;
+      while (osmIdIt != endIt){    
+        
+        if (segment->GetId() == 0){
+          segment->SetId(way->GetId());
+          segment->SetType(way->GetType(), way->IsArea());
+          segment->SetFeatureValueBuffer(way->GetFeatureValueBuffer());
+        }
+        auto current = coordsMap.find(*osmIdIt);
+
+        if (current!=coordsMap.end()){
+          segmentLength += GetSphericalDistance(prev->second.GetCoord(), current->second.GetCoord());
+          segmentNodeCnt ++;
+        }
+        if (segmentNodeCnt >= 300 || segmentLength > 30.0 || current==coordsMap.end()){
+          auto currentSegmentStart = segmentStart;
+          segmentStart=osmIdIt;
+          prev = current;
+          osmIdIt ++;
+          segmentEnd=osmIdIt;
+
+          segment->SetNodes(currentSegmentStart, osmIdIt);
+          newWays.push_back(segment);
+          //std::cout << "  - New segment " << segment->GetId() << 
+          //  " with " << segment->GetNodeCount() << " nodes and real length " << segmentLength << " km" << std::endl;
+          
+          // skip invalid nodes
+          while (prev==coordsMap.end() && osmIdIt != endIt){
+            progress.Error("Cannot resolve node with id "+
+                           NumberToString(*osmIdIt)+
+                           " for way "+
+                           NumberToString(way->GetId())+
+                           ", splitting");
+            osmIdIt ++;    
+            segmentStart = osmIdIt;
+            prev = coordsMap.find(*osmIdIt);
+          }
+          // reset segment
+          segmentLength=0.0;
+          segmentNodeCnt=1;
+          segment = std::make_shared<RawWay>();
+
+        }else{
+          prev = current;
+          osmIdIt ++;          
+          segmentEnd=osmIdIt;
+        }
+      }
+      if (segment->GetId() != 0 && segmentNodeCnt >= 2){
+        segment->SetNodes(segmentStart, segmentEnd);
+        newWays.push_back(segment);        
+        //std::cout << "  - New segment (last) " << segment->GetId() << 
+        //    " with " << segment->GetNodeCount() << " nodes and real length " << segmentLength << " km" << std::endl;
+      }
+    }
+    
+    ways.clear();
+    for (auto way: newWays){
+      ways.push_back(way);
+    }
     return true;
   }
 
@@ -679,7 +813,7 @@ namespace osmscout {
             MergeWays(progress,
                       waysByType[typeIdx],
                       restrictions);
-
+            
 #pragma omp critical
             if (waysByType[typeIdx].size()<originalWayCount) {
               progress.Info("Reduced ways of '"+typeConfig->GetTypeInfo(typeIdx)->GetName()+"' from "+
@@ -712,6 +846,24 @@ namespace osmscout {
         }
 
         nodeIds.clear();
+        
+        // split too long ways again to shorter segments
+        progress.SetAction("Splitting too long ways");
+#pragma omp parallel for
+        for (int64_t typeIdx = 0; typeIdx<(int64_t)typeConfig->GetTypeCount(); typeIdx++) {
+          size_t originalWayCount=waysByType[typeIdx].size();
+
+          if (originalWayCount>0) {
+            SplitLongWays(progress, waysByType[typeIdx], coordsMap);        
+            
+#pragma omp critical
+            if (waysByType[typeIdx].size()>originalWayCount) {
+              progress.Info("Splitted long ways of '"+typeConfig->GetTypeInfo(typeIdx)->GetName()+"' from "+
+                            NumberToString(originalWayCount)+" to "+NumberToString(waysByType[typeIdx].size())+ " way(s)");
+              mergeCount+=originalWayCount-waysByType[typeIdx].size();
+            }
+          }
+        }
 
         progress.SetAction("Writing ways");
 

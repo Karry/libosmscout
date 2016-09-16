@@ -1,20 +1,20 @@
 /*
- OSMScout - a Qt backend for libosmscout and libosmscout-map
- Copyright (C) 2010  Tim Teulings
+  OSMScout - a Qt backend for libosmscout and libosmscout-map
+  Copyright (C) 2010  Tim Teulings
 
- This program is free software; you can redistribute it and/or modify
- it under the terms of the GNU General Public License as published by
- the Free Software Foundation; either version 2 of the License, or
- (at your option) any later version.
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 2.1 of the License, or (at your option) any later version.
 
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
+  This library is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  Lesser General Public License for more details.
 
- You should have received a copy of the GNU General Public License
- along with this program; if not, write to the Free Software
- Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+  You should have received a copy of the GNU Lesser General Public
+  License along with this library; if not, write to the Free Software
+  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307  USA
  */
 
 #include <osmscout/MapWidget.h>
@@ -168,10 +168,10 @@ void MapWidget::wheelEvent(QWheelEvent* event)
     int numDegrees=event->delta()/8;
     int numSteps=numDegrees/15;
 
-    if (numSteps>=0) {
+    if (numSteps>0) {
         zoomIn(numSteps*1.35);
     }
-    else {
+    else if (numSteps<0) {
         zoomOut(-numSteps*1.35);
     }
 
@@ -211,11 +211,13 @@ void MapWidget::zoomIn(double zoomFactor)
 
     maxMag.SetLevel(20);
 
-    if (magnification.GetMagnification()*zoomFactor>maxMag.GetMagnification()) {
+    double mag=magnification.GetMagnification()*zoomFactor;
+
+    if (std::isnan(mag) || mag>maxMag.GetMagnification()) {
         magnification.SetMagnification(maxMag.GetMagnification());
     }
     else {
-        magnification.SetMagnification(magnification.GetMagnification()*zoomFactor);
+        magnification.SetMagnification(mag);
     }
 
     TriggerMapRendering();
@@ -225,11 +227,13 @@ void MapWidget::zoomIn(double zoomFactor)
 
 void MapWidget::zoomOut(double zoomFactor)
 {
-    if (magnification.GetMagnification()/zoomFactor<1) {
+    double mag=magnification.GetMagnification()/zoomFactor;
+
+    if (std::isnan(mag) ||mag<1) {
         magnification.SetMagnification(1);
     }
     else {
-        magnification.SetMagnification(magnification.GetMagnification()/zoomFactor);
+        magnification.SetMagnification(mag);
     }
 
     TriggerMapRendering();

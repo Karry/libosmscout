@@ -1132,7 +1132,9 @@ namespace osmscout {
 
   PathTextStyle::PathTextStyle()
    : size(1),
-     textColor(0,0,0)
+     textColor(0,0,0),
+     displayOffset(0.0),
+     offset(0.0)
   {
     // no code
   }
@@ -1142,6 +1144,8 @@ namespace osmscout {
     this->label=style.label;
     this->size=style.size;
     this->textColor=style.textColor;
+    this->displayOffset=style.displayOffset;
+    this->offset=style.offset;
   }
 
   PathTextStyle& PathTextStyle::SetLabel(const LabelProviderRef& label)
@@ -1165,6 +1169,20 @@ namespace osmscout {
     return *this;
   }
 
+  PathTextStyle& PathTextStyle::SetDisplayOffset(double value)
+  {
+    this->displayOffset=value;
+
+    return *this;
+  }
+
+  PathTextStyle& PathTextStyle::SetOffset(double value)
+  {
+    this->offset=value;
+
+    return *this;
+  }
+
   void PathTextStyle::CopyAttributes(const PathTextStyle& other,
                                      const std::set<Attribute>& attributes)
   {
@@ -1178,6 +1196,12 @@ namespace osmscout {
         break;
       case attrTextColor:
         textColor=other.textColor;
+        break;
+      case attrDisplayOffset:
+        displayOffset=other.displayOffset;
+        break;
+      case attrOffset:
+        offset=other.offset;
         break;
       }
     }
@@ -1361,14 +1385,18 @@ namespace osmscout {
   }
 
   PathSymbolStyle::PathSymbolStyle()
-  : symbolSpace(15)
+  : symbolSpace(15),
+    displayOffset(0.0),
+    offset(0.0)
   {
     // no code
   }
 
   PathSymbolStyle::PathSymbolStyle(const PathSymbolStyle& style)
   : symbol(style.symbol),
-    symbolSpace(style.symbolSpace)
+    symbolSpace(style.symbolSpace),
+    displayOffset(style.displayOffset),
+    offset(style.offset)
   {
     // no code
   }
@@ -1387,6 +1415,21 @@ namespace osmscout {
     return *this;
   }
 
+  PathSymbolStyle& PathSymbolStyle::SetDisplayOffset(double value)
+  {
+    this->displayOffset=value;
+
+    return *this;
+  }
+
+  PathSymbolStyle& PathSymbolStyle::SetOffset(double value)
+  {
+    this->offset=value;
+
+    return *this;
+  }
+
+
   void PathSymbolStyle::CopyAttributes(const PathSymbolStyle& other,
                                        const std::set<Attribute>& attributes)
   {
@@ -1397,6 +1440,12 @@ namespace osmscout {
         break;
       case attrSymbolSpace:
         symbolSpace=other.symbolSpace;
+        break;
+      case attrDisplayOffset:
+        displayOffset=other.displayOffset;
+        break;
+      case attrOffset:
+        offset=other.offset;
         break;
       }
     }
@@ -1615,10 +1664,13 @@ namespace osmscout {
     areaTextStyleConditionals.clear();
     areaIconStyleConditionals.clear();
     areaBorderTextStyleConditionals.clear();
+    areaBorderSymbolStyleConditionals.clear();
+
     areaFillStyleSelectors.clear();
     areaTextStyleSelectors.clear();
     areaIconStyleSelectors.clear();
     areaBorderTextStyleSelectors.clear();
+    areaBorderSymbolStyleSelectors.clear();
     areaTypeSets.clear();
 
     constants.clear();
@@ -1990,6 +2042,8 @@ namespace osmscout {
                               maxLevel);
     GetMaxLevelInConditionals(areaBorderTextStyleConditionals,
                               maxLevel);
+    GetMaxLevelInConditionals(areaBorderSymbolStyleConditionals,
+                              maxLevel);
 
     SortInConditionals(*typeConfig,
                        areaFillStyleConditionals,
@@ -2024,6 +2078,11 @@ namespace osmscout {
                        maxLevel,
                        areaBorderTextStyleSelectors);
 
+    SortInConditionals(*typeConfig,
+                       areaBorderSymbolStyleConditionals,
+                       maxLevel,
+                       areaBorderSymbolStyleSelectors);
+
     areaTypeSets.reserve(maxLevel);
 
     for (size_t type=0; type<maxLevel; type++) {
@@ -2046,11 +2105,16 @@ namespace osmscout {
                        areaBorderTextStyleConditionals,
                        maxLevel,
                        areaTypeSets);
+    CalculateUsedTypes(*typeConfig,
+                       areaBorderSymbolStyleConditionals,
+                       maxLevel,
+                       areaTypeSets);
 
     areaFillStyleConditionals.clear();
     areaTextStyleConditionals.clear();
     areaIconStyleConditionals.clear();
     areaBorderTextStyleConditionals.clear();
+    areaBorderSymbolStyleConditionals.clear();
   }
 
   void StyleConfig::PostprocessIconId()
@@ -2234,6 +2298,14 @@ namespace osmscout {
     PathTextConditionalStyle conditional(filter,style);
 
     areaBorderTextStyleConditionals.push_back(conditional);
+  }
+
+  void StyleConfig::AddAreaBorderSymbolStyle(const StyleFilter& filter,
+                                             PathSymbolPartialStyle& style)
+  {
+    PathSymbolConditionalStyle conditional(filter,style);
+
+    areaBorderSymbolStyleConditionals.push_back(conditional);
   }
 
   void StyleConfig::GetNodeTypesWithMaxMag(const Magnification& maxMag,
@@ -2465,6 +2537,18 @@ namespace osmscout {
                     buffer,
                     projection,
                     pathTextStyle);
+  }
+
+  void StyleConfig::GetAreaBorderSymbolStyle(const TypeInfoRef& type,
+                                             const FeatureValueBuffer& buffer,
+                                             const Projection& projection,
+                                             PathSymbolStyleRef& pathSymbolStyle) const
+  {
+    GetFeatureStyle(styleResolveContext,
+                    areaBorderSymbolStyleSelectors[type->GetIndex()],
+                    buffer,
+                    projection,
+                    pathSymbolStyle);
   }
 
   void StyleConfig::GetLandFillStyle(const Projection& projection,
