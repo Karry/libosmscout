@@ -87,7 +87,7 @@ namespace osmscout {
     LocationIndex();
     virtual ~LocationIndex();
 
-    bool Load(const std::string& path);
+    bool Load(const std::string& path,uint32_t fileFormatVersion);
 
     bool IsRegionIgnoreToken(const std::string& token) const;
     bool IsLocationIgnoreToken(const std::string& token) const;
