@@ -1140,6 +1140,8 @@ namespace osmscout {
     TypeConfig();
     virtual ~TypeConfig();
 
+    void RegisterInternalTags();
+
     inline uint32_t GetFileFormatVersion() const 
     {
       return fileFormatVersion;

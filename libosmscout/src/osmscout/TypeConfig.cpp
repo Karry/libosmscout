@@ -956,7 +956,15 @@ namespace osmscout {
      areaTypeIdBytes(1)
   {
     log.Debug() << "TypeConfig::TypeConfig()";
+  }
 
+  TypeConfig::~TypeConfig()
+  {
+    log.Debug() << "TypeConfig::~TypeConfig()";
+  }
+  
+  void TypeConfig::RegisterInternalTags()
+  {
     // Make sure, that this is always registered first.
     // It assures that id 0 is always reserved for tagIgnore
     RegisterTag("");
@@ -1001,8 +1009,10 @@ namespace osmscout {
 
     RegisterFeature(std::make_shared<AdminLevelFeature>());
 
-    featurePostalCode = std::make_shared<PostalCodeFeature>();
-    RegisterFeature(featurePostalCode);
+    if (fileFormatVersion>=8){
+      featurePostalCode = std::make_shared<PostalCodeFeature>();
+      RegisterFeature(featurePostalCode);
+    }
 
     featureWebsite = std::make_shared<WebsiteFeature>();
     RegisterFeature(featureWebsite);
@@ -1088,11 +1098,6 @@ namespace osmscout {
     assert(tagJunction!=tagIgnore);
   }
 
-  TypeConfig::~TypeConfig()
-  {
-    log.Debug() << "TypeConfig::~TypeConfig()";
-  }
-
   TagId TypeConfig::RegisterTag(const std::string& tagName)
   {
     auto mapping=stringToTagMap.find(tagName);
@@ -1175,8 +1180,10 @@ namespace osmscout {
       if (!typeInfo->HasFeature(AddressFeature::NAME)) {
         typeInfo->AddFeature(featureAddress);
       }
-      if (!typeInfo->HasFeature(PostalCodeFeature::NAME)) {
-        typeInfo->AddFeature(featurePostalCode);
+      if (fileFormatVersion>=8){
+        if (!typeInfo->HasFeature(PostalCodeFeature::NAME)) {
+          typeInfo->AddFeature(featurePostalCode);
+        }
       }
     }
 
@@ -1613,7 +1620,8 @@ namespace osmscout {
       }
 
       // Tags
-
+      RegisterInternalTags();
+  
       uint32_t tagCount;
 
       scanner.ReadNumber(tagCount);
