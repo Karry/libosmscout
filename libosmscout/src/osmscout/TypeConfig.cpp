@@ -1620,6 +1620,9 @@ namespace osmscout {
                 fileFormatVersion << ", expected: <" << FILE_FORMAT_MIN_VERSION << ", " << FILE_FORMAT_VERSION << ">";
         return false;
       }
+      if (fileFormatVersion != FILE_FORMAT_VERSION){
+        log.Warn() << "File '" << scanner.GetFilename() << "' use deprecated format version (" << fileFormatVersion << "), its support may be removed in next release!";
+      }
 
       // Tags
       RegisterInternalTags();
