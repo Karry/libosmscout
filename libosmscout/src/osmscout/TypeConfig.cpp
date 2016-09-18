@@ -1642,8 +1642,8 @@ namespace osmscout {
         actualId=RegisterTag(name);
 
         if (actualId!=requestedId) {
-          log.Error() << "Requested and actual tag id do not match";
-          return false;
+          log.Warn() << "Requested and actual tag id do not match";
+          //return false;
         }
       }
 
@@ -1666,8 +1666,8 @@ namespace osmscout {
         actualId=RegisterNameTag(name,priority);
 
         if (actualId!=requestedId) {
-          log.Error() << "Requested and actual name tag id do not match";
-          return false;
+          log.Warn() << "Requested and actual name tag id do not match";
+          //return false;
         }
       }
 
@@ -1690,8 +1690,8 @@ namespace osmscout {
         actualId=RegisterNameAltTag(name,priority);
 
         if (actualId!=requestedId) {
-          log.Error() << "Requested and actual name alt tag id do not match";
-          return false;
+          log.Warn() << "Requested and actual name alt tag id do not match";
+          //return false;
         }
       }
 
