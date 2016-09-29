@@ -1621,12 +1621,11 @@ namespace osmscout {
         return false;
       }
 
+      // Tags
+      RegisterInternalTags();
 
       if (fileFormatVersion < 9){
-        // skip tags for old database formats
-        
-        // Tags
-        RegisterInternalTags();
+        // read tags from types.dat for old database formats
 
         uint32_t tagCount;
 
