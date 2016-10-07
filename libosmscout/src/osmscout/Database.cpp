@@ -400,6 +400,8 @@ namespace osmscout {
     if (!waterIndex) {
       if (GetTypeConfig()->GetFileFormatVersion() == 6){
         waterIndex=std::make_shared<WaterIndex6>();          
+      }else if (GetTypeConfig()->GetFileFormatVersion() <= 9){
+        waterIndex=std::make_shared<WaterIndex9>();          
       }else{
         waterIndex=std::make_shared<WaterIndex>();
       }

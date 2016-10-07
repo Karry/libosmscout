@@ -1,5 +1,5 @@
-#ifndef OSMSCOUT_WATERINDEX_H
-#define OSMSCOUT_WATERINDEX_H
+#ifndef OSMSCOUT_WATERINDEX9_H
+#define OSMSCOUT_WATERINDEX9_H
 
 /*
   This source is part of the libosmscout library
@@ -26,6 +26,7 @@
 #include <string>
 #include <vector>
 
+#include <osmscout/WaterIndex.h>
 #include <osmscout/GroundTile.h>
 #include <osmscout/Types.h>
 
@@ -37,7 +38,7 @@ namespace osmscout {
   /**
    * \ingroup Database
    */
-  class OSMSCOUT_API WaterIndex
+  class OSMSCOUT_API WaterIndex9: public WaterIndex
   {
   public:
     static const char* WATER_IDX;
@@ -50,12 +51,10 @@ namespace osmscout {
       double                     cellHeight;      //!< Height of an cell
       uint32_t                   cellXCount;      //!< Number of cells in horizontal direction (with of bounding box in cells)
       uint32_t                   cellYCount;      //!< Number of cells in vertical direction (height of bounding box in cells)
-      FileOffset                 dataOffset;      //!< FileOffset of the data after the index
 
       // Persistent
 
       bool                       hasCellData;      //!< If true, we have cell data
-      uint8_t                    dataOffsetBytes;  //!< Number of bytes per entry in bitmap
       GroundTile::Type           defaultCellData;  //!< If hasCellData is false, this is the vaue to be returned for all cells
       FileOffset                 indexDataOffset;  //!< File offset of start cell state data on disk
 
@@ -90,8 +89,8 @@ namespace osmscout {
                                std::list<GroundTile>& tiles) const;
 
   public:
-    WaterIndex();
-    virtual ~WaterIndex();
+    WaterIndex9();
+    virtual ~WaterIndex9();
 
     virtual bool Open(const std::string& path);
     virtual void Close();

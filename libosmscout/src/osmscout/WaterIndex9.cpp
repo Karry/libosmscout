@@ -17,7 +17,7 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307  USA
 */
 
-#include <osmscout/WaterIndex.h>
+#include <osmscout/WaterIndex9.h>
 
 #include <algorithm>
 
@@ -29,21 +29,19 @@
 #include <iostream>
 namespace osmscout {
 
-  const char* WaterIndex::WATER_IDX="water.idx";
-
-  WaterIndex::WaterIndex()
+  WaterIndex9::WaterIndex9(): WaterIndex()
   {
     // no code
   }
 
-  WaterIndex::~WaterIndex()
+  WaterIndex9::~WaterIndex9()
   {
     Close();
   }
 
-  bool WaterIndex::Open(const std::string& path)
+  bool WaterIndex9::Open(const std::string& path)
   {
-    datafilename=AppendFileToDir(path,WATER_IDX);
+    datafilename=AppendFileToDir(path,WaterIndex::WATER_IDX);
 
     try {
       scanner.Open(datafilename,FileScanner::FastRandom,true);
@@ -73,7 +71,6 @@ namespace osmscout {
         uint8_t state;
 
         scanner.Read(levels[idx].hasCellData);
-        scanner.Read(levels[idx].dataOffsetBytes);
         scanner.Read(state);
 
         levels[idx].defaultCellData=(GroundTile::Type)state;
@@ -87,8 +84,6 @@ namespace osmscout {
 
         levels[idx].cellXCount=levels[idx].cellXEnd-levels[idx].cellXStart+1;
         levels[idx].cellYCount=levels[idx].cellYEnd-levels[idx].cellYStart+1;
-
-        levels[idx].dataOffset=levels[idx].indexDataOffset+levels[idx].cellXCount*levels[idx].cellYCount*levels[idx].dataOffsetBytes;
       }
 
       if (scanner.HasError()) {
@@ -104,7 +99,7 @@ namespace osmscout {
     }
   }
 
-  void WaterIndex::Close()
+  void WaterIndex9::Close()
   {
     try  {
       if (scanner.IsOpen()) {
@@ -117,7 +112,7 @@ namespace osmscout {
     }
   }
 
-  void WaterIndex::GetGroundTileByDefault(const Level& level,
+  void WaterIndex9::GetGroundTileByDefault(const Level& level,
                                           uint32_t cx1,
                                           uint32_t cx2,
                                           uint32_t cy1,
@@ -159,7 +154,7 @@ namespace osmscout {
     }
   }
 
-  void WaterIndex::GetGroundTileFromData(const Level& level,
+  void WaterIndex9::GetGroundTileFromData(const Level& level,
                                           uint32_t cx1,
                                           uint32_t cx2,
                                           uint32_t cy1,
@@ -199,12 +194,12 @@ namespace osmscout {
         else {
           std::lock_guard<std::mutex> guard(lookupMutex);
           uint32_t                    cellId=(y-level.cellYStart)*level.cellXCount+x-level.cellXStart;
-          uint32_t                    index=cellId*level.dataOffsetBytes;
+          uint32_t                    index=cellId*8;
           FileOffset                  cell;
 
           scanner.SetPos(level.indexDataOffset+index);
 
-          scanner.ReadFileOffset(cell,level.dataOffsetBytes);
+          scanner.Read(cell);
 
           if (cell==(FileOffset)GroundTile::land ||
               cell==(FileOffset)GroundTile::water ||
@@ -223,12 +218,12 @@ namespace osmscout {
 
             tiles.push_back(tile);
 
-            scanner.SetPos(level.dataOffset+cell);
+            scanner.SetPos(cell);
             scanner.ReadNumber(tileCount);
 
-            for (size_t t=0; t<tileCount; t++) {
-              uint8_t  tileType;
-              uint32_t coordCount;
+            for (size_t t=1; t<=tileCount; t++) {
+              uint8_t    tileType;
+              uint32_t   coordCount;
 
               scanner.Read(tileType);
 
@@ -258,7 +253,7 @@ namespace osmscout {
     }
   }
 
-  bool WaterIndex::GetRegions(const GeoBox& boundingBox,
+  bool WaterIndex9::GetRegions(const GeoBox& boundingBox,
                               const Magnification& magnification,
                               std::list<GroundTile>& tiles) const
   {
@@ -311,11 +306,11 @@ namespace osmscout {
     return true;
   }
 
-  void WaterIndex::DumpStatistics()
+  void WaterIndex9::DumpStatistics()
   {
     size_t entries=0;
     size_t memory=0;
 
-    log.Info() << "WaterIndex size " << entries << ", memory " << memory;
+    log.Info() << "WaterIndex9 size " << entries << ", memory " << memory;
   }
 }
