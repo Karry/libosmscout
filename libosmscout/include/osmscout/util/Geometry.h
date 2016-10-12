@@ -41,6 +41,11 @@
 
 namespace osmscout { 
 
+  inline double DegToRad(double deg)
+  {
+    return  deg * M_PI / 180;
+  }
+
   /**
    * \defgroup Geometry Geometric helper
    *
