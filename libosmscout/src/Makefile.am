@@ -71,11 +71,14 @@ libosmscout_la_SOURCES= osmscout/util/Breaker.cpp \
                         osmscout/WaterIndex.cpp \
                         osmscout/WaterIndex6.cpp \
                         osmscout/WaterIndex9.cpp \
+                        osmscout/ObjectVariantDataFile.cpp \
                         osmscout/Route.cpp \
                         osmscout/RouteData.cpp \
                         osmscout/RouteNode.cpp \
                         osmscout/RoutePostprocessor.cpp \
                         osmscout/RoutingProfile.cpp \
+                        osmscout/BoundingBoxDataFile.cpp \
+                        osmscout/TypeDistributionDataFile.cpp \
                         osmscout/Database.cpp \
                         osmscout/DebugDatabase.cpp \
                         osmscout/SRTM.cpp \

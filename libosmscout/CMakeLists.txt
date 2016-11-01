@@ -42,6 +42,8 @@ set(HEADER_FILES
     include/osmscout/Coord.h
     include/osmscout/CoordDataFile.h
     #include/osmscout/CoreFeatures.h
+    include/osmscout/BoundingBoxDataFile.h
+    include/osmscout/TypeDistributionDataFile.h
     include/osmscout/Database.h
     include/osmscout/DataFile.h
     include/osmscout/DebugDatabase.h
@@ -63,6 +65,7 @@ set(HEADER_FILES
     include/osmscout/Point.h
     include/osmscout/PointSequence.h
     include/osmscout/POIService.h
+    include/osmscout/ObjectVariantDataFile.h
     include/osmscout/Route.h
     include/osmscout/RouteData.h
     include/osmscout/RouteNode.h
@@ -118,6 +121,8 @@ set(SOURCE_FILES
     src/osmscout/AreaWayIndex.cpp
     src/osmscout/Coord.cpp
     src/osmscout/CoordDataFile.cpp
+    src/osmscout/BoundingBoxDataFile.cpp
+    src/osmscout/TypeDistributionDataFile.cpp
     src/osmscout/Database.cpp
     src/osmscout/DebugDatabase.cpp
     src/osmscout/GeoCoord.cpp
@@ -137,6 +142,7 @@ set(SOURCE_FILES
     src/osmscout/Point.cpp
     src/osmscout/PointSequence.cpp
     src/osmscout/POIService.cpp
+    src/osmscout/ObjectVariantDataFile.cpp
     src/osmscout/Route.cpp
     src/osmscout/RouteData.cpp
     src/osmscout/RouteNode.cpp
@@ -162,7 +168,7 @@ if(MARISA_FOUND)
     list(APPEND SOURCE_FILES src/osmscout/TextSearchIndex.cpp)
 endif()
 
-add_library(osmscout SHARED ${SOURCE_FILES} ${HEADER_FILES})
+add_library(osmscout ${SOURCE_FILES} ${HEADER_FILES})
 set_property(TARGET osmscout PROPERTY CXX_STANDARD 11)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/include/osmscout/CoreFeatures.h.cmake ${OSMSCOUT_BASE_DIR_BUILD}/include/osmscout/CoreFeatures.h)
 create_private_config("${CMAKE_CURRENT_BINARY_DIR}/include/osmscout/private/Config.h" "osmscout")
