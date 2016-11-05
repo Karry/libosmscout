@@ -103,6 +103,12 @@ DBThread::DBThread(QStringList databaseLookupDirs,
     daylight(true),
     renderSea(true)
 {
+  // fix Qt signals with uint32_t on x86_64:
+  //
+  // QObject::connect: Cannot queue arguments of type 'uint32_t'
+  // (Make sure 'uint32_t' is registered using qRegisterMetaType().)
+  qRegisterMetaType < uint32_t >("uint32_t");
+
   QScreen *srn=QGuiApplication::screens().at(0);
 
   physicalDpi = (double)srn->physicalDotsPerInch();
@@ -661,7 +667,8 @@ void DBThread::SearchForLocations(const QString searchPattern, int limit)
   emit searchFinished(searchPattern, /*error*/ false);
 }
 
-bool DBThread::CalculateRoute(osmscout::Vehicle vehicle,
+bool DBThread::CalculateRoute(const QString databasePath,
+                              osmscout::Vehicle vehicle,
                               const osmscout::RoutingProfile& routingProfile,
                               const osmscout::ObjectFileRef& startObject,
                               size_t startNodeIndex,
@@ -669,43 +676,61 @@ bool DBThread::CalculateRoute(osmscout::Vehicle vehicle,
                               size_t targetNodeIndex,
                               osmscout::RouteData& route)
 {
-  return false; // TODO: implement multi database routing
-  /*
   QMutexLocker locker(&mutex);
+
+  DBInstanceRef database;
+  for (auto &db:databases){
+    if (db->path==databasePath){
+      database=db;
+      break;
+    }
+  }
+  if (!database){
+    return false;
+  }
 
   if (!AssureRouter(vehicle)) {
     return false;
   }
 
-  return router->CalculateRoute(routingProfile,
+  return database->router->CalculateRoute(routingProfile,
                                 startObject,
                                 startNodeIndex,
                                 targetObject,
                                 targetNodeIndex,
                                 route);
-  */
 }
 
-bool DBThread::TransformRouteDataToRouteDescription(osmscout::Vehicle vehicle,
+bool DBThread::TransformRouteDataToRouteDescription(const QString databasePath,
+                                                    osmscout::Vehicle vehicle,
                                                     const osmscout::RoutingProfile& routingProfile,
                                                     const osmscout::RouteData& data,
                                                     osmscout::RouteDescription& description,
                                                     const std::string& start,
                                                     const std::string& target)
 {
-  return false; // TODO: implement multi database routing
-  /*
   QMutexLocker locker(&mutex);
+
+  DBInstanceRef database;
+  for (auto &db:databases){
+    if (db->path==databasePath){
+      database=db;
+      break;
+    }
+  }
+  if (!database){
+    return false;
+  }
 
   if (!AssureRouter(vehicle)) {
     return false;
   }
 
-  if (!router->TransformRouteDataToRouteDescription(data,description)) {
+  if (!database->router->TransformRouteDataToRouteDescription(data,description)) {
     return false;
   }
 
-  osmscout::TypeConfigRef typeConfig=router->GetTypeConfig();
+  osmscout::TypeConfigRef typeConfig=database->router->GetTypeConfig();
 
   std::list<osmscout::RoutePostprocessor::PostprocessorRef> postprocessors;
 
@@ -728,31 +753,39 @@ bool DBThread::TransformRouteDataToRouteDescription(osmscout::Vehicle vehicle,
 
   if (!routePostprocessor.PostprocessRouteDescription(description,
                                                       routingProfile,
-                                                      *databases,
+                                                      *(database->database),
                                                       postprocessors)) {
     return false;
   }
 
   return true;
-   */
 }
 
-bool DBThread::TransformRouteDataToWay(osmscout::Vehicle vehicle,
+bool DBThread::TransformRouteDataToWay(const QString databasePath,
+                                       osmscout::Vehicle vehicle,
                                        const osmscout::RouteData& data,
                                        osmscout::Way& way)
 {
-  return false; // TODO: implement multi database routing
-  /*
   QMutexLocker locker(&mutex);
+
+  DBInstanceRef database;
+  for (auto &db:databases){
+    if (db->path==databasePath){
+      database=db;
+      break;
+    }
+  }
+  if (!database){
+    return false;
+  }
+
 
   if (!AssureRouter(vehicle)) {
     return false;
   }
 
-  return router->TransformRouteDataToWay(data,way);
-   */
+  return database->router->TransformRouteDataToWay(data,way);
 }
-
 
 void DBThread::ClearRoute()
 {
@@ -764,17 +797,26 @@ void DBThread::AddRoute(const osmscout::Way& way)
   emit Redraw();
 }
 
-bool DBThread::GetClosestRoutableNode(const osmscout::ObjectFileRef& refObject,
+bool DBThread::GetClosestRoutableNode(const QString databasePath,
+                                      const osmscout::ObjectFileRef& refObject,
                                       const osmscout::Vehicle& vehicle,
                                       double radius,
                                       osmscout::ObjectFileRef& object,
                                       size_t& nodeIndex)
 {
-  return false; // TODO: implement multi database routing
-  /*
   QMutexLocker locker(&mutex);
 
   if (!AssureRouter(vehicle)) {
+    return false;
+  }
+  DBInstanceRef database;
+  for (auto &db:databases){
+    if (db->path==databasePath){
+      database=db;
+      break;
+    }
+  }
+  if (!database){
     return false;
   }
 
@@ -783,12 +825,11 @@ bool DBThread::GetClosestRoutableNode(const osmscout::ObjectFileRef& refObject,
   if (refObject.GetType()==osmscout::refNode) {
     osmscout::NodeRef node;
 
-    if (!databases->GetNodeByOffset(refObject.GetFileOffset(),
-                                   node)) {
+    if (!database->database->GetNodeByOffset(refObject.GetFileOffset(), node)) {
       return false;
     }
 
-    return router->GetClosestRoutableNode(node->GetCoords().GetLat(),
+    return database->router->GetClosestRoutableNode(node->GetCoords().GetLat(),
                                           node->GetCoords().GetLon(),
                                           vehicle,
                                           radius,
@@ -798,8 +839,7 @@ bool DBThread::GetClosestRoutableNode(const osmscout::ObjectFileRef& refObject,
   else if (refObject.GetType()==osmscout::refArea) {
     osmscout::AreaRef area;
 
-    if (!databases->GetAreaByOffset(refObject.GetFileOffset(),
-                                   area)) {
+    if (!database->database->GetAreaByOffset(refObject.GetFileOffset(), area)) {
       return false;
     }
 
@@ -807,7 +847,7 @@ bool DBThread::GetClosestRoutableNode(const osmscout::ObjectFileRef& refObject,
 
     area->GetCenter(center);
 
-    return router->GetClosestRoutableNode(center.GetLat(),
+    return database->router->GetClosestRoutableNode(center.GetLat(),
                                           center.GetLon(),
                                           vehicle,
                                           radius,
@@ -817,12 +857,11 @@ bool DBThread::GetClosestRoutableNode(const osmscout::ObjectFileRef& refObject,
   else if (refObject.GetType()==osmscout::refWay) {
     osmscout::WayRef way;
 
-    if (!databases->GetWayByOffset(refObject.GetFileOffset(),
-                                  way)) {
+    if (!database->database->GetWayByOffset(refObject.GetFileOffset(), way)) {
       return false;
     }
 
-    return router->GetClosestRoutableNode(way->GetNodes()[0].GetLat(),
+    return database->router->GetClosestRoutableNode(way->GetNodes()[0].GetLat(),
                                           way->GetNodes()[0].GetLon(),
                                           vehicle,
                                           radius,
@@ -832,7 +871,6 @@ bool DBThread::GetClosestRoutableNode(const osmscout::ObjectFileRef& refObject,
   else {
     return true;
   }
-    */
 }
 
 QStringList DBThread::BuildAdminRegionList(const osmscout::AdminRegionRef& adminRegion,
@@ -933,12 +971,17 @@ void DBThread::onRenderSeaChanged(bool b)
     emit Redraw();
 }
 
+osmscout::TypeConfigRef DBThread::GetTypeConfig(const QString databasePath) const
+{
+  for (auto &db:databases){
+    if (db->path == databasePath){
+      return db->database->GetTypeConfig();
+    }
+  }
+  return osmscout::TypeConfigRef();
+}
 
 /*
-osmscout::TypeConfigRef DBThread::GetTypeConfig() const
-{
-  return databases->GetTypeConfig();
-}
 
 bool DBThread::GetNodeByOffset(osmscout::FileOffset offset,
                                osmscout::NodeRef& node) const
