@@ -1076,10 +1076,8 @@ namespace osmscout {
       nextNode=0;
     }
 
-    distance=GetSphericalDistance(ring.GetNodes()[currentNode].GetLon(),
-                                  ring.GetNodes()[currentNode].GetLat(),
-                                  ring.GetNodes()[nextNode].GetLon(),
-                                  ring.GetNodes()[nextNode].GetLat());
+    distance=GetSphericalDistance(ring.GetNodes()[currentNode].GetCoord(),
+                                  ring.GetNodes()[nextNode].GetCoord());
 
     while (nextNode!=currentNode &&
            nodeObjectsMap.find(ring.GetId(nextNode))==nodeObjectsMap.end()) {
@@ -1091,10 +1089,8 @@ namespace osmscout {
       }
 
       if (nextNode!=currentNode) {
-        distance+=GetSphericalDistance(ring.GetNodes()[lastNode].GetLon(),
-                                       ring.GetNodes()[lastNode].GetLat(),
-                                       ring.GetNodes()[nextNode].GetLon(),
-                                       ring.GetNodes()[nextNode].GetLat());
+        distance+=GetSphericalDistance(ring.GetNodes()[lastNode].GetCoord(),
+                                       ring.GetNodes()[nextNode].GetCoord());
       }
     }
 
@@ -1133,10 +1129,8 @@ namespace osmscout {
       prevNode=(int)(ring.GetNodes().size()-1);
     }
 
-    distance=GetSphericalDistance(ring.GetNodes()[currentNode].GetLon(),
-                                  ring.GetNodes()[currentNode].GetLat(),
-                                  ring.GetNodes()[prevNode].GetLon(),
-                                  ring.GetNodes()[prevNode].GetLat());
+    distance=GetSphericalDistance(ring.GetNodes()[currentNode].GetCoord(),
+                                  ring.GetNodes()[prevNode].GetCoord());
 
     while (prevNode!=currentNode &&
         nodeObjectsMap.find(ring.GetId(prevNode))==nodeObjectsMap.end()) {
@@ -1148,10 +1142,8 @@ namespace osmscout {
       }
 
       if (prevNode!=currentNode) {
-        distance+=GetSphericalDistance(ring.GetNodes()[lastNode].GetLon(),
-                                       ring.GetNodes()[lastNode].GetLat(),
-                                       ring.GetNodes()[prevNode].GetLon(),
-                                       ring.GetNodes()[prevNode].GetLat());
+        distance+=GetSphericalDistance(ring.GetNodes()[lastNode].GetCoord(),
+                                       ring.GetNodes()[prevNode].GetCoord());
       }
     }
 
@@ -1214,10 +1206,8 @@ namespace osmscout {
         nextNode=0;
       }
 
-      distance=GetSphericalDistance(way.GetCoord(currentNode).GetLon(),
-                                    way.GetCoord(currentNode).GetLat(),
-                                    way.GetCoord(nextNode).GetLon(),
-                                    way.GetCoord(nextNode).GetLat());
+      distance=GetSphericalDistance(way.GetCoord(currentNode),
+                                    way.GetCoord(nextNode));
 
       while (nextNode!=currentNode &&
           nodeObjectsMap.find(way.GetId(nextNode))==nodeObjectsMap.end()) {
@@ -1229,10 +1219,8 @@ namespace osmscout {
         }
 
         if (nextNode!=currentNode) {
-          distance+=GetSphericalDistance(way.GetCoord(lastNode).GetLon(),
-                                         way.GetCoord(lastNode).GetLat(),
-                                         way.GetCoord(nextNode).GetLon(),
-                                         way.GetCoord(nextNode).GetLat());
+          distance+=GetSphericalDistance(way.GetCoord(lastNode),
+                                         way.GetCoord(nextNode));
         }
       }
 
@@ -1272,10 +1260,8 @@ namespace osmscout {
         prevNode=(int)(way.GetNodes().size()-1);
       }
 
-      distance=GetSphericalDistance(way.GetNodes()[currentNode].GetLon(),
-                                    way.GetNodes()[currentNode].GetLat(),
-                                    way.GetNodes()[prevNode].GetLon(),
-                                    way.GetNodes()[prevNode].GetLat());
+      distance=GetSphericalDistance(way.GetNodes()[currentNode].GetCoord(),
+                                    way.GetNodes()[prevNode].GetCoord());
 
       while (prevNode!=currentNode &&
           nodeObjectsMap.find(way.GetId(prevNode))==nodeObjectsMap.end()) {
@@ -1287,10 +1273,8 @@ namespace osmscout {
         }
 
         if (prevNode!=currentNode) {
-          distance+=GetSphericalDistance(way.GetNodes()[lastNode].GetLon(),
-                                         way.GetNodes()[lastNode].GetLat(),
-                                         way.GetNodes()[prevNode].GetLon(),
-                                         way.GetNodes()[prevNode].GetLat());
+          distance+=GetSphericalDistance(way.GetNodes()[lastNode].GetCoord(),
+                                         way.GetNodes()[prevNode].GetCoord());
         }
       }
 
@@ -1373,10 +1357,8 @@ namespace osmscout {
 
             path.distance=0.0;
             for (size_t d=j;d<i; d++) {
-              path.distance+=GetSphericalDistance(way.GetNodes()[d].GetLon(),
-                                                  way.GetNodes()[d].GetLat(),
-                                                  way.GetNodes()[d+1].GetLon(),
-                                                  way.GetNodes()[d+1].GetLat());
+              path.distance+=GetSphericalDistance(way.GetNodes()[d].GetCoord(),
+                                                  way.GetNodes()[d+1].GetCoord());
             }
 
             routeNode.paths.push_back(path);
@@ -1424,10 +1406,8 @@ namespace osmscout {
 
             path.distance=0.0;
             for (size_t d=i;d<j; d++) {
-              path.distance+=GetSphericalDistance(way.GetNodes()[d].GetLon(),
-                                                  way.GetNodes()[d].GetLat(),
-                                                  way.GetNodes()[d+1].GetLon(),
-                                                  way.GetNodes()[d+1].GetLat());
+              path.distance+=GetSphericalDistance(way.GetNodes()[d].GetCoord(),
+                                                  way.GetNodes()[d+1].GetCoord());
             }
 
             routeNode.paths.push_back(path);

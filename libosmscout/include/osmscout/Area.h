@@ -160,6 +160,11 @@ namespace osmscout {
       return fileOffset;
     }
 
+    inline ObjectFileRef GetObjectFileRef() const
+    {
+      return ObjectFileRef(fileOffset,refArea);
+    }
+
     inline TypeInfoRef GetType() const
     {
       return rings.front().GetType();

@@ -349,21 +349,15 @@ namespace osmscout {
                           x2,
                           y2);
 
-    double xMin=std::min(x1,x2);
-    double xMax=std::max(x1,x2);
-    double yMin=std::min(y1,y2);
-    double yMax=std::max(y1,y2);
+    double xMin=std::min(x1,x2)-pixelOffset;
+    double xMax=std::max(x1,x2)+pixelOffset;
+    double yMin=std::min(y1,y2)-pixelOffset;
+    double yMax=std::max(y1,y2)+pixelOffset;
 
-    if (x2-x1<=areaMinDimension &&
-        y2-y1<=areaMinDimension) {
+    if (xMax-xMin<=areaMinDimension &&
+        yMax-yMin<=areaMinDimension) {
       return false;
     }
-
-    xMin-=pixelOffset;
-    yMin-=pixelOffset;
-
-    xMax+=pixelOffset;
-    yMax+=pixelOffset;
 
     return !(xMin>=projection.GetWidth() ||
              yMin>=projection.GetHeight() ||
