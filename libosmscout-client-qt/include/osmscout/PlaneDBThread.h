@@ -38,8 +38,8 @@
 
 #include <osmscout/util/Breaker.h>
 
-#include "Settings.h"
-#include "DBThread.h"
+#include <osmscout/Settings.h>
+#include <osmscout/DBThread.h>
 
 class OSMSCOUT_CLIENT_QT_API PlaneDBThread : public DBThread
 {
@@ -59,7 +59,10 @@ public slots:
   
 private:
   osmscout::MercatorProjection  projection;
-   
+
+  mutable QMutex                lastRequestMutex;
+  RenderMapRequest              lastRequest;
+
   QTime                         lastRendering;
   QTimer                        pendingRenderingTimer;
 

@@ -27,7 +27,7 @@
 #include <osmscout/GeoCoord.h>
 #include <osmscout/util/GeoBox.h>
 
-#include "DBThread.h"
+#include <osmscout/DBThread.h>
 
 struct ObjectKey{
  QString                  database;
@@ -73,7 +73,7 @@ public:
     LocationInfoModel();
     virtual inline ~LocationInfoModel(){};
 
-    int inline rowCount(const QModelIndex &parent = QModelIndex()) const
+    int inline rowCount(const QModelIndex &/*parent = QModelIndex()*/) const
     {
         return model.size();
     };

@@ -23,7 +23,10 @@
 #include <osmscout/DBThread.h>
 #include <osmscout/TiledDBThread.h>
 #include <osmscout/PlaneDBThread.h>
+#include <osmscout/private/Config.h>
+#ifdef OSMSCOUT_HAVE_LIB_MARISA
 #include <osmscout/TextSearchIndex.h>
+#endif
 
 QBreaker::QBreaker()
   : osmscout::Breaker(),
@@ -31,12 +34,11 @@ QBreaker::QBreaker()
 {
 }
 
-bool QBreaker::Break()
+void QBreaker::Break()
 {
   QMutexLocker locker(&mutex);
-  aborted=true;
 
-  return true;
+  aborted=true;
 }
 
 bool QBreaker::IsAborted() const
@@ -179,7 +181,7 @@ const DatabaseLoadedResponse DBThread::loadedResponse() const {
   return response;
 }
 
-void DBThread::TileStateCallback(const osmscout::TileRef& changedTile)
+void DBThread::TileStateCallback(const osmscout::TileRef& /*changedTile*/)
 {
   
 }
@@ -438,7 +440,7 @@ bool DBThread::GetObjectDetails(DBInstanceRef db,
 bool DBThread::BuildLocationEntry(const osmscout::ObjectFileRef& object,
                                   const QString title,
                                   DBInstanceRef db,
-                                  std::map<osmscout::FileOffset,osmscout::AdminRegionRef> &adminRegionMap,
+                                  std::map<osmscout::FileOffset,osmscout::AdminRegionRef> &/*adminRegionMap*/,
                                   QList<LocationEntry> &locations
                                   )
 {
@@ -620,6 +622,7 @@ void DBThread::SearchForLocations(const QString searchPattern, int limit)
     
     emit searchResult(searchPattern, locations);
     
+#ifdef OSMSCOUT_HAVE_LIB_MARISA
     // Search by free text
     locations.clear();
     QList<osmscout::ObjectFileRef> objectSet;
@@ -661,6 +664,7 @@ void DBThread::SearchForLocations(const QString searchPattern, int limit)
       // TODO: merge locations with same label database type
       // bus stations can have more points for example...
       emit searchResult(searchPattern, locations);
+#endif
   }
 
   qDebug() << "Retrieve result tooks" << timer.elapsed() << "ms";
@@ -690,10 +694,19 @@ bool DBThread::CalculateRoute(const QString databasePath,
     return false;
   }
 
-  return database->router->CalculateRoute(routingProfile,
+  osmscout::RoutingResult    result;
+  osmscout::RoutingParameter parameter;
+
+  result=database->router->CalculateRoute(routingProfile,
                                           start,
                                           target,
-                                          route);
+                                          parameter);
+
+  bool success=result.Success();
+
+  route=std::move(result.GetRoute());
+
+  return success;
 }
 
 bool DBThread::TransformRouteDataToRouteDescription(const QString databasePath,
@@ -786,7 +799,7 @@ void DBThread::ClearRoute()
   emit Redraw();
 }
 
-void DBThread::AddRoute(const osmscout::Way& way)
+void DBThread::AddRoute(const osmscout::Way& /*way*/)
 {
   emit Redraw();
 }

@@ -18,11 +18,10 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307  USA
  */
 
-#include <osmscout/SearchLocationModel.h>
-
 #include <iostream>
 
 #include <osmscout/DBThread.h>
+#include <osmscout/SearchLocationModel.h>
     
 LocationListModel::LocationListModel(QObject* parent)
 : QAbstractListModel(parent), searching(false)
@@ -72,7 +71,7 @@ void LocationListModel::onSearchResult(const QString searchPattern,
   qDebug() << "added " << foundLocations.size() << ", model size" << locations.size();
 }
 
-void LocationListModel::onSearchFinished(const QString searchPattern, bool error)
+void LocationListModel::onSearchFinished(const QString searchPattern, bool /*error*/)
 {
   if (this->lastRequestPattern!=searchPattern){
     return; // result is not for us
