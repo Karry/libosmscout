@@ -43,6 +43,9 @@
 #include <osmscout/OsmTileDownloader.h>
 #include <osmscout/DBThread.h>
 
+/**
+ * \ingroup QtAPI
+ */
 class OSMSCOUT_CLIENT_QT_API TiledDBThread : public DBThread
 {
   Q_OBJECT
@@ -62,9 +65,6 @@ public slots:
   
   void onOfflineMapChanged(bool);
   virtual void Initialize();
-
-  virtual void onMapDPIChange(double dpi);
-  virtual void onRenderSeaChanged(bool);  
 
 private:
   QString                       tileCacheDirectory;
@@ -111,6 +111,8 @@ public:
   virtual bool RenderMap(QPainter& painter,
                          const RenderMapRequest& request);
   
+  virtual void InvalidateVisualCache();
+
 private:
 
   /**

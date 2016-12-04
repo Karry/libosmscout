@@ -34,9 +34,11 @@
 #include <osmscout/util/Geometry.h>
 #include <osmscout/util/Progress.h>
 
+#include <osmscout/system/Compiler.h>
+
 namespace osmscout {
 
-  class OSMSCOUT_API Way : public PointSequenceContainer
+  class OSMSCOUT_API Way CLASS_FINAL: public PointSequenceContainer
   {
   private:
     FeatureValueBuffer featureValueBuffer; //!< List of features

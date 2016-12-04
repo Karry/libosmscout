@@ -109,6 +109,20 @@ Window {
                                map.height-searchDialog.y-searchDialog.height-3*Theme.vertSpace)
             }
 
+            function setupInitialPosition(){
+                if (map.databaseLoaded){
+                  if (map.isInDatabaseBoundingBox(settings.mapView.lat, settings.mapView.lon)){
+                    map.view = settings.mapView;
+                    console.log("restore last position: " + settings.mapView.lat + " " + settings.mapView.lon);
+                  }else{
+                    console.log("position " + settings.mapView.lat + " " + settings.mapView.lon + " is outside database, recenter");
+                    map.recenter();
+                  }
+                }else{
+                  map.view = settings.mapView;
+                }
+            }
+
             onTap: {
                 console.log("tap: " + sceenX + "x" + screenY + " @ " + lat + " " + lon + " (map center "+ map.view.lat + " " + map.view.lon + ")");
                 map.focus=true;
@@ -122,7 +136,10 @@ Window {
                 settings.mapView = map.view;
             }
             Component.onCompleted: {
-                map.view = settings.mapView;
+                setupInitialPosition();
+            }
+            onDatabaseLoaded: {
+                setupInitialPosition();
             }
 
             Keys.onPressed: {
@@ -172,6 +189,28 @@ Window {
                 else if (event.modifiers===Qt.ControlModifier &&
                          event.key === Qt.Key_R) {
                     map.reloadStyle();
+                }
+                else if (event.modifiers===(Qt.ControlModifier | Qt.ShiftModifier) &&
+                         event.key === Qt.Key_D) {
+                    var debugState = map.toggleDebug();
+
+                    if (debugState) {
+                      console.log("DEBUG is ON");
+                    }
+                    else {
+                      console.log("DEBUG is OFF");
+                    }
+                }
+                else if (event.modifiers===(Qt.ControlModifier | Qt.ShiftModifier) &&
+                         event.key === Qt.Key_I) {
+                    var infoState = map.toggleInfo();
+
+                    if (infoState) {
+                      console.log("INFO is ON");
+                    }
+                    else {
+                      console.log("INFO is OFF");
+                    }
                 }
             }
 
