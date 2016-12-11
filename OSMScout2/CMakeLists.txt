@@ -1,6 +1,9 @@
 if(NOT ${OSMSCOUT_BUILD_MAP_QT})
 	message(SEND_ERROR "The Qt map drawing backend is required for OSMScout2 application")
 endif()
+if(NOT ${OSMSCOUT_BUILD_CLIENT_QT})
+	message(SEND_ERROR "The Qt client lib is required for OSMScout2 application")
+endif()
 if(NOT Qt5Core_FOUND)
 	message(SEND_ERROR "Qt5Core is required for OSMScout2 application")
 endif()
@@ -40,6 +43,7 @@ set(SOURCE_FILES
     qml/AboutDialog.qml
     qml/main.qml
     qml/SearchDialog.qml
+    qml/MapDownloadDialog.qml
     qml/custom/MapDialog.qml
     qml/custom/ScrollIndicator.qml
     qml/custom/LineEdit.qml
