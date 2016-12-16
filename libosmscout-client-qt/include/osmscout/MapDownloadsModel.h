@@ -40,12 +40,15 @@
 class OSMSCOUT_CLIENT_QT_API MapDownloadsModel: public QAbstractListModel
 {
   Q_OBJECT
+signals:
+  void mapDownloadFails(QString message);
+
 public slots:
   void onDownloadJobsChanged();
   void onDownloadProgress();
 
 private:
-  MapManager *mapManager;
+  MapManagerRef mapManager;
 
 public:
   MapDownloadsModel(QObject *parent=Q_NULLPTR);

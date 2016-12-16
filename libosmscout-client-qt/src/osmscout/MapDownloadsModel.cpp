@@ -24,7 +24,8 @@ MapDownloadsModel::MapDownloadsModel(QObject *parent):
   QAbstractListModel(parent){
 
   mapManager=DBThread::GetInstance()->GetMapManager();
-  connect(mapManager, SIGNAL(downloadJobsChanged()), this, SLOT(onDownloadJobsChanged()));
+  connect(mapManager.get(), SIGNAL(downloadJobsChanged()), this, SLOT(onDownloadJobsChanged()));
+  connect(mapManager.get(), SIGNAL(mapDownloadFails(QString)), this, SIGNAL(mapDownloadFails(QString)));
   onDownloadJobsChanged();
 }
 

@@ -177,6 +177,7 @@ public slots:
   void onJobFinished();
   
 signals:
+  void mapDownloadFails(QString message);
   void databaseListChanged(QList<QDir> databaseDirectories);
   void downloadJobsChanged();
 
@@ -197,6 +198,11 @@ public:
     return databaseLookupDirs;
   }
 };
+
+/**
+ * \ingroup QtAPI
+ */
+typedef std::shared_ptr<MapManager> MapManagerRef;
 
 #endif	/* MAPMANAGER_H */
 
