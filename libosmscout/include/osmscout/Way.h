@@ -108,6 +108,24 @@ namespace osmscout {
              (*nodes)[0].GetId()==(*nodes)[nodes->size()-1].GetId();
     }
 
+    /**
+     * Returns true if the bounding box of the object intersects the given
+     * bounding box
+     *
+     * @param boundingBox
+     *    bounding box to test for intersection
+     * @return
+     *    true on intersection, else false
+     */
+    inline bool Intersects(const GeoBox& boundingBox) const
+    {
+      GeoBox objectBoundingBox;
+
+      GetBoundingBox(objectBoundingBox);
+
+      return objectBoundingBox.Intersects(boundingBox);
+    }
+
     bool GetCenter(GeoCoord& center) const;
 
     bool GetNodeIndexByNodeId(Id id,
