@@ -31,7 +31,9 @@
 #include <osmscout/system/Assert.h>
 #include <osmscout/system/Math.h>
 
+#include <osmscout/util/File.h>
 #include <osmscout/util/Geometry.h>
+#include <osmscout/util/Logger.h>
 
 namespace osmscout {
 
@@ -92,11 +94,10 @@ namespace osmscout {
       return true;
     }
 
-    for (std::list<std::string>::const_iterator path=parameter.GetIconPaths().begin();
-         path!=parameter.GetIconPaths().end();
-         ++path) {
+    std::list<std::string> erronousPaths;
 
-      std::string filename= *path + QDir::separator().toLatin1() + style.GetIconName() + ".png";
+    for (const auto& path : parameter.GetIconPaths()) {
+      std::string filename=AppendFileToDir(path,style.GetIconName()+".png");
 
       QImage image;
 
@@ -111,6 +112,14 @@ namespace osmscout {
 
         return true;
       }
+
+      erronousPaths.push_back(filename);
+    }
+
+    log.Warn() << "Cannot find icon '" << style.GetIconName() << "'";
+
+    for (const auto& path : erronousPaths) {
+      log.Warn() <<  "Search path '" << path << "'";
     }
 
     qWarning() << "ERROR while loading image '" << QString::fromStdString(style.GetIconName()) << "'";
@@ -136,10 +145,10 @@ namespace osmscout {
       return true;
     }
 
-    for (std::list<std::string>::const_iterator path=parameter.GetPatternPaths().begin();
-         path!=parameter.GetPatternPaths().end();
-         ++path) {
-      std::string filename = *path + QDir::separator().toLatin1() + style.GetPatternName() + ".png";
+    std::list<std::string> erronousPaths;
+
+    for (const auto& path : parameter.GetPatternPaths()) {
+      std::string filename=AppendFileToDir(path,style.GetPatternName()+".png");
 
       QImage image;
 
@@ -160,6 +169,14 @@ namespace osmscout {
 
         return true;
       }
+
+      erronousPaths.push_back(filename);
+    }
+
+    log.Warn() << "Cannot find pattern '" << style.GetPatternName() << "'";
+
+    for (const auto& path : erronousPaths) {
+      log.Warn() <<  "Search path '" << path << "'";
     }
 
     qWarning() << "ERROR while loading image '" << QString::fromStdString(style.GetPatternName()) << "'";
