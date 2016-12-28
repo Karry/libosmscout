@@ -1170,6 +1170,7 @@ namespace osmscout {
     // Internal use (only available during preprocessing)
     TagId                                       tagArea;
     TagId                                       tagNatural;
+    TagId                                       tagDataPolygon;
     TagId                                       tagType;
     TagId                                       tagRestriction;
     TagId                                       tagJunction;
