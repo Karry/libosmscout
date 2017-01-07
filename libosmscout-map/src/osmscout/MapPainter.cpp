@@ -334,9 +334,13 @@ namespace osmscout {
                                  const std::vector<Point>& nodes,
                                  double pixelOffset) const
   {
-      return IsVisibleArea(projection, TempVectorPointSequence(&nodes), pixelOffset);
+    if (nodes.empty()) {
+      return false;
+    }
+    TempVectorPointSequence tmp(&nodes);
+    return IsVisibleArea(projection, tmp.bbox(), pixelOffset);
   }
-  
+
   bool MapPainter::IsVisibleArea(const Projection& projection,
                                  const PointSequence& nodes,
                                  double pixelOffset) const
@@ -344,9 +348,13 @@ namespace osmscout {
     if (nodes.empty()) {
       return false;
     }
-
-    const GeoBox bbox = nodes.bbox();
-
+    return IsVisibleArea(projection, nodes.bbox(), pixelOffset);
+  }
+  
+  bool MapPainter::IsVisibleArea(const Projection& projection,
+                                 const GeoBox &bbox,
+                                 double pixelOffset) const
+  {
     double x1;
     double x2;
     double y1;
@@ -1685,6 +1693,10 @@ namespace osmscout {
               continue;
             }
 
+            if (type->GetIgnore()) {
+              continue;
+            }
+
             styleConfig.GetAreaFillStyle(type,
                                          ring.GetFeatureValueBuffer(),
                                          projection,
@@ -1696,13 +1708,15 @@ namespace osmscout {
 
             foundRing=true;
 
+            AreaData a;
+
+            ring.GetBoundingBox(a.boundingBox);
+
             if (!IsVisibleArea(projection,
-                               ring.GetNodes(),
+                               a.boundingBox,
                                fillStyle->GetBorderWidth()/2)) {
               continue;
             }
-
-            AreaData a;
 
             // Collect possible clippings. We only take into account inner rings of the next level
             // that do not have a type and thus act as a clipping region. If a inner ring has a type,
@@ -1719,14 +1733,12 @@ namespace osmscout {
               j++;
             }
 
-            a.ref=ObjectFileRef(area->GetFileOffset(),refArea);
+            a.ref=area->GetObjectFileRef();
             a.type=type;
             a.buffer=&ring.GetFeatureValueBuffer();
             a.fillStyle=fillStyle;
             a.transStart=data[i].transStart;
             a.transEnd=data[i].transEnd;
-
-            ring.GetBoundingBox(a.boundingBox);
 
             areaData.push_back(a);
 

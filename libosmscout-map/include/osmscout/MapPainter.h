@@ -416,6 +416,10 @@ namespace osmscout {
                        const PointSequence& nodes,
                        double pixelOffset) const;
 
+    bool IsVisibleArea(const Projection& projection,
+                       const GeoBox& boundingBox,
+                       double pixelOffset) const;
+
     bool IsVisibleWay(const Projection& projection,
                       const std::vector<Point>& nodes,
                       double pixelOffset) const;
