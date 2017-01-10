@@ -97,23 +97,40 @@ namespace osmscout {
       An area has a name and also a number of locations, which are possibly
       within the area but area currently also represented by this area.
       */
-    struct Region
+    class Region
     {
-      FileOffset indexOffset; //!< Offset into the index file
-      FileOffset dataOffset;  //!< Offset into the index file
+    private:
+      std::vector<GeoBox>                  boundingBoxes; //!< bounding box of each area building the region
+      GeoBox                               boundingBox;   //!< Overall bounding box of all areas
 
-      ObjectFileRef reference;   //!< Reference to the object this area is based on
-      std::string   name;        //!< The name of this area
+    public:
+      FileOffset                           indexOffset;   //!< Offset into the index file
+      FileOffset                           dataOffset;    //!< Offset into the index file
 
-      std::list<RegionAlias>               aliases;     //!< Location that are represented by this region
-      std::vector<std::vector<GeoCoord> >  areas;       //!< the geometric area of this region
-      GeoBox                               boundingBox; //!< bounding box of all areas building the region
-      std::list<RegionPOI>                 pois;        //!< A list of POIs in this region
-      std::map<std::string,RegionLocation> locations;   //!< list of indexed objects in this region
+      ObjectFileRef                        reference;     //!< Reference to the object this area is based on
+      std::string                          name;          //!< The name of this area
 
-      std::list<RegionRef> regions;     //!< A list of sub regions
+      std::list<RegionAlias>               aliases;       //!< Location that are represented by this region
+      std::vector<std::vector<GeoCoord> >  areas;         //!< the geometric area of this region
+      std::list<RegionPOI>                 pois;          //!< A list of POIs in this region
+      std::map<std::string,RegionLocation> locations;     //!< list of indexed objects in this region
 
+      std::list<RegionRef>                 regions;       //!< A list of sub regions
+
+    public:
       void CalculateMinMax();
+      bool CouldContain(const GeoBox& boundingBox) const;
+      bool CouldContain(const Region& region) const;
+
+      inline GeoBox GetBoundingBox() const
+      {
+        return boundingBox;
+      }
+
+      inline const std::vector<GeoBox> GetAreaBoundingBoxes() const
+      {
+        return boundingBoxes;
+      }
     };
 
     struct Boundary
