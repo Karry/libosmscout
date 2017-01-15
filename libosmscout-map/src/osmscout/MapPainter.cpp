@@ -720,6 +720,7 @@ namespace osmscout {
 
       LabelData labelData;
 
+      labelData.id=nextLabelId++;
       labelData.x=px;
       labelData.y=py;
       labelData.alpha=0.5;
@@ -756,13 +757,8 @@ namespace osmscout {
                                         transEnd,
                                         wayScanlines);
 
-    double frameHoriz;
-    double frameVert;
-
-    // Get the amount of delta to add to the frame, depending on the actual style
-    GetLabelFrame(*style,
-                  frameHoriz,
-                  frameVert);
+    double frameHoriz=5;
+    double frameVert=5;
 
     double xOff,yOff,width,height;
 
@@ -778,6 +774,7 @@ namespace osmscout {
       double    x=wayScanlines[i].x+0.5;
       double    y=wayScanlines[i].y+0.5;
 
+      labelBox.id=nextLabelId++;
       labelBox.bx1=x-width/2-frameHoriz;
       labelBox.bx2=x+width/2+frameHoriz;
       labelBox.by1=y-height/2-frameVert;
@@ -802,50 +799,32 @@ namespace osmscout {
   /**
    * Register a label with the given parameter.The given coordinates
    * define the center of the label. The resulting label will be
-   * vertically and horizontally alligned to the given coordinate.
+   * vertically and horizontally aligned to the given coordinate.
    */
-  bool MapPainter::RegisterPointLabel(const Projection& projection,
-                                      const MapParameter& parameter,
-                                      const LabelStyleRef& style,
-                                      const std::string& text,
-                                      double fontSize,
-                                      double height,
-                                      double alpha,
+  bool MapPainter::RegisterPointLabel(const Projection& /*projection*/,
+                                      const MapParameter& /*parameter*/,
+                                      const LabelLayoutData& data,
                                       double x,
-                                      double y)
+                                      double y,
+                                      size_t id)
   {
     // Something is an overlay, if its alpha is <0.8
-    bool overlay=alpha<0.8;
-
-    double frameHoriz;
-    double frameVert;
-
-    // Get the amount of delta to add to the frame, depending on the actual style
-    GetLabelFrame(*style,
-                  frameHoriz,
-                  frameVert);
-
-    double xOff,yOff,width;
-
-    GetTextDimension(projection,
-                     parameter,
-                     fontSize,
-                     text,
-                     xOff,yOff,width,height);
+    bool overlay=data.alpha<0.8;
 
     LabelData labelBox;
 
-    labelBox.bx1=x-width/2-frameHoriz;
-    labelBox.bx2=x+width/2+frameHoriz;
-    labelBox.by1=y-height/2-frameVert;
-    labelBox.by2=y+height/2+frameVert;
-    labelBox.priority=style->GetPriority();
-    labelBox.x=x-xOff-width/2;
-    labelBox.y=y-yOff-height/2;
-    labelBox.alpha=alpha;
-    labelBox.fontSize=fontSize;
-    labelBox.style=style;
-    labelBox.text=text;
+    labelBox.id=id;
+    labelBox.bx1=x-data.width/2;
+    labelBox.bx2=x+data.width/2;
+    labelBox.by1=y-data.height/2;
+    labelBox.by2=y+data.height/2;
+    labelBox.priority=data.textStyle->GetPriority();
+    labelBox.x=x-data.xOff-data.width/2;
+    labelBox.y=y-data.yOff-data.height/2;
+    labelBox.alpha=data.alpha;
+    labelBox.fontSize=data.fontSize;
+    labelBox.style=data.textStyle;
+    labelBox.text=data.label;
 
     LabelDataRef label;
 
@@ -886,6 +865,7 @@ namespace osmscout {
                  x,y);
     }*/
 
+    size_t labelId=nextLabelId++;
     double overallTextHeight=0;
     bool   hasSymbol=false;
 
@@ -897,6 +877,9 @@ namespace osmscout {
         LabelLayoutData data;
 
         data.position=iconStyle->GetPosition();
+        data.xOff=0;
+        data.yOff=0;
+        data.width=14;  // TODO
         data.height=14; // TODO
         data.icon=true;
         data.iconStyle=iconStyle;
@@ -909,6 +892,9 @@ namespace osmscout {
         LabelLayoutData data;
 
         data.position=iconStyle->GetPosition();
+        data.xOff=0;
+        data.yOff=0;
+        data.width=projection.ConvertWidthToPixel(iconStyle->GetSymbol()->GetWidth());
         data.height=projection.ConvertWidthToPixel(iconStyle->GetSymbol()->GetHeight());
         data.icon=false;
         data.iconStyle=iconStyle;
@@ -934,10 +920,14 @@ namespace osmscout {
         double factor=projection.GetMagnification().GetLevel()-textStyle->GetScaleAndFadeMag().GetLevel();
         data.fontSize=textStyle->GetSize()*pow(1.5,factor);
 
-        GetFontHeight(projection,
-                      parameter,
-                      data.fontSize,
-                      data.height);
+        GetTextDimension(projection,
+                        parameter,
+                        data.fontSize,
+                        label,
+                        data.xOff,
+                        data.yOff,
+                        data.width,
+                        data.height);
 
         data.alpha=std::min(textStyle->GetAlpha()/factor, 1.0);
       }
@@ -967,10 +957,14 @@ namespace osmscout {
       else {
         data.fontSize=textStyle->GetSize();
 
-        GetFontHeight(projection,
-                      parameter,
-                      data.fontSize,
-                      data.height);
+        GetTextDimension(projection,
+                         parameter,
+                         data.fontSize,
+                         label,
+                         data.xOff,
+                         data.yOff,
+                         data.width,
+                         data.height);
 
         data.alpha=textStyle->GetAlpha();
       }
@@ -998,22 +992,23 @@ namespace osmscout {
     // thus we need to convert it...
     double offset = hasSymbol ? y : y-overallTextHeight/2;
 
+    //std::cout << ">>>" << std::endl;
     for (const auto& data : labelLayoutData) {
       if (data.textStyle) {
+        //std::cout << "# Text '" << data.label << "' " << offset << " " << data.height << " " << projection.ConvertWidthToPixel(parameter.GetLabelSpace()) << std::endl;
         RegisterPointLabel(projection,
                            parameter,
-                           data.textStyle,
-                           data.label,
-                           data.fontSize,
-                           data.height,
-                           data.alpha,
-                           x,offset+data.height/2);
+                           data,
+                           x,offset+data.height/2,
+                           labelId);
       }
       else if (data.icon) {
+        //std::cout << "# Icon " << offset << " " << data.height << " " << projection.ConvertWidthToPixel(parameter.GetLabelSpace()) << std::endl;
         DrawIcon(data.iconStyle.get(),
                  x,offset);
       }
       else {
+        //std::cout << "# Symbol " << offset << " " << data.height << " " << projection.ConvertWidthToPixel(parameter.GetLabelSpace()) << std::endl;
         DrawSymbol(projection,
                    parameter,
                    *data.iconStyle->GetSymbol(),
@@ -1022,6 +1017,7 @@ namespace osmscout {
 
       offset+=data.height;
     }
+    //std::cout << "<<<" << std::endl;
   }
 
   void MapPainter::DrawNodes(const StyleConfig& styleConfig,
@@ -1897,19 +1893,6 @@ namespace osmscout {
     wayData.sort();
   }
 
-  void MapPainter::GetLabelFrame(const LabelStyle& style,
-                                 double& horizontal,
-                                 double& vertical)
-  {
-    horizontal=0;
-    vertical=0;
-
-    if (dynamic_cast<const ShieldStyle*>(&style)!=NULL) {
-      horizontal=5;
-      vertical=5;
-    }
-  }
-
   bool MapPainter::Draw(const Projection& projection,
                         const MapParameter& parameter,
                         const MapData& data)
@@ -1930,6 +1913,7 @@ namespace osmscout {
 
     labelsDrawn=0;
 
+    nextLabelId=0;
     labels.Initialize(projection,
                       parameter);
     overlayLabels.Initialize(projection,
