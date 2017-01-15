@@ -31,6 +31,10 @@
 //#define DEBUG_GROUNDTILES
 //#define DEBUG_NODE_DRAW
 
+#if defined(DEBUG_GROUNDTILES)
+#include <osmscout/Coord.h>
+#endif
+
 namespace osmscout {
 
   /**
@@ -482,7 +486,7 @@ namespace osmscout {
     FillStyleRef      landFill;
 
 #if defined(DEBUG_GROUNDTILES)
-      std::set<Coord> drawnLabels;
+      std::set<GeoCoord> drawnLabels;
 #endif
 
     styleConfig.GetLandFillStyle(projection,
@@ -535,6 +539,10 @@ namespace osmscout {
         tile!=data.groundTiles.end();
         ++tile) {
       AreaData areaData;
+
+      if (tile->type==GroundTile::unknown && !parameter.GetRenderUnknowns()){
+        continue;
+      }
 
       switch (tile->type) {
       case GroundTile::land:
@@ -691,13 +699,12 @@ namespace osmscout {
       DrawArea(projection,parameter,areaData);
 
 #if defined(DEBUG_GROUNDTILES)
-      double ccLon=areaData.minLon+(areaData.maxLon-areaData.minLon)/2;
-      double ccLat=areaData.minLat+(areaData.maxLat-areaData.minLat)/2;
+      GeoCoord cc=areaData.boundingBox.GetCenter();
 
       std::string label;
 
-      size_t x=(ccLon+180)/tile->cellWidth;
-      size_t y=(ccLat+90)/tile->cellHeight;
+      size_t x=(cc.GetLon()+180)/tile->cellWidth;
+      size_t y=(cc.GetLat()+90)/tile->cellHeight;
 
       label=NumberToString(tile->xRel);
       label+=",";
@@ -709,12 +716,11 @@ namespace osmscout {
       double px;
       double py;
 
-      projection.GeoToPixel(lon,
-                            lat,
+      projection.GeoToPixel(GeoCoord(lat,lon),
                             px,py);
 
 
-      if (drawnLabels.find(Coord(x,y))!=drawnLabels.end()) {
+      if (drawnLabels.find(GeoCoord(x,y))!=drawnLabels.end()) {
         continue;
       }
 
@@ -728,9 +734,10 @@ namespace osmscout {
       labelData.style=debugLabel;
       labelData.text=label;
 
-      labels.push_back(labelData);
+      LabelDataRef ref;
+      labels.Placelabel(labelData, ref);
 
-      drawnLabels.insert(Coord(x,y));
+      drawnLabels.insert(GeoCoord(x,y));
 #endif
     }
   }
