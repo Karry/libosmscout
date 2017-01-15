@@ -65,7 +65,19 @@ namespace osmscout {
         return y<other.y;
       }
 
-      return x<other.x;
+      if (x!=other.x) {
+        return x<other.x;
+      }
+
+      if (label->id!=other.label->id){
+        return label->id<other.label->id;
+      }
+
+      if (label->y!=other.label->y){
+        return label->y<other.label->y;
+      }
+
+      return label->x<other.label->x;
     }
   };
 
@@ -84,6 +96,7 @@ namespace osmscout {
     double               sameLabelSpace;
     double               maxSpace;
     bool                 dropNotVisiblePointLabels;
+    size_t               labelsAdded;
 
   private:
     void DeleteEventsForLabel(const std::set<LabelEvent>::iterator& eventRef);
@@ -112,6 +125,11 @@ namespace osmscout {
     inline size_t Size() const
     {
       return labels.size();
+    }
+
+    inline size_t GetLabelsAdded() const
+    {
+      return labelsAdded;
     }
   };
 }

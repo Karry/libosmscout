@@ -50,9 +50,11 @@ namespace osmscout {
 
     searchEventTop.y=eventRef->label->by1;
     searchEventTop.x=eventRef->label->bx1;
+    searchEventTop.label=eventRef->label;
 
     searchEventBottom.y=eventRef->label->by2;
     searchEventBottom.x=eventRef->label->bx1;
+    searchEventBottom.label=eventRef->label;
 
     std::set<LabelEvent>::iterator event;
 
@@ -178,11 +180,15 @@ namespace osmscout {
     maxSpace=std::max(maxSpace,sameLabelSpace);
 
     dropNotVisiblePointLabels=parameter.GetDropNotVisiblePointLabels();
+
+    labelsAdded=0;
   }
 
   bool LabelLayouter::Placelabel(const LabelData& label,
                                  LabelDataRef& labelRef)
   {
+    labelsAdded++;
+
     LabelEvent searchEvent;
 
     if (dropNotVisiblePointLabels) {
