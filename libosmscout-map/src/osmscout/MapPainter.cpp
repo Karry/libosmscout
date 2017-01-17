@@ -771,6 +771,7 @@ namespace osmscout {
 
     GetTextDimension(projection,
                      parameter,
+                     /*objectWidth*/ -1,
                      style->GetSize(),
                      text,
                      xOff,yOff,width,height);
@@ -858,6 +859,7 @@ namespace osmscout {
                                      const std::vector<TextStyleRef>& textStyles,
                                      double x,
                                      double y,
+                                     double objectWidth,
                                      double objectHeight)
   {
     labelLayoutData.clear();
@@ -928,13 +930,14 @@ namespace osmscout {
         data.fontSize=textStyle->GetSize()*pow(1.5,factor);
 
         GetTextDimension(projection,
-                        parameter,
-                        data.fontSize,
-                        label,
-                        data.xOff,
-                        data.yOff,
-                        data.width,
-                        data.height);
+                         parameter,
+                         objectWidth,
+                         data.fontSize,
+                         label,
+                         data.xOff,
+                         data.yOff,
+                         data.width,
+                         data.height);
 
         data.alpha=std::min(textStyle->GetAlpha()/factor, 1.0);
       }
@@ -962,6 +965,7 @@ namespace osmscout {
 
         GetTextDimension(projection,
                          parameter,
+                         objectWidth,
                          data.fontSize,
                          label,
                          data.xOff,
@@ -974,6 +978,7 @@ namespace osmscout {
 
         GetTextDimension(projection,
                          parameter,
+                         objectWidth,
                          data.fontSize,
                          label,
                          data.xOff,
@@ -1033,6 +1038,25 @@ namespace osmscout {
       offset+=data.height;
     }
     //std::cout << "<<<" << std::endl;
+  }
+
+  double MapPainter::proposedLabelWidth(const MapParameter& parameter,
+                                        double averageCharWidth,
+                                        double objectWidth,
+                                        size_t stringLength)
+  {
+    double proposedWidth;
+    // If there is just a few characters (less than LabelLineMinCharCount)
+    // we should not wrap the words at all.
+    if (stringLength>parameter.GetLabelLineMinCharCount()){
+      proposedWidth=objectWidth>0 && parameter.GetLabelLineFitToArea() ?
+        std::min(objectWidth,parameter.GetLabelLineFitToWidth()) : parameter.GetLabelLineFitToWidth();
+      proposedWidth=std::min(proposedWidth,(double)parameter.GetLabelLineMaxCharCount()*averageCharWidth);
+      proposedWidth=std::max(proposedWidth,(double)parameter.GetLabelLineMinCharCount()*averageCharWidth);
+    }else{
+      proposedWidth=parameter.GetLabelLineMaxCharCount()*averageCharWidth;
+    }
+    return proposedWidth;
   }
 
   void MapPainter::DrawNodes(const StyleConfig& styleConfig,
@@ -1128,6 +1152,7 @@ namespace osmscout {
                       textStyles,
                       (minX+maxX)/2,
                       (minY+maxY)/2,
+                      maxX-minX,
                       maxY-minY);
   }
 
@@ -1278,7 +1303,7 @@ namespace osmscout {
                       node->GetFeatureValueBuffer(),
                       iconStyle,
                       textStyles,
-                      x,y,0);
+                      x,y);
 
     nodesDrawn++;
   }

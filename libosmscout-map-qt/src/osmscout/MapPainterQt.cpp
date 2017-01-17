@@ -202,6 +202,7 @@ namespace osmscout {
 
   void MapPainterQt::GetTextDimension(const Projection& projection,
                                       const MapParameter& parameter,
+                                      double objectWidth,
                                       double fontSize,
                                       const std::string& text,
                                       double& xOff,
@@ -215,8 +216,13 @@ namespace osmscout {
     QFontMetrics fontMetrics=QFontMetrics(font);
     QString      string=QString::fromUtf8(text.c_str());
     QTextLayout  textLayout(string,font);
-    qreal        proposedWidth=parameter.GetLabelLineCharCount()*fontMetrics.averageCharWidth();
     qreal        leading=fontMetrics.leading() ;
+
+    qreal        proposedWidth=proposedLabelWidth(parameter,
+                                                  fontMetrics.averageCharWidth(),
+                                                  objectWidth,
+                                                  string.length()
+                                                  );
 
     width=0;
     height=0;
@@ -241,14 +247,13 @@ namespace osmscout {
     yOff=boundingBox.y();
   }
 
-  void LayoutTextLayout(const MapParameter& parameter,
-                        const QFontMetrics& fontMetrics,
+  void LayoutTextLayout(const QFontMetrics& fontMetrics,
+                        qreal proposedWidth,
                         QTextLayout& layout,
                         QRectF& boundingBox)
   {
     qreal width=0;
     qreal height=0;
-    qreal proposedWidth=parameter.GetLabelLineCharCount()*fontMetrics.averageCharWidth();
     qreal leading=fontMetrics.leading();
 
     // Calculate and layout all lines initial left aligned
@@ -291,6 +296,7 @@ namespace osmscout {
     QString      string=QString::fromUtf8(label.text.c_str());
     QFontMetrics fontMetrics=QFontMetrics(font);
     QTextLayout  textLayout(string,font);
+    qreal        proposedWidth=std::floor(label.bx2-label.bx1)+1; // try to make word wrapping more stable
 
     textLayout.setCacheEnabled(true);
 
@@ -313,8 +319,8 @@ namespace osmscout {
 
         textLayout.setAdditionalFormats(formatList);
 
-        LayoutTextLayout(parameter,
-                         fontMetrics,
+        LayoutTextLayout(fontMetrics,
+                         proposedWidth,
                          textLayout,
                          boundingBox);
 
@@ -337,8 +343,8 @@ namespace osmscout {
 
         textLayout.setAdditionalFormats(formatList);
 
-        LayoutTextLayout(parameter,
-                         fontMetrics,
+        LayoutTextLayout(fontMetrics,
+                         proposedWidth,
                          textLayout,
                          boundingBox);
 
@@ -355,8 +361,8 @@ namespace osmscout {
 
         textLayout.setAdditionalFormats(formatList);
 
-        LayoutTextLayout(parameter,
-                         fontMetrics,
+        LayoutTextLayout(fontMetrics,
+                         proposedWidth,
                          textLayout,
                          boundingBox);
 
@@ -407,8 +413,8 @@ namespace osmscout {
 
       textLayout.setAdditionalFormats(formatList);
 
-      LayoutTextLayout(parameter,
-                       fontMetrics,
+      LayoutTextLayout(fontMetrics,
+                       proposedWidth,
                        textLayout,
                        boundingBox);
 
