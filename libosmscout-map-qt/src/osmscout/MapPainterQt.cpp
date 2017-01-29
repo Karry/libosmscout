@@ -948,11 +948,7 @@ namespace osmscout {
     path.closeSubpath();
 
     if (!area.clippings.empty()) {
-      for (std::list<PolyData>::const_iterator c=area.clippings.begin();
-          c!=area.clippings.end();
-          c++) {
-        const PolyData& data=*c;
-
+      for (const auto& data : area.clippings) {
         path.moveTo(coordBuffer->buffer[data.transStart].GetX(),
                     coordBuffer->buffer[data.transStart].GetY());
 
@@ -968,6 +964,7 @@ namespace osmscout {
     SetFill(projection,
             parameter,
             *area.fillStyle);
+
     bool restoreTransform = false;
     size_t idx = -1;
     if (area.fillStyle->HasPattern()) {
