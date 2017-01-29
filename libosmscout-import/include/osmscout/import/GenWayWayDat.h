@@ -34,22 +34,20 @@
 #include <osmscout/import/Import.h>
 #include <osmscout/import/RawWay.h>
 
+#include <osmscout/system/Compiler.h>
+
 namespace osmscout {
 
-  class WayWayDataGenerator : public ImportModule
+  class WayWayDataGenerator CLASS_FINAL : public ImportModule
   {
   public:
     static const char* WAYWAY_TMP;
     static const char* TURNRESTR_DAT;
 
   private:
-    struct Distribution
+    struct RestrictionData
     {
-      uint32_t nodeCount;
-      uint32_t wayCount;
-      uint32_t areaCount;
-
-      Distribution();
+      std::multimap<OSMId,TurnRestrictionRef> restrictions;
     };
 
     typedef std::list<RawWayRef>                     WayList;
@@ -59,16 +57,11 @@ namespace osmscout {
 
     bool ReadTurnRestrictions(const ImportParameter& parameter,
                               Progress& progress,
-                              std::multimap<OSMId,TurnRestrictionRef>& restrictions);
+                              RestrictionData& restrictions);
 
     bool WriteTurnRestrictions(const ImportParameter& parameter,
                                Progress& progress,
-                               std::multimap<OSMId,TurnRestrictionRef>& restrictions);
-
-    bool ReadTypeDistribution(const TypeConfigRef& typeConfig,
-                              const ImportParameter& parameter,
-                              Progress& progress,
-                              std::vector<Distribution>& typeDistribution) const;
+                               const RestrictionData& restrictions);
 
     bool GetWays(const ImportParameter& parameter,
                  Progress& progress,
@@ -77,17 +70,17 @@ namespace osmscout {
                  FileScanner& scanner,
                  std::vector<std::list<RawWayRef> >& ways);
 
-    void UpdateRestrictions(std::multimap<OSMId,TurnRestrictionRef>& restrictions,
+    void UpdateRestrictions(RestrictionData& restrictions,
                             OSMId oldId,
                             OSMId newId);
 
-    bool IsRestricted(const std::multimap<OSMId,TurnRestrictionRef>& restrictions,
+    bool IsRestricted(const RestrictionData& restrictions,
                       OSMId wayId,
                       OSMId nodeId) const;
 
     bool MergeWays(Progress& progress,
                    std::list<RawWayRef>& ways,
-                   std::multimap<OSMId,TurnRestrictionRef>& restrictions);
+                   RestrictionData& restrictions);
 
     bool SplitLongWays(Progress& progress,
                        std::list<RawWayRef>& ways,

@@ -56,6 +56,57 @@ namespace osmscout {
 
   static const size_t REGION_INDEX_LEVEL=14;
 
+  const char* const LocationIndexGenerator::FILENAME_LOCATION_REGION_TXT = "location_region.txt";
+  const char* const LocationIndexGenerator::FILENAME_LOCATION_FULL_TXT = "location_full.txt";
+
+  void LocationIndexGenerator::Region::CalculateMinMax()
+  {
+    bool isStart=true;
+
+    boundingBoxes.reserve(areas.size());
+
+    for (const auto& area : areas) {
+      GeoBox boundingBox;
+
+      osmscout::GetBoundingBox(area,
+                               boundingBox);
+
+      boundingBoxes.push_back(boundingBox);
+
+      if (isStart) {
+        this->boundingBox=boundingBox;
+        isStart=false;
+      }
+      else {
+        this->boundingBox.Include(boundingBox);
+      }
+    }
+  }
+
+  bool LocationIndexGenerator::Region::CouldContain(const GeoBox& boundingBox) const
+  {
+    for (const auto& bb : boundingBoxes) {
+      if (bb.Intersects(boundingBox)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  bool LocationIndexGenerator::Region::CouldContain(const Region& region) const
+  {
+    for (const auto& bb : boundingBoxes) {
+      for (const auto& rbb : region.boundingBoxes) {
+        if (bb.Intersects(rbb)) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
   LocationIndexGenerator::RegionRef LocationIndexGenerator::RegionIndex::GetRegionForNode(RegionRef& rootRegion,
                                                                                           const GeoCoord& coord) const
   {
@@ -281,7 +332,17 @@ namespace osmscout {
       for (size_t i=0; i<indent; i++) {
         out << " ";
       }
-      out << " + " << childRegion->name << " " << childRegion->reference.GetTypeName() << " " << childRegion->reference.GetFileOffset() << std::endl;
+      out << " + " << childRegion->name << " " << childRegion->reference.GetTypeName() << " " << childRegion->reference.GetFileOffset();
+
+      if (!childRegion->isIn.empty()) {
+        out << " (in " << childRegion->isIn << ")";
+      }
+
+      if (childRegion->areas.size()>1) {
+        out << " " << childRegion->areas.size() << " areas";
+      }
+
+      out << std::endl;
 
       for (const auto& alias : childRegion->aliases) {
         for (size_t i=0; i<indent+2; i++) {
@@ -302,6 +363,7 @@ namespace osmscout {
   {
     std::ofstream debugStream;
 
+    debugStream.imbue(std::locale::classic());
     debugStream.open(filename.c_str(),
                      std::ios::out|std::ios::trunc);
 
@@ -327,7 +389,13 @@ namespace osmscout {
       for (size_t i=0; i<indent; i++) {
         out << " ";
       }
-      out << " + " << childRegion->name << " " << childRegion->reference.GetTypeName() << " " << childRegion->reference.GetFileOffset() << std::endl;
+      out << " + " << childRegion->name << " " << childRegion->reference.GetTypeName() << " " << childRegion->reference.GetFileOffset();
+
+      if (childRegion->areas.size()>1) {
+        out << " " << childRegion->areas.size() << " areas";
+      }
+
+      out << std::endl;
 
       for (const auto& alias : childRegion->aliases) {
         for (size_t i=0; i<indent+2; i++) {
@@ -380,6 +448,7 @@ namespace osmscout {
   {
     std::ofstream debugStream;
 
+    debugStream.imbue(std::locale::classic());
     debugStream.open(filename.c_str(),
                      std::ios::out|std::ios::trunc);
 
@@ -401,13 +470,10 @@ namespace osmscout {
                                          const RegionRef& region)
   {
     for (const auto& childRegion : parent.regions) {
-      if (!(region->maxlon<childRegion->minlon) &&
-          !(region->minlon>childRegion->maxlon) &&
-          !(region->maxlat<childRegion->minlat) &&
-          !(region->minlat>childRegion->maxlat)) {
-        for (size_t i=0; i<region->areas.size(); i++) {
-          for (size_t j=0; j<childRegion->areas.size(); j++) {
-            if (IsAreaSubOfAreaQuorum(region->areas[i],childRegion->areas[j])) {
+      if (region->CouldContain(*childRegion)) {
+        for (const auto& regionArea : region->areas) {
+          for (const auto& childRegionArea : childRegion->areas) {
+            if (IsAreaSubOfAreaOrSame(regionArea,childRegionArea)) {
               // If we already have the same name and are a "minor" reference, we skip...
               if (!(region->name==childRegion->name &&
                     region->reference.type<childRegion->reference.type)) {
@@ -421,6 +487,11 @@ namespace osmscout {
       }
     }
 
+    if (!region->isIn.empty() &&
+      parent.name!=region->isIn) {
+      errorReporter->ReportLocation(region->reference,"'" + region->name + "' parent should be '"+region->isIn+"' but is '"+parent.name+"'");
+    }
+
     parent.regions.push_back(region);
   }
 
@@ -431,14 +502,15 @@ namespace osmscout {
                                                 Progress& progress,
                                                 const TypeConfigRef& typeConfig,
                                                 const TypeInfoSet& boundaryTypes,
-                                                std::list<Boundary>& boundaryAreas)
+                                                std::vector<std::list<RegionRef>>& boundaryAreas)
   {
     FileScanner                  scanner;
-    uint32_t                     areaCount;
     NameFeatureValueReader       nameReader(*typeConfig);
     AdminLevelFeatureValueReader adminLevelReader(*typeConfig);
 
     try {
+      uint32_t areaCount;
+
       scanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                    AreaDataFile::AREAS_DAT),
                    FileScanner::Sequential,
@@ -467,30 +539,40 @@ namespace osmscout {
 
         AdminLevelFeatureValue *adminLevelValue=adminLevelReader.GetValue(area.rings.front().GetFeatureValueBuffer());
 
-        if (adminLevelValue!=NULL) {
-          Boundary boundary;
-
-          boundary.reference.Set(area.GetFileOffset(),refArea);
-          boundary.name=nameValue->GetName();
-          boundary.level=adminLevelValue->GetAdminLevel();
-
-          for (const auto& ring : area.rings) {
-            if (ring.IsOuterRing()) {
-              std::vector<GeoCoord> coords;
-
-              for (const auto& node : ring.nodes) {
-                coords.push_back(node.GetCoord());
-              }
-
-              boundary.areas.push_back(coords);
-            }
-          }
-
-          boundaryAreas.push_back(boundary);
-        }
-        else {
+        if (adminLevelValue==NULL) {
           errorReporter->ReportLocation(ObjectFileRef(area.GetFileOffset(),refArea),"No tag 'admin_level'");
+          continue;
         }
+
+        RegionRef region=std::make_shared<Region>();
+        size_t   level=adminLevelValue->GetAdminLevel();
+
+        region->reference=area.GetObjectFileRef();
+        region->name=nameValue->GetName();
+
+        if (!adminLevelValue->GetIsIn().empty()) {
+          region->isIn=GetFirstInStringList(adminLevelValue->GetIsIn(),",;");
+        }
+
+        for (const auto& ring : area.rings) {
+          if (ring.IsOuterRing()) {
+            std::vector<GeoCoord> coords;
+
+            for (const auto& node : ring.nodes) {
+              coords.push_back(node.GetCoord());
+            }
+
+            region->areas.push_back(coords);
+          }
+        }
+
+        region->CalculateMinMax();
+
+        if (level>=boundaryAreas.size()) {
+          boundaryAreas.resize(level+1);
+        }
+
+        boundaryAreas[level].push_back(region);
       }
 
       scanner.Close();
@@ -505,29 +587,16 @@ namespace osmscout {
 
   void LocationIndexGenerator::SortInBoundaries(Progress& progress,
                                                 Region& rootRegion,
-                                                const std::list<Boundary>& boundaryAreas,
-                                                size_t level)
+                                                const std::list<RegionRef>& boundaryAreas)
   {
     size_t currentBoundary=0;
     size_t maxBoundary=boundaryAreas.size();
 
-    for (const auto&  boundary : boundaryAreas) {
+    for (const auto&  region : boundaryAreas) {
       currentBoundary++;
 
       progress.SetProgress(currentBoundary,
                            maxBoundary);
-
-      if (boundary.level!=level) {
-        continue;
-      }
-
-      RegionRef region(new Region());
-
-      region->reference=boundary.reference;
-      region->name=boundary.name;
-      region->areas=boundary.areas;
-
-      region->CalculateMinMax();
 
       AddRegion(rootRegion,
                 region);
@@ -546,6 +615,7 @@ namespace osmscout {
     uint32_t               areaCount;
     size_t                 areasFound=0;
     NameFeatureValueReader nameReader(typeConfig);
+    IsInFeatureValueReader isInReader(typeConfig);
 
     try {
       scanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
@@ -574,11 +644,16 @@ namespace osmscout {
           continue;
         }
 
-
         RegionRef region=std::make_shared<Region>();
 
         region->reference.Set(area.GetFileOffset(),refArea);
         region->name=nameValue->GetName();
+
+        IsInFeatureValue *isInValue=isInReader.GetValue(area.rings.front().GetFeatureValueBuffer());
+
+        if (isInValue!=NULL) {
+          region->isIn=GetFirstInStringList(isInValue->GetIsIn(),",;");
+        }
 
         for (const auto& ring : area.rings) {
           if (ring.IsOuterRing()) {
@@ -642,19 +717,27 @@ namespace osmscout {
   {
     for (size_t level=regionTree.size()-1; level>=1; level--) {
       for (const auto& region : regionTree[level]) {
-        uint32_t cellMinX=(uint32_t)((region->minlon+180.0)/regionIndex.cellWidth);
-        uint32_t cellMaxX=(uint32_t)((region->maxlon+180.0)/regionIndex.cellWidth);
-        uint32_t cellMinY=(uint32_t)((region->minlat+90.0)/regionIndex.cellHeight);
-        uint32_t cellMaxY=(uint32_t)((region->maxlat+90.0)/regionIndex.cellHeight);
+        for (const auto& boundingBox : region->GetAreaBoundingBoxes()) {
+          uint32_t cellMinX=(uint32_t)((boundingBox.GetMinLon()+180.0)/regionIndex.cellWidth);
+          uint32_t cellMaxX=(uint32_t)((boundingBox.GetMaxLon()+180.0)/regionIndex.cellWidth);
+          uint32_t cellMinY=(uint32_t)((boundingBox.GetMinLat()+90.0)/regionIndex.cellHeight);
+          uint32_t cellMaxY=(uint32_t)((boundingBox.GetMaxLat()+90.0)/regionIndex.cellHeight);
 
-        for (uint32_t y=cellMinY; y<=cellMaxY; y++) {
-          for (uint32_t x=cellMinX; x<=cellMaxX; x++) {
-            Pixel pixel(x,y);
+          for (uint32_t y=cellMinY; y<=cellMaxY; y++) {
+            for (uint32_t x=cellMinX; x<=cellMaxX; x++) {
+              Pixel pixel(x,y);
 
-            regionIndex.index[pixel].push_back(region);
+              regionIndex.index[pixel].push_back(region);
+            }
           }
         }
       }
+    }
+
+    for (auto& regionList : regionIndex.index) {
+      regionList.second.sort([](const RegionRef& a, const RegionRef& b) {
+        return a->GetBoundingBox().GetSize()<b->GetBoundingBox().GetSize();
+      });
     }
   }
 
@@ -750,23 +833,17 @@ namespace osmscout {
                                                        const Area& area,
                                                        const std::vector<Point>& nodes,
                                                        const std::string& name,
-                                                       double minlon,
-                                                       double minlat,
-                                                       double maxlon,
-                                                       double maxlat)
+                                                       const GeoBox& boundingBox)
   {
     for (const auto& childRegion : region.regions) {
       // Fast check, if the object is in the bounds of the area
-      if (!(maxlon<childRegion->minlon) &&
-          !(minlon>childRegion->maxlon) &&
-          !(maxlat<childRegion->minlat) &&
-          !(minlat>childRegion->maxlat)) {
+      if (childRegion->CouldContain(boundingBox)) {
         for (size_t i=0; i<childRegion->areas.size(); i++) {
           // Check if one point is in the area
           bool match=IsCoordInArea(nodes[0],childRegion->areas[i]);
 
           if (match) {
-            bool completeMatch=AddLocationAreaToRegion(*childRegion,area,nodes,name,minlon,minlat,maxlon,maxlat);
+            bool completeMatch=AddLocationAreaToRegion(*childRegion,area,nodes,name,boundingBox);
 
             if (completeMatch) {
               // We are done, the object is completely enclosed by one of our sub areas
@@ -812,16 +889,13 @@ namespace osmscout {
           r.GetBoundingBox(boundingBox);
 
           RegionRef region=regionIndex.GetRegionForNode(rootRegion,
-                                                        boundingBox.GetMinCoord());
+                                                        boundingBox.GetCenter());
 
           AddLocationAreaToRegion(*region,
                                   area,
                                   r.nodes,
                                   name,
-                                  boundingBox.GetMinLon(),
-                                  boundingBox.GetMinLat(),
-                                  boundingBox.GetMaxLon(),
-                                  boundingBox.GetMaxLat());
+                                  boundingBox);
         }
       }
     }
@@ -831,16 +905,13 @@ namespace osmscout {
       ring.GetBoundingBox(boundingBox);
 
       RegionRef region=regionIndex.GetRegionForNode(rootRegion,
-                                                    boundingBox.GetMinCoord());
+                                                    boundingBox.GetCenter());
 
       AddLocationAreaToRegion(*region,
                               area,
                               ring.nodes,
                               name,
-                              boundingBox.GetMinLon(),
-                              boundingBox.GetMinLat(),
-                              boundingBox.GetMaxLon(),
-                              boundingBox.GetMaxLat());
+                              boundingBox);
     }
   }
 
@@ -910,23 +981,17 @@ namespace osmscout {
   bool LocationIndexGenerator::AddLocationWayToRegion(Region& region,
                                                       const Way& way,
                                                       const std::string& name,
-                                                      double minlon,
-                                                      double minlat,
-                                                      double maxlon,
-                                                      double maxlat)
+                                                      const GeoBox& boundingBox)
   {
     for (const auto& childRegion : region.regions) {
       // Fast check, if the object is in the bounds of the area
-      if (!(maxlon<childRegion->minlon) &&
-          !(minlon>childRegion->maxlon) &&
-          !(maxlat<childRegion->minlat) &&
-          !(minlat>childRegion->maxlat)) {
+      if (childRegion->CouldContain(boundingBox)) {
         // Check if one point is in the area
         for (size_t i=0; i<childRegion->areas.size(); i++) {
           bool match=IsAreaAtLeastPartlyInArea(way.nodes,childRegion->areas[i]);
 
           if (match) {
-            bool completeMatch=AddLocationWayToRegion(*childRegion,way,name,minlon,minlat,maxlon,maxlat);
+            bool completeMatch=AddLocationWayToRegion(*childRegion,way,name,boundingBox);
 
             if (completeMatch) {
               // We are done, the object is completely enclosed by one of our sub areas
@@ -992,15 +1057,12 @@ namespace osmscout {
         way.GetBoundingBox(boundingBox);
 
         RegionRef region=regionIndex.GetRegionForNode(rootRegion,
-                                                      boundingBox.GetMinCoord());
+                                                      boundingBox.GetCenter());
 
         AddLocationWayToRegion(*region,
                                way,
                                nameValue->GetName(),
-                               boundingBox.GetMinLon(),
-                               boundingBox.GetMinLat(),
-                               boundingBox.GetMaxLon(),
-                               boundingBox.GetMaxLat());
+                               boundingBox);
 
         waysFound++;
       }
@@ -1023,27 +1085,21 @@ namespace osmscout {
                                                       const std::string& location,
                                                       const std::string& address,
                                                       const std::vector<Point>& nodes,
-                                                      double minlon,
-                                                      double minlat,
-                                                      double maxlon,
-                                                      double maxlat,
+                                                      const GeoBox& boundingBox,
                                                       bool& added)
   {
     for (const auto& childRegion : region.regions) {
       // Fast check, if the object is in the bounds of the area
-      if (!(maxlon<childRegion->minlon) &&
-          !(minlon>childRegion->maxlon) &&
-          !(maxlat<childRegion->minlat) &&
-          !(minlat>childRegion->maxlat)) {
-        for (size_t i=0; i<childRegion->areas.size(); i++) {
-          if (IsAreaCompletelyInArea(nodes,childRegion->areas[i])) {
+      if (childRegion->CouldContain(boundingBox)) {
+        for (const auto& area : childRegion->areas) {
+          if (IsAreaCompletelyInArea(nodes,area)) {
             AddAddressAreaToRegion(progress,
                                    *childRegion,
                                    fileOffset,
                                    location,
                                    address,
                                    nodes,
-                                   minlon,minlat,maxlon,maxlat,
+                                   boundingBox,
                                    added);
             return;
           }
@@ -1051,14 +1107,14 @@ namespace osmscout {
       }
     }
 
-    std::map<std::string,RegionLocation>::iterator loc=FindLocation(progress,region.locations,location);
+    std::map<std::string,RegionLocation>::iterator loc=FindLocation(progress,region,location);
 
     if (loc==region.locations.end()) {
       errorReporter->ReportLocationDebug(ObjectFileRef(fileOffset,refArea),
                                          std::string("Street of address '")+location +"' '"+address+"' cannot be resolved in region '"+region.name+"'");
       return;
     }
-    
+
     for (const auto& regionAddress : loc->second.addresses) {
       if (regionAddress.name==address) {
         return;
@@ -1080,18 +1136,12 @@ namespace osmscout {
                                                   const FileOffset& fileOffset,
                                                   const std::string& name,
                                                   const std::vector<Point>& nodes,
-                                                  double minlon,
-                                                  double minlat,
-                                                  double maxlon,
-                                                  double maxlat,
+                                                  const GeoBox& boundingBox,
                                                   bool& added)
   {
     for (const auto& childRegion : region.regions) {
       // Fast check, if the object is in the bounds of the area
-      if (!(maxlon<childRegion->minlon) &&
-          !(minlon>childRegion->maxlon) &&
-          !(maxlat<childRegion->minlat) &&
-          !(minlat>childRegion->maxlat)) {
+      if (childRegion->CouldContain(boundingBox)) {
         for (size_t i=0; i<childRegion->areas.size(); i++) {
           if (IsAreaCompletelyInArea(nodes,childRegion->areas[i])) {
             AddPOIAreaToRegion(progress,
@@ -1099,7 +1149,7 @@ namespace osmscout {
                                fileOffset,
                                name,
                                nodes,
-                               minlon,minlat,maxlon,maxlat,
+                               boundingBox,
                                added);
             return;
           }
@@ -1168,19 +1218,13 @@ namespace osmscout {
           continue;
         }
 
-        double minlon;
-        double maxlon;
-        double minlat;
-        double maxlat;
+        GeoBox boundingBox;
 
         GetBoundingBox(nodes,
-                       minlon,
-                       maxlon,
-                       minlat,
-                       maxlat);
+                       boundingBox);
 
         RegionRef region=regionIndex.GetRegionForNode(rootRegion,
-                                                      GeoCoord(minlat,minlon));
+                                                      boundingBox.GetCenter());
 
         if (isAddress) {
           bool added=false;
@@ -1191,10 +1235,7 @@ namespace osmscout {
                                  location,
                                  address,
                                  nodes,
-                                 minlon,
-                                 minlat,
-                                 maxlon,
-                                 maxlat,
+                                 boundingBox,
                                  added);
 
           if (added) {
@@ -1210,10 +1251,7 @@ namespace osmscout {
                              fileOffset,
                              name,
                              nodes,
-                             minlon,
-                             minlat,
-                             maxlon,
-                             maxlat,
+                             boundingBox,
                              added);
 
           if (added) {
@@ -1240,18 +1278,12 @@ namespace osmscout {
                                                      const std::string& location,
                                                      const std::string& address,
                                                      const std::vector<Point>& nodes,
-                                                     double minlon,
-                                                     double minlat,
-                                                     double maxlon,
-                                                     double maxlat,
+                                                     const GeoBox& boundingBox,
                                                      bool& added)
   {
     for (const auto& childRegion : region.regions) {
       // Fast check, if the object is in the bounds of the area
-      if (!(maxlon<childRegion->minlon) &&
-          !(minlon>childRegion->maxlon) &&
-          !(maxlat<childRegion->minlat) &&
-          !(minlat>childRegion->maxlat)) {
+      if (childRegion->CouldContain(boundingBox)) {
         // Check if one point is in the area
         for (size_t i=0; i<childRegion->areas.size(); i++) {
           bool match=IsAreaAtLeastPartlyInArea(nodes,childRegion->areas[i]);
@@ -1263,10 +1295,7 @@ namespace osmscout {
                                                      location,
                                                      address,
                                                      nodes,
-                                                     minlon,
-                                                     minlat,
-                                                     maxlon,
-                                                     maxlat,
+                                                     boundingBox,
                                                      added);
 
             if (completeMatch) {
@@ -1278,7 +1307,7 @@ namespace osmscout {
       }
     }
 
-    std::map<std::string,RegionLocation>::iterator loc=FindLocation(progress,region.locations,location);
+    std::map<std::string,RegionLocation>::iterator loc=FindLocation(progress,region,location);
 
     if (loc==region.locations.end()) {
       errorReporter->ReportLocationDebug(ObjectFileRef(fileOffset,refWay),
@@ -1315,18 +1344,12 @@ namespace osmscout {
                                                  const FileOffset& fileOffset,
                                                  const std::string& name,
                                                  const std::vector<Point>& nodes,
-                                                 double minlon,
-                                                 double minlat,
-                                                 double maxlon,
-                                                 double maxlat,
+                                                 const GeoBox& boundingBox,
                                                  bool& added)
   {
     for (const auto& childRegion : region.regions) {
       // Fast check, if the object is in the bounds of the area
-      if (!(maxlon<childRegion->minlon) &&
-          !(minlon>childRegion->maxlon) &&
-          !(maxlat<childRegion->minlat) &&
-          !(minlat>childRegion->maxlat)) {
+      if (childRegion->CouldContain(boundingBox)) {
         // Check if one point is in the area
         for (size_t i=0; i<childRegion->areas.size(); i++) {
           bool match=IsAreaAtLeastPartlyInArea(nodes,childRegion->areas[i]);
@@ -1337,10 +1360,7 @@ namespace osmscout {
                                                  fileOffset,
                                                  name,
                                                  nodes,
-                                                 minlon,
-                                                 minlat,
-                                                 maxlon,
-                                                 maxlat,
+                                                 boundingBox,
                                                  added);
 
             if (completeMatch) {
@@ -1416,19 +1436,13 @@ namespace osmscout {
           continue;
         }
 
-        double minlon;
-        double maxlon;
-        double minlat;
-        double maxlat;
+        GeoBox boundingBox;
 
         GetBoundingBox(nodes,
-                       minlon,
-                       maxlon,
-                       minlat,
-                       maxlat);
+                       boundingBox);
 
         RegionRef region=regionIndex.GetRegionForNode(rootRegion,
-                                                      GeoCoord(minlat,minlon));
+                                                      boundingBox.GetCenter());
 
         /*
         if (isAddress) {
@@ -1459,10 +1473,7 @@ namespace osmscout {
                             fileOffset,
                             name,
                             nodes,
-                            minlon,
-                            minlat,
-                            maxlon,
-                            maxlat,
+                            boundingBox,
                             added);
 
           if (added) {
@@ -1484,9 +1495,10 @@ namespace osmscout {
   }
 
   std::map<std::string,LocationIndexGenerator::RegionLocation>::iterator LocationIndexGenerator::FindLocation(Progress& progress,
-                                                                                                              std::map<std::string,RegionLocation> &locations,
+                                                                                                              Region& region,
                                                                                                               const std::string &locationName)
   {
+    std::map<std::string,RegionLocation>           &locations=region.locations;
     std::map<std::string,RegionLocation>::iterator loc=locations.find(locationName);
 
     if (loc!=locations.end()) {
@@ -1497,12 +1509,10 @@ namespace osmscout {
     // Fallback: look if any other location does match case insensitive
 
     std::wstring wLocation(UTF8StringToWString(locationName));
-
     std::transform(wLocation.begin(),wLocation.end(),wLocation.begin(),::tolower);
 
     for (loc=locations.begin(); loc!=locations.end(); loc++) {
       std::wstring wLocation2(UTF8StringToWString(loc->first));
-
       std::transform(wLocation2.begin(),wLocation2.end(),wLocation2.begin(),::tolower);
 
       if (wLocation==wLocation2) {
@@ -1511,7 +1521,33 @@ namespace osmscout {
         return loc;
       }
     }
-    
+
+    // if locationName is same as region.name (or its name alias) add new location entry
+    // it is usual case for addresses without street and defined addr:place
+    std::wstring wRegionName(UTF8StringToWString(region.name));
+    std::transform(wRegionName.begin(),wRegionName.end(),wRegionName.begin(),::tolower);
+
+    if (wRegionName==wLocation) {
+      RegionLocation newLoc = {0, std::list<ObjectFileRef>(), std::list<RegionAddress>()};
+      newLoc.objects.push_back(region.reference);
+      locations[region.name]=newLoc;
+      progress.Debug(std::string("Create virtual location for region '")+region.name+"'");
+      return locations.find(region.name);
+    }
+
+    for (auto &alias: region.aliases) {
+      std::wstring wRegionName(UTF8StringToWString(alias.name));
+      std::transform(wRegionName.begin(),wRegionName.end(),wRegionName.begin(),::tolower);
+
+      if (wRegionName==wLocation) {
+        RegionLocation newLoc = {0, std::list<ObjectFileRef>(), std::list<RegionAddress>()};
+        newLoc.objects.push_back(ObjectFileRef(alias.reference,refNode));
+        locations[alias.name]=newLoc;
+        progress.Debug(std::string("Create virtual location for '")+alias.name+"' (alias of region "+region.name+")");
+        return locations.find(alias.name);
+      }
+    }
+
     return locations.end();
   }
 
@@ -1523,7 +1559,7 @@ namespace osmscout {
                                                       const std::string &postalCode,
                                                       bool& added)
   {
-    std::map<std::string,RegionLocation>::iterator loc=FindLocation(progress,region.locations,location);
+    std::map<std::string,RegionLocation>::iterator loc=FindLocation(progress,region,location);
 
     if (loc==region.locations.end()) {
       errorReporter->ReportLocationDebug(ObjectFileRef(fileOffset,refNode),
@@ -1872,6 +1908,9 @@ namespace osmscout {
     description.AddRequiredFile(AreaAreaIndexGenerator::AREAADDRESS_DAT);
 
     description.AddProvidedFile(LocationIndex::FILENAME_LOCATION_IDX);
+
+    description.AddProvidedAnalysisFile(FILENAME_LOCATION_REGION_TXT);
+    description.AddProvidedAnalysisFile(FILENAME_LOCATION_FULL_TXT);
   }
 
   bool LocationIndexGenerator::Import(const TypeConfigRef& typeConfig,
@@ -1880,17 +1919,18 @@ namespace osmscout {
   {
     FileWriter                         writer;
     RegionRef                          rootRegion;
-    std::vector<std::list<RegionRef> > regionTree;
+    std::vector<std::list<RegionRef>>  regionTree;
     RegionIndex                        regionIndex;
     TypeInfoRef                        boundaryType;
     TypeInfoSet                        boundaryTypes(*typeConfig);
-    std::list<Boundary>                boundaryAreas;
+    std::vector<std::list<RegionRef>>  boundaryAreas;
     std::list<std::string>             regionIgnoreTokens;
     std::list<std::string>             locationIgnoreTokens;
 
-    progress.SetAction("Setup");
-
     errorReporter=parameter.GetErrorReporter();
+
+    // just from local experience, if it is not enough, GetBoundaryAreas will increase it ;-)
+    boundaryAreas.resize(13);
 
     try {
       bytesForNodeFileOffset=BytesNeededToAddressFileData(AppendFileToDir(parameter.GetDestinationDirectory(),
@@ -1935,15 +1975,12 @@ namespace osmscout {
         return false;
       }
 
-      progress.Info(std::string("Found ")+NumberToString(boundaryAreas.size())+" areas of type 'administrative boundary'");
-
-      for (size_t level=1; level<=10; level++) {
-        progress.SetAction("Sorting in administrative boundaries of level "+NumberToString(level));
+      for (size_t level=0; level<boundaryAreas.size(); level++) {
+        progress.SetAction("Sorting in "+NumberToString(boundaryAreas[level].size())+" administrative boundaries of level "+NumberToString(level));
 
         SortInBoundaries(progress,
                          *rootRegion,
-                         boundaryAreas,
-                         level);
+                         boundaryAreas[level]);
       }
 
       boundaryAreas.clear();
@@ -2072,14 +2109,14 @@ namespace osmscout {
       DumpRegionTree(progress,
                      *rootRegion,
                      AppendFileToDir(parameter.GetDestinationDirectory(),
-                                     "location_region.txt"));
+                                     FILENAME_LOCATION_REGION_TXT));
 
       progress.SetAction("Dumping location tree");
 
       DumpLocationTree(progress,
                        *rootRegion,
                        AppendFileToDir(parameter.GetDestinationDirectory(),
-                                       "location_full.txt"));
+                                       FILENAME_LOCATION_FULL_TXT));
 
       //
       // Generate file with all areas, where areas reference parent and children by offset

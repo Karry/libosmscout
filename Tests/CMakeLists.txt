@@ -51,9 +51,34 @@ else()
 	message("Skip ThreadedDatabase test libosmscout-map, is missing.")
 endif()
 
+
+if(${OSMSCOUT_BUILD_MAP_QT})
+    set(CMAKE_AUTOMOC ON)
+
+    add_executable(DrawTextQt src/DrawTextQt.cpp include/DrawWindow.h)
+    set_property(TARGET DrawTextQt PROPERTY CXX_STANDARD 11)
+    target_include_directories(DrawTextQt PRIVATE include ${CMAKE_CURRENT_BINARY_DIR} ${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout/include ${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout-map/include ${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout-map-qt/include ${Qt5Gui_INCLUDE_DIRS} ${Qt5Widgets_INCLUDE_DIRS})
+    target_link_libraries(DrawTextQt osmscout osmscout_map osmscout_map_qt ${Qt5Widgets_LIBRARIES})
+    install(TARGETS DrawTextQt RUNTIME DESTINATION bin LIBRARY DESTINATION lib ARCHIVE DESTINATION lib)
+    target_compile_definitions(DrawTextQt PRIVATE ${Qt5Widgets_DEFINITIONS})
+else()
+	message("Skip DrawTextQt test, libosmscout-map-qt is missing.")
+endif()
+
 #---- WorkQueue
 add_executable(WorkQueue src/WorkQueue.cpp)
 set_property(TARGET WorkQueue PROPERTY CXX_STANDARD 11)
 target_include_directories(WorkQueue PRIVATE ${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout/include)
 target_link_libraries(WorkQueue osmscout)
 install(TARGETS WorkQueue RUNTIME DESTINATION bin LIBRARY DESTINATION lib ARCHIVE DESTINATION lib)
+
+#---- MapRotate
+if(${OSMSCOUT_BUILD_MAP})
+  add_executable(MapRotate src/MapRotate.cpp)
+  set_property(TARGET MapRotate PROPERTY CXX_STANDARD 11)
+  target_include_directories(MapRotate PRIVATE ${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout/include ${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout-map/include)
+  target_link_libraries(MapRotate osmscout osmscout_map)
+  install(TARGETS MapRotate RUNTIME DESTINATION bin LIBRARY DESTINATION lib ARCHIVE DESTINATION lib)
+else()
+	message("Skip MapRotate test libosmscout-map, is missing.")
+endif()

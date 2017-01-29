@@ -35,6 +35,8 @@
 #include <osmscout/util/Progress.h>
 #include <osmscout/util/Transformation.h>
 
+#include <osmscout/system/Compiler.h>
+
 namespace osmscout {
 
   /**
@@ -44,13 +46,13 @@ namespace osmscout {
     * Add variable defining the output directory (and make all import modules
       respect this parameter).
     */
-  class OSMSCOUT_IMPORT_API ImportParameter
+  class OSMSCOUT_IMPORT_API ImportParameter CLASS_FINAL
   {
   public:
     /**
      * Definition of a router
      */
-    class OSMSCOUT_IMPORT_API Router
+    class OSMSCOUT_IMPORT_API Router CLASS_FINAL
     {
     private:
       VehicleMask vehicleMask;
@@ -105,6 +107,8 @@ namespace osmscout {
     bool                         sortObjects;              //<! Sort all objects
     size_t                       sortBlockSize;            //<! Number of entries loaded in one sort iteration
     size_t                       sortTileMag;              //<! Zoom level for individual sorting cells
+
+    size_t                       processingQueueSize;      //!< Size of the processing worker queues
 
     size_t                       numericIndexPageSize;     //<! Size of an numeric index page in bytes
 
@@ -177,6 +181,8 @@ namespace osmscout {
     size_t GetSortBlockSize() const;
     size_t GetSortTileMag() const;
 
+    size_t GetProcessingQueueSize() const;
+
     size_t GetNumericIndexPageSize() const;
 
     size_t GetRawCoordBlockSize() const;
@@ -222,10 +228,10 @@ namespace osmscout {
     size_t GetRouteNodeBlockSize() const;
 
     bool GetAssumeLand() const;
-      
+
     const std::vector<std::string>& GetLangOrder () const;
     const std::vector<std::string>& GetAltLangOrder () const;
-      
+
     void SetMapfiles(const std::list<std::string>& mapfile);
     void SetTypefile(const std::string& typefile);
     void SetDestinationDirectory(const std::string& destinationDirectory);
@@ -244,6 +250,8 @@ namespace osmscout {
     void SetSortObjects(bool sortObjects);
     void SetSortBlockSize(size_t sortBlockSize);
     void SetSortTileMag(size_t sortTileMag);
+
+    void SetProcessingQueueSize(size_t processingQueueSize);
 
     void SetNumericIndexPageSize(size_t numericIndexPageSize);
 
@@ -294,10 +302,9 @@ namespace osmscout {
 
     void SetLangOrder(const std::vector<std::string>& langOrder);
     void SetAltLangOrder(const std::vector<std::string>& altLangOrder);
-
   };
 
-  class OSMSCOUT_IMPORT_API ImportModuleDescription
+  class OSMSCOUT_IMPORT_API ImportModuleDescription CLASS_FINAL
   {
   private:
     std::string            name;
@@ -306,6 +313,7 @@ namespace osmscout {
     std::list<std::string> providedOptionalFiles;
     std::list<std::string> providedDebuggingFiles;
     std::list<std::string> providedTemporaryFiles;
+    std::list<std::string> providedAnalysisFiles;
     std::list<std::string> requiredFiles;
 
   public:
@@ -316,6 +324,7 @@ namespace osmscout {
     void AddProvidedOptionalFile(const std::string& providedFile);
     void AddProvidedDebuggingFile(const std::string& providedFile);
     void AddProvidedTemporaryFile(const std::string& providedFile);
+    void AddProvidedAnalysisFile(const std::string& providedFile);
     void AddRequiredFile(const std::string& requiredFile);
 
     inline std::string GetName() const
@@ -346,6 +355,11 @@ namespace osmscout {
     inline std::list<std::string> GetProvidedTemporaryFiles() const
     {
       return providedTemporaryFiles;
+    }
+
+    inline std::list<std::string> GetProvidedAnalysisFiles() const
+    {
+      return providedAnalysisFiles;
     }
 
     inline std::list<std::string> GetRequiredFiles() const
@@ -418,6 +432,10 @@ namespace osmscout {
 
     std::list<std::string> GetProvidedFiles() const;
     std::list<std::string> GetProvidedOptionalFiles() const;
+    std::list<std::string> GetProvidedDebuggingFiles() const;
+    std::list<std::string> GetProvidedTemporaryFiles() const;
+    std::list<std::string> GetProvidedAnalysisFiles() const;
+    std::list<std::string> GetProvidedReportFiles() const;
   };
 }
 

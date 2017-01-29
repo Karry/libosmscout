@@ -360,6 +360,19 @@ namespace osmscout {
 
   /**
    * \ingroup Util
+   * Assumes that the string consists of a number of values separated by one of the given divider.
+   * If the list consists of one entry, no divider is used.
+   *
+   * Returns the first entry in the list
+   *
+   * \note stringList must not be empty
+   * \note at least one devidier must be given
+   */
+  extern OSMSCOUT_API std::string GetFirstInStringList(const std::string& stringList,
+                                                       const std::string& divider);
+
+  /**
+   * \ingroup Util
    * Converts the given string into a list of whitespace or colon-separated strings.
    */
   extern OSMSCOUT_API void TokenizeString(const std::string& input,
@@ -394,12 +407,55 @@ namespace osmscout {
   extern OSMSCOUT_API std::string ByteSizeToString(FileOffset size);
   extern OSMSCOUT_API std::string ByteSizeToString(double size);
 
-#if defined(OSMSCOUT_HAVE_STD_WSTRING)
   /**
    * \ingroup Util
+   *
+   * Convert the given std::string containign a UTF8 character sequence to a std::wstring
+   *
+   * @param text
+   *    String to get converted
+   * @return
+   *    corresponding std::wstring
    */
   extern OSMSCOUT_API std::wstring UTF8StringToWString(const std::string& text);
-#endif
+
+  /**
+   * \ingroup Util
+   *
+   * Convert the given std::wstring to a std::string containing a corresponding UTF8 character sequence
+   *
+   * @param text
+   *    the std::wstring to get converted
+   * @return
+   *    the converted std::string
+   */
+  extern OSMSCOUT_API std::string WStringToUTF8String(const std::wstring& text);
+
+  /**
+   * Convert the given std::string containing a UTF8 character sequence to upper case using
+   * the current global locale.
+   *
+   * @param text
+   *    Text to get converted
+   * @return
+   *    Converted text
+   *
+   * @note that a global C++ locale must be set for more than simple ASCII conversions to work.
+   */
+  extern OSMSCOUT_API std::string UTF8StringToUpper(const std::string& text);
+
+  /**
+   * Convert the given std::string containing a UTF8 character sequence to lower case using
+   * the current global locale.
+   *
+   * @param text
+   *    Text to get converted
+   * @return
+   *    Converted text
+   *
+   * @note that a global C++ locale must be set for more than simple ASCII conversions to work.
+   */
+  extern OSMSCOUT_API std::string UTF8StringToLower(const std::string& text);
 }
 
 #endif

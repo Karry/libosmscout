@@ -7,6 +7,9 @@ endif()
 if(NOT ZLIB_FOUND)
 	message(SEND_ERROR "zlib is required for import library")
 endif()
+if(MSVC AND NOT (MSVC_VERSION GREATER 1800))
+	message(SEND_ERROR "Microsoft Visual Studio 2015+ is required for import library")
+endif()
 
 set(HEADER_FILES
     #include/osmscout/import/pbf/fileformat.pb.h
@@ -106,11 +109,11 @@ endif()
 
 protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ${CMAKE_CURRENT_SOURCE_DIR}/include/osmscout/import/pbf src/protobuf/fileformat.proto src/protobuf/osmformat.proto)
 
-add_library(osmscout_import SHARED ${SOURCE_FILES} ${HEADER_FILES} ${PROTO_SRCS} ${PROTO_HDRS})
+add_library(osmscout_import ${SOURCE_FILES} ${HEADER_FILES} ${PROTO_SRCS} ${PROTO_HDRS})
 set_property(TARGET osmscout_import PROPERTY CXX_STANDARD 11)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/include/osmscout/ImportFeatures.h.cmake ${OSMSCOUT_BASE_DIR_BUILD}/include/osmscout/ImportFeatures.h)
 create_private_config("${CMAKE_CURRENT_BINARY_DIR}/include/osmscout/private/Config.h" "osmscout-import")
-target_include_directories(osmscout_import PRIVATE 
+target_include_directories(osmscout_import PRIVATE
 		include
 		include/osmscout/import/pbf
 		${CMAKE_CURRENT_BINARY_DIR}/include
@@ -120,9 +123,34 @@ target_include_directories(osmscout_import PRIVATE
 		${PROTOBUF_INCLUDE_DIRS})
 target_link_libraries(osmscout_import
 		osmscout
-		${ZLIB_LIBRARIES}
-		${LIBXML2_LIBRARIES}
 		${PROTOBUF_LIBRARIES})
+
+if (LIBLZMA_FOUND AND ICONV_FOUND)
+  target_link_libraries(osmscout_import
+               ${LIBXML2_LIBRARIES}
+               ${ZLIB_LIBRARIES}
+               ${ICONV_LIBRARIES}
+               ${LIBLZMA_LIBRARIES}
+               )
+elseif (ICONV_FOUND)
+  target_link_libraries(osmscout_import
+    ${LIBXML2_LIBRARIES}
+    ${ZLIB_LIBRARIES}
+    ${ICONV_LIBRARIES}
+    )
+elseif (LIBLZMA_FOUND)
+  target_link_libraries(osmscout_import
+    ${LIBXML2_LIBRARIES}
+    ${ZLIB_LIBRARIES}
+    ${LIBLZMA_LIBRARIES}
+    )    
+else()
+  target_link_libraries(osmscout_import
+    ${LIBXML2_LIBRARIES}
+    ${ZLIB_LIBRARIES}
+    )    
+endif()
+
 if(MARISA_FOUND)
     target_include_directories(osmscout_import PRIVATE ${MARISA_INCLUDE_DIRS})
     target_link_libraries(osmscout_import ${MARISA_LIBRARIES})

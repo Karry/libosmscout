@@ -33,9 +33,11 @@
 #include <osmscout/util/FileWriter.h>
 #include <osmscout/util/Geometry.h>
 
+#include <osmscout/system/Compiler.h>
+
 namespace osmscout {
 
-  class WaterIndexGenerator : public ImportModule
+  class WaterIndexGenerator CLASS_FINAL : public ImportModule
   {
   private:
     /** State of a cell */
@@ -205,9 +207,9 @@ namespace osmscout {
                             const std::list<CoastRef>& coastlines,
                             Level& level);
 
-    void CalculateLandCells(Progress& progress,
-                            Level& level,
-                            const std::map<Pixel,std::list<GroundTile> >& cellGroundTileMap);
+    void CalculateCoastEnvironment(Progress& progress,
+                                   Level& level,
+                                   const std::map<Pixel,std::list<GroundTile> >& cellGroundTileMap);
 
     void GetCells(const Level& level,
                   const GeoCoord& a,

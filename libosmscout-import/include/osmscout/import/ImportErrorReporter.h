@@ -30,14 +30,23 @@
 
 #include <osmscout/util/HTMLWriter.h>
 
+#include <osmscout/system/Compiler.h>
+
 namespace osmscout {
 
   /**
    * Class to report OSM data problems during import against.
    * Based on the reported errors various HTML bases error reporting pages are generated.
    */
-  class OSMSCOUT_IMPORT_API ImportErrorReporter
+  class OSMSCOUT_IMPORT_API ImportErrorReporter CLASS_FINAL
   {
+  public:
+    static const char* const FILENAME_INDEX_HTML;
+    static const char* const FILENAME_WAY_HTML;
+    static const char* const FILENAME_RELATION_HTML;
+    static const char* const FILENAME_LOCATION_HTML;
+
+
   private:
     enum Report {
       reportLocation
