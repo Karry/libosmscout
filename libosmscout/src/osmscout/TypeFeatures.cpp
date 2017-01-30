@@ -1303,7 +1303,9 @@ namespace osmscout {
   void AdminLevelFeatureValue::Read(FileScanner& scanner)
   {
     scanner.Read(adminLevel);
-    scanner.Read(isIn);
+    if (scanner.GetFileFormatVersion()>=11){
+      scanner.Read(isIn);
+    }
   }
 
   void AdminLevelFeatureValue::Write(FileWriter& writer)
