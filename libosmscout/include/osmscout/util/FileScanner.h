@@ -103,6 +103,10 @@ namespace osmscout {
     void Close();
     void CloseFailsafe();
 
+    inline uint32_t GetFileFormatVersion(){
+      return fileFormatVersion;
+    }
+
     inline bool IsOpen() const
     {
       return file!=NULL;
