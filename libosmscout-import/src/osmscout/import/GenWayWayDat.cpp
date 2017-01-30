@@ -71,7 +71,8 @@ namespace osmscout {
       scanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                    Preprocess::RAWTURNRESTR_DAT),
                    FileScanner::Sequential,
-                   true);
+                   true,
+                       osmscout::FILE_FORMAT_VERSION);
 
       scanner.Read(restrictionCount);
 
@@ -730,7 +731,8 @@ namespace osmscout {
     CoordDataFile coordDataFile;
 
     if (!coordDataFile.Open(parameter.GetDestinationDirectory(),
-                            parameter.GetCoordDataMemoryMaped())) {
+                            parameter.GetCoordDataMemoryMaped(),
+                       osmscout::FILE_FORMAT_VERSION)) {
       std::cerr << "Cannot open coord data file!" << std::endl;
       return false;
     }
@@ -739,7 +741,8 @@ namespace osmscout {
       scanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                    Preprocess::RAWWAYS_DAT),
                    FileScanner::Sequential,
-                   parameter.GetRawWayDataMemoryMaped());
+                   parameter.GetRawWayDataMemoryMaped(),
+                       osmscout::FILE_FORMAT_VERSION);
 
       scanner.Read(rawWayCount);
 

@@ -47,7 +47,8 @@ namespace osmscout {
    * @return
    *    True on success, else false
    */
-  bool BoundingBoxDataFile::Load(const std::string& path)
+  bool BoundingBoxDataFile::Load(const std::string& path,
+                                 uint32_t fileFormatVersion)
   {
     FileScanner scanner;
 
@@ -57,7 +58,9 @@ namespace osmscout {
 
     try {
       scanner.Open(filename,
-                   FileScanner::Sequential,true);
+                   FileScanner::Sequential,
+                   true,
+                   fileFormatVersion);
 
       scanner.ReadBox(boundingBox);
 

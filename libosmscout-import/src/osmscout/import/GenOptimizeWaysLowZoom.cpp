@@ -635,7 +635,8 @@ namespace osmscout
       scanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                    WayDataFile::WAYS_DAT),
                    FileScanner::Sequential,
-                   parameter.GetWayDataMemoryMaped());
+                   parameter.GetWayDataMemoryMaped(),
+                       osmscout::FILE_FORMAT_VERSION);
 
       std::set<TypeInfoRef>           typesToProcess(types);
       std::vector<std::list<WayRef> > allWays(typeConfig.GetTypeCount());

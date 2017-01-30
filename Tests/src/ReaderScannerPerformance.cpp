@@ -46,7 +46,8 @@ int main(int /*argc*/, char* /*argv*/[])
   }
 
   try {
-    scanner.Open(wayFilename,osmscout::FileScanner::Sequential,true);
+    scanner.Open(wayFilename,osmscout::FileScanner::Sequential,true,
+                       osmscout::FILE_FORMAT_VERSION);
 
     std::cout << "Start reading files using FileScanner..." << std::endl;
 

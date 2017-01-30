@@ -115,7 +115,8 @@ namespace osmscout {
 
   void FileScanner::Open(const std::string& filename,
                          Mode mode,
-                         bool useMmap)
+                         bool useMmap,
+                         uint32_t fileFormatVersion)
   {
     if (file!=NULL) {
       throw IOException(filename,"Error opening file for reading","File already opened");
@@ -123,6 +124,8 @@ namespace osmscout {
 
     hasError=true;
     this->filename=filename;
+
+    this->fileFormatVersion=fileFormatVersion;
 
     file=fopen(filename.c_str(),"rb");
 
@@ -2194,12 +2197,16 @@ namespace osmscout {
         if ((sizeByte & 0x80) != 0) {
           Read(sizeByte);
 
-          nodeCount|=(sizeByte & 0x7f) << 11;
-            
-          if ((sizeByte & 0x80) != 0) {
-             Read(sizeByte);
+          if (fileFormatVersion>=11){
+            nodeCount|=(sizeByte & 0x7f) << 11;
 
-             nodeCount|=sizeByte << 18;
+            if ((sizeByte & 0x80) != 0) {
+               Read(sizeByte);
+
+               nodeCount|=sizeByte << 18;
+            }
+          }else{
+            nodeCount|=sizeByte << 11;
           }
         }
       }
@@ -2227,12 +2234,16 @@ namespace osmscout {
         if ((sizeByte & 0x80) != 0) {
           Read(sizeByte);
 
-          nodeCount|=(sizeByte & 0x7f) << 12;
-            
-          if ((sizeByte & 0x80) != 0) {
-            Read(sizeByte);
-                
-            nodeCount|=sizeByte << 19;
+          if (fileFormatVersion>=11){
+            nodeCount|=(sizeByte & 0x7f) << 12;
+
+            if ((sizeByte & 0x80) != 0) {
+              Read(sizeByte);
+
+              nodeCount|=sizeByte << 19;
+            }
+          }else{
+            nodeCount|=sizeByte << 12;
           }
         }
       }

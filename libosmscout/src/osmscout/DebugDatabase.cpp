@@ -89,7 +89,8 @@ namespace osmscout {
     CoordDataFile dataFile;
 
     if (!dataFile.Open(path,
-                       true)) {
+                       true,
+                       typeConfig->GetFileFormatVersion())) {
       return false;
     }
 
@@ -113,7 +114,7 @@ namespace osmscout {
     std::string filename=AppendFileToDir(path,mapName);
 
     try {
-      scanner.Open(filename,FileScanner::LowMemRandom,false);
+      scanner.Open(filename,FileScanner::LowMemRandom,false,typeConfig->GetFileFormatVersion());
 
       scanner.Read(entryCount);
 

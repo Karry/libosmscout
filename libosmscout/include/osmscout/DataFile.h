@@ -207,7 +207,8 @@ namespace osmscout {
     try {
       scanner.Open(datafilename,
                    FileScanner::LowMemRandom,
-                   memoryMapedData);
+                   memoryMapedData,
+                   typeConfig->GetFileFormatVersion());
     }
     catch (IOException& e) {
       log.Error() << e.GetDescription();
@@ -586,7 +587,8 @@ namespace osmscout {
     }
 
     return index.Open(path,
-                      memoryMapedIndex);
+                      memoryMapedIndex,
+                      typeConfig->GetFileFormatVersion());
   }
 
   template <class I, class N>

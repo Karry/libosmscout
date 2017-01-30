@@ -192,7 +192,8 @@ namespace osmscout {
       wayScanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                       WayDataFile::WAYS_DAT),
                       FileScanner::Sequential,
-                      parameter.GetWayDataMemoryMaped());
+                      parameter.GetWayDataMemoryMaped(),
+                      osmscout::FILE_FORMAT_VERSION);
 
       remainingWayTypes.Set(typeConfig.GetWayTypes());
 
@@ -472,7 +473,8 @@ namespace osmscout {
       wayScanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                       WayDataFile::WAYS_DAT),
                       FileScanner::Sequential,
-                      parameter.GetWayDataMemoryMaped());
+                      parameter.GetWayDataMemoryMaped(),
+                      osmscout::FILE_FORMAT_VERSION);
 
       for (size_t l=parameter.GetAreaWayMinMag(); l<=maxLevel; l++) {
         TypeInfoSet indexTypes(*typeConfig);

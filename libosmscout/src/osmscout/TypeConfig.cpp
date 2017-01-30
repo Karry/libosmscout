@@ -949,11 +949,12 @@ namespace osmscout {
   }
 
   TypeConfig::TypeConfig()
-   : nextTagId(0),
+   : fileFormatVersion(FILE_FORMAT_VERSION),
+     nextTagId(0),
      nodeTypeIdBytes(1),
      wayTypeIdBytes(1),
      areaTypeIdBits(1),
-     areaTypeIdBytes(1)
+     areaTypeIdBytes(1)     
   {
     log.Debug() << "TypeConfig::TypeConfig()";
   }
@@ -1613,7 +1614,8 @@ namespace osmscout {
       scanner.Open(AppendFileToDir(directory,
                                    "types.dat"),
                    FileScanner::Sequential,
-                   true);
+                   true,
+                   0);
 
       scanner.Read(fileFormatVersion);
 
@@ -1623,12 +1625,12 @@ namespace osmscout {
         return false;
       }
 
+      // Tags
+      RegisterInternalTags();
 
       if (fileFormatVersion < 9){
         // skip tags for old database formats
         
-        // Tags
-        RegisterInternalTags();
 
         uint32_t tagCount;
 

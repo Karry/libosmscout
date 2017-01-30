@@ -57,7 +57,9 @@ namespace osmscout {
 
     try {
       scanner.Open(filename,
-                   FileScanner::Sequential,true);
+                   FileScanner::Sequential,
+                   true,
+                   typeConfig.GetFileFormatVersion());
 
       uint32_t dataCount;
 

@@ -481,7 +481,8 @@ namespace osmscout
       scanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                    AreaDataFile::AREAS_DAT),
                    FileScanner::Sequential,
-                   parameter.GetWayDataMemoryMaped());
+                   parameter.GetWayDataMemoryMaped(),
+                       osmscout::FILE_FORMAT_VERSION);
 
       TypeInfoSet                      typesToProcess(types);
       std::vector<std::list<AreaRef> > allAreas(typeConfig.GetTypeCount());

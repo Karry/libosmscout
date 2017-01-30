@@ -62,7 +62,8 @@ namespace osmscout {
       scanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                    WayAreaDataGenerator::WAYAREA_TMP),
                    FileScanner::Sequential,
-                   parameter.GetAreaDataMemoryMaped());
+                   parameter.GetAreaDataMemoryMaped(),
+                       osmscout::FILE_FORMAT_VERSION);
 
       scanner.Read(wayDataCount);
 
@@ -93,7 +94,8 @@ namespace osmscout {
       scanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                    RelAreaDataGenerator::RELAREA_TMP),
                    FileScanner::Sequential,
-                   parameter.GetAreaDataMemoryMaped());
+                   parameter.GetAreaDataMemoryMaped(),
+                       osmscout::FILE_FORMAT_VERSION);
 
       scanner.Read(relDataCount);
 

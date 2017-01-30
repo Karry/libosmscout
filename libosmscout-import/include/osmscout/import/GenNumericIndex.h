@@ -118,7 +118,9 @@ namespace osmscout {
 
       scanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                    datafile),
-                   FileScanner::Sequential,true);
+                   FileScanner::Sequential,
+                   true,
+                   osmscout::FILE_FORMAT_VERSION);
 
       scanner.Read(dataCount);
 

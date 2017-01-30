@@ -234,7 +234,8 @@ namespace osmscout
     try {
       scanner.Open(nodesDataFile,
                    FileScanner::Sequential,
-                   false);
+                   false,
+                       osmscout::FILE_FORMAT_VERSION);
 
       uint32_t nodeCount=0;
 
@@ -329,7 +330,8 @@ namespace osmscout
     try {
       scanner.Open(waysDataFile,
                    FileScanner::Sequential,
-                   false);
+                   false,
+                       osmscout::FILE_FORMAT_VERSION);
 
       uint32_t wayCount=0;
 
@@ -441,7 +443,8 @@ namespace osmscout
     try {
       scanner.Open(areasDataFile,
                    FileScanner::Sequential,
-                   false);
+                   false,
+                       osmscout::FILE_FORMAT_VERSION);
 
       uint32_t areaCount=0;
 

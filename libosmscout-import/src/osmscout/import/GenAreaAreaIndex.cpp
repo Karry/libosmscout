@@ -878,7 +878,8 @@ namespace osmscout {
       scanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                    OptimizeAreaWayIdsGenerator::AREAS3_TMP),
                    FileScanner::Sequential,
-                   parameter.GetWayDataMemoryMaped());
+                   parameter.GetWayDataMemoryMaped(),
+                   osmscout::FILE_FORMAT_VERSION);
 
       progress.SetAction("Building in memory area index from '"+scanner.GetFilename()+"'");
 

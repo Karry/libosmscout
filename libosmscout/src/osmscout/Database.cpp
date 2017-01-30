@@ -184,7 +184,7 @@ namespace osmscout {
     if (!boundingBoxDataFile->IsLoaded()) {
       StopClock timer;
 
-      if (!boundingBoxDataFile->Load(path)) {
+      if (!boundingBoxDataFile->Load(path,typeConfig->GetFileFormatVersion())) {
         log.Error() << "Cannot open '" << BoundingBoxDataFile::BOUNDINGBOX_DAT << "'!";
         return NULL;
       }
@@ -300,7 +300,7 @@ namespace osmscout {
 
       StopClock timer;
 
-      if (!areaNodeIndex->Open(path)) {
+      if (!areaNodeIndex->Open(path,typeConfig->GetFileFormatVersion())) {
         log.Error() << "Cannot load area node index!";
         areaNodeIndex=NULL;
 
@@ -328,7 +328,7 @@ namespace osmscout {
 
       StopClock timer;
 
-      if (!areaAreaIndex->Open(path)) {
+      if (!areaAreaIndex->Open(path,typeConfig->GetFileFormatVersion())) {
         log.Error() << "Cannot load area area index!";
         areaAreaIndex=NULL;
 
@@ -419,7 +419,7 @@ namespace osmscout {
 
       StopClock timer;
 
-      if (!waterIndex->Open(path)) {
+      if (!waterIndex->Open(path,GetTypeConfig()->GetFileFormatVersion())) {
         log.Error() << "Cannot load water index!";
         waterIndex=NULL;
 

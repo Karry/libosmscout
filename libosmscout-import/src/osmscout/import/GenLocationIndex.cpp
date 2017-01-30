@@ -514,7 +514,8 @@ namespace osmscout {
       scanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                    AreaDataFile::AREAS_DAT),
                    FileScanner::Sequential,
-                   true);
+                   true,
+                   osmscout::FILE_FORMAT_VERSION);
 
       scanner.Read(areaCount);
 
@@ -621,7 +622,8 @@ namespace osmscout {
       scanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                    AreaDataFile::AREAS_DAT),
                    FileScanner::Sequential,
-                   parameter.GetWayDataMemoryMaped());
+                   parameter.GetWayDataMemoryMaped(),
+                       osmscout::FILE_FORMAT_VERSION);
 
       scanner.Read(areaCount);
 
@@ -781,7 +783,8 @@ namespace osmscout {
       scanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                    NodeDataFile::NODES_DAT),
                    FileScanner::Sequential,
-                   true);
+                   true,
+                       osmscout::FILE_FORMAT_VERSION);
 
       scanner.Read(nodeCount);
 
@@ -930,7 +933,8 @@ namespace osmscout {
       scanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                    AreaDataFile::AREAS_DAT),
                    FileScanner::Sequential,
-                   parameter.GetWayDataMemoryMaped());
+                   parameter.GetWayDataMemoryMaped(),
+                       osmscout::FILE_FORMAT_VERSION);
 
       scanner.Read(areaCount);
 
@@ -1030,7 +1034,8 @@ namespace osmscout {
       scanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                    WayDataFile::WAYS_DAT),
                    FileScanner::Sequential,
-                   parameter.GetWayDataMemoryMaped());
+                   parameter.GetWayDataMemoryMaped(),
+                       osmscout::FILE_FORMAT_VERSION);
 
       scanner.Read(wayCount);
 
@@ -1182,7 +1187,8 @@ namespace osmscout {
       scanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                    AreaAreaIndexGenerator::AREAADDRESS_DAT),
                    FileScanner::Sequential,
-                   parameter.GetWayDataMemoryMaped());
+                   parameter.GetWayDataMemoryMaped(),
+                   osmscout::FILE_FORMAT_VERSION);
 
       scanner.Read(areaCount);
 
@@ -1405,7 +1411,8 @@ namespace osmscout {
       scanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                    SortWayDataGenerator::WAYADDRESS_DAT),
                    FileScanner::Sequential,
-                   parameter.GetWayDataMemoryMaped());
+                   parameter.GetWayDataMemoryMaped(),
+                       osmscout::FILE_FORMAT_VERSION);
 
       scanner.Read(wayCount);
 
@@ -1614,7 +1621,8 @@ namespace osmscout {
       scanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                    SortNodeDataGenerator::NODEADDRESS_DAT),
                    FileScanner::Sequential,
-                   true);
+                   true,
+                       osmscout::FILE_FORMAT_VERSION);
 
       scanner.Read(nodeCount);
 

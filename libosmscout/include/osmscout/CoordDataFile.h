@@ -53,7 +53,8 @@ namespace osmscout {
     virtual ~CoordDataFile();
 
     bool Open(const std::string& path,
-              bool memoryMapedData);
+              bool memoryMapedData,
+              uint32_t fileFormatVersion);
     bool Close();
 
     std::string GetFilename() const;
