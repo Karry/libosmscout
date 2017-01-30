@@ -50,7 +50,8 @@ namespace osmscout {
       scanner.Open(AppendFileToDir(path,
                                    FILENAME_LOCATION_IDX),
                    FileScanner::LowMemRandom,
-                   true);
+                   true,
+                   fileFormatVersion);
 
       scanner.Read(bytesForNodeFileOffset);
       scanner.Read(bytesForAreaFileOffset);
@@ -411,7 +412,8 @@ namespace osmscout {
       scanner.Open(AppendFileToDir(path,
                                    FILENAME_LOCATION_IDX),
                    FileScanner::LowMemRandom,
-                   false);
+                   false,
+                   fileFormatVersion);
 
       scanner.SetPos(indexOffset);
 
@@ -463,7 +465,8 @@ namespace osmscout {
       scanner.Open(AppendFileToDir(path,
                                    FILENAME_LOCATION_IDX),
                    FileScanner::LowMemRandom,
-                   true);
+                   true,
+                   fileFormatVersion);
 
       scanner.SetPos(indexOffset);
       scanner.SetPos(region.regionOffset);
@@ -497,7 +500,8 @@ namespace osmscout {
       scanner.Open(AppendFileToDir(path,
                                    FILENAME_LOCATION_IDX),
                    FileScanner::LowMemRandom,
-                   true);
+                   true,
+                   fileFormatVersion);
 
       scanner.SetPos(indexOffset);
 
@@ -530,7 +534,8 @@ namespace osmscout {
       scanner.Open(AppendFileToDir(path,
                                    FILENAME_LOCATION_IDX),
                    FileScanner::LowMemRandom,
-                   true);
+                   true,
+                   fileFormatVersion);
 
       scanner.SetPos(indexOffset);
 

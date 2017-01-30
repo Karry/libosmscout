@@ -43,7 +43,8 @@ namespace osmscout {
   }
 
   bool CoordDataFile::Open(const std::string& path,
-                           bool memoryMapedData)
+                           bool memoryMapedData,
+                           uint32_t fileFormatVersion)
   {
     datafilename=AppendFileToDir(path,COORD_DAT);
 
@@ -53,7 +54,8 @@ namespace osmscout {
     try {
       scanner.Open(datafilename,
                    FileScanner::FastRandom,
-                   memoryMapedData);
+                   memoryMapedData,
+                   fileFormatVersion);
 
       FileOffset mapOffset;
 

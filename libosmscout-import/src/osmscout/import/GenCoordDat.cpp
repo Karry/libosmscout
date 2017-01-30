@@ -62,7 +62,8 @@ namespace osmscout {
       scanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                    Preprocess::RAWCOORDS_DAT),
                    FileScanner::Sequential,
-                   true);
+                   true,
+                   osmscout::FILE_FORMAT_VERSION);
 
       scanner.GotoBegin();
 
@@ -238,7 +239,8 @@ namespace osmscout {
       scanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                    Preprocess::RAWCOORDS_DAT),
                    FileScanner::Sequential,
-                   true);
+                   true,
+                   osmscout::FILE_FORMAT_VERSION);
 
       scanner.GotoBegin();
 

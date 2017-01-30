@@ -74,7 +74,8 @@ namespace osmscout {
       scanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                    Preprocess::RAWNODES_DAT),
                    FileScanner::Sequential,
-                   parameter.GetRawNodeDataMemoryMaped());
+                   parameter.GetRawNodeDataMemoryMaped(),
+                       osmscout::FILE_FORMAT_VERSION);
 
       scanner.Read(rawNodeCount);
 

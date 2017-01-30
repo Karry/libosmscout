@@ -81,7 +81,7 @@ namespace osmscout
     datafilename=AppendFileToDir(path,FILE_AREASOPT_DAT);
 
     try {
-      scanner.Open(datafilename,FileScanner::LowMemRandom,true);
+      scanner.Open(datafilename,FileScanner::LowMemRandom,true,typeConfig->GetFileFormatVersion());
 
       FileOffset indexOffset;
 

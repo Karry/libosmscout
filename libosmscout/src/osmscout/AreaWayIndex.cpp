@@ -90,7 +90,9 @@ namespace osmscout {
     datafilename=AppendFileToDir(path,AREA_WAY_IDX);
 
     try {
-      scanner.Open(datafilename,FileScanner::FastRandom,true);
+      scanner.Open(datafilename,FileScanner::FastRandom,
+                   true,
+                   typeConfig->GetFileFormatVersion());
 
       uint32_t indexEntries;
 

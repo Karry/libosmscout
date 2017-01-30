@@ -198,7 +198,8 @@ namespace osmscout {
         source.scanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                             source.filename),
                             FileScanner::Sequential,
-                            parameter.GetWayDataMemoryMaped());
+                            parameter.GetWayDataMemoryMaped(),
+                       osmscout::FILE_FORMAT_VERSION);
 
         source.scanner.Read(dataCount);
 
@@ -438,7 +439,8 @@ namespace osmscout {
         source.scanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                             source.filename),
                             FileScanner::Sequential,
-                            parameter.GetWayDataMemoryMaped());
+                            parameter.GetWayDataMemoryMaped(),
+                       osmscout::FILE_FORMAT_VERSION);
 
         source.scanner.Read(dataCount);
 

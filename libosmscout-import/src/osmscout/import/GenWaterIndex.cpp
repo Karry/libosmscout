@@ -166,7 +166,8 @@ namespace osmscout {
       scanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                    Preprocess::RAWCOASTLINE_DAT),
                    FileScanner::Sequential,
-                   true);
+                   true,
+                       osmscout::FILE_FORMAT_VERSION);
 
       scanner.Read(coastlineCount);
 
@@ -187,7 +188,8 @@ namespace osmscout {
       CoordDataFile coordDataFile;
 
       if (!coordDataFile.Open(parameter.GetDestinationDirectory(),
-                              parameter.GetCoordDataMemoryMaped())) {
+                              parameter.GetCoordDataMemoryMaped(),
+                       osmscout::FILE_FORMAT_VERSION)) {
         progress.Error("Cannot open coord file!");
         return false;
       }
@@ -613,7 +615,8 @@ namespace osmscout {
       scanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                    WayDataFile::WAYS_DAT),
                    FileScanner::Sequential,
-                   parameter.GetWayDataMemoryMaped());
+                   parameter.GetWayDataMemoryMaped(),
+                       osmscout::FILE_FORMAT_VERSION);
 
       scanner.Read(wayCount);
 
@@ -1717,7 +1720,8 @@ namespace osmscout {
 
     BoundingBoxDataFile boundingBoxDataFile;
 
-    if (!boundingBoxDataFile.Load(parameter.GetDestinationDirectory())) {
+    if (!boundingBoxDataFile.Load(parameter.GetDestinationDirectory(),
+                       osmscout::FILE_FORMAT_VERSION)) {
       progress.Error("Error loading file '"+boundingBoxDataFile.GetFilename()+"'");
 
       return false;

@@ -87,6 +87,8 @@ namespace osmscout {
     HANDLE       mmfHandle;
 #endif
 
+    uint32_t             fileFormatVersion;
+
   private:
     void AssureByteBufferSize(size_t size);
     void FreeBuffer();
@@ -98,7 +100,8 @@ namespace osmscout {
 
     void Open(const std::string& filename,
               Mode mode,
-              bool useMmap);
+              bool useMmap,
+              uint32_t fileFormatVersion);
     void Close();
     void CloseFailsafe();
 

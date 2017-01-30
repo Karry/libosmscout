@@ -567,7 +567,8 @@ namespace osmscout {
       scanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                    MergeAreaDataGenerator::AREAS_TMP),
                    FileScanner::Sequential,
-                   parameter.GetRawWayDataMemoryMaped());
+                   parameter.GetRawWayDataMemoryMaped(),
+                       osmscout::FILE_FORMAT_VERSION);
 
       if (!ScanAreaNodeIds(progress,
                            *typeConfig,

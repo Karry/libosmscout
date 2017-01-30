@@ -1022,7 +1022,8 @@ namespace osmscout {
     FeatureRef                 featureName(typeConfig->GetFeature(RefFeature::NAME));
 
     if (!coordDataFile.Open(parameter.GetDestinationDirectory(),
-                            parameter.GetCoordDataMemoryMaped())) {
+                            parameter.GetCoordDataMemoryMaped(),
+                       osmscout::FILE_FORMAT_VERSION)) {
       std::cerr << "Cannot open coord data files!" << std::endl;
       return false;
     }
@@ -1062,7 +1063,8 @@ namespace osmscout {
       scanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                    Preprocess::RAWRELS_DAT),
                    FileScanner::Sequential,
-                   true);
+                   true,
+                       osmscout::FILE_FORMAT_VERSION);
 
       scanner.Read(rawRelationCount);
 

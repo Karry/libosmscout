@@ -81,7 +81,8 @@ namespace osmscout {
       nodeScanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                        NodeDataFile::NODES_DAT),
                        FileScanner::Sequential,
-                       true);
+                       true,
+                       osmscout::FILE_FORMAT_VERSION);
 
       //
       // Scanning distribution

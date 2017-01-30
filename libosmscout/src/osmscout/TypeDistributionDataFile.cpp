@@ -72,7 +72,8 @@ namespace osmscout {
     try {
       scanner.Open(filename,
                    FileScanner::Sequential,
-                   true);
+                   true,
+                   typeConfig.GetFileFormatVersion());
 
       for (const auto &type : typeConfig.GetTypes()) {
         scanner.Read(distribution[type->GetIndex()].nodeCount);

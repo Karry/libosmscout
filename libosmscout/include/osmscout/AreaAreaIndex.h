@@ -129,7 +129,8 @@ namespace osmscout {
     virtual ~AreaAreaIndex();
 
     void Close();
-    bool Open(const std::string& path);
+    bool Open(const std::string& path,
+              uint32_t fileFormatVersion);
 
     inline bool IsOpen() const
     {

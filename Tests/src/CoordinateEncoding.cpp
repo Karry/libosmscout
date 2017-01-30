@@ -456,7 +456,8 @@ int main(int argc, char* argv[])
   std::cout << "Reading " << wayDatFilename << "..." << std::endl;
 
   try {
-    scanner.Open(wayDatFilename,osmscout::FileScanner::Sequential,true);
+    scanner.Open(wayDatFilename,osmscout::FileScanner::Sequential,true,
+                       osmscout::FILE_FORMAT_VERSION);
 
     scanner.Read(dataCount);
 
