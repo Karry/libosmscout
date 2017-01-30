@@ -165,37 +165,6 @@ namespace osmscout {
     return false;
   }
 
-  bool RoutingService::LoadObjectVariantData(const std::string& filename,
-                                             std::vector<ObjectVariantData>& objectVariantData) const
-  {
-    FileScanner scanner;
-
-    try {
-      scanner.Open(filename,
-                   FileScanner::FastRandom,true);
-
-      uint32_t objectVariantDataCount;
-
-      scanner.Read(objectVariantDataCount);
-
-      objectVariantData.resize(objectVariantDataCount);
-
-      for (size_t i=0; i<objectVariantDataCount; i++) {
-        objectVariantData[i].Read(*database->GetTypeConfig(),
-                                  scanner);
-      }
-
-      scanner.Close();
-    }
-    catch (IOException& e) {
-      log.Error() << e.GetDescription();
-      scanner.CloseFailsafe();
-      return false;
-    }
-
-    return true;
-  }
-
   /**
    * Opens the routing service. This loads the routing graph for the given vehicle
    *
