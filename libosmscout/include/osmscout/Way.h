@@ -43,12 +43,13 @@ namespace osmscout {
   private:
     FeatureValueBuffer featureValueBuffer; //!< List of features
 
-    FileOffset         fileOffset;         //!< Offset into the data file fo this way
+    FileOffset         fileOffset;         //!< Offset into the data file of this way
+    FileOffset         nextFileOffset;     //!< Offset after this way
 
 
   public:
     inline Way()
-    : PointSequenceContainer(), fileOffset(0)
+    : PointSequenceContainer(), fileOffset(0),nextFileOffset(0)
     {
       // no code
     }
@@ -60,6 +61,11 @@ namespace osmscout {
     inline FileOffset GetFileOffset() const
     {
       return fileOffset;
+    }
+
+    inline FileOffset GetNextFileOffset() const
+    {
+      return nextFileOffset;
     }
 
     inline ObjectFileRef GetObjectFileRef() const
