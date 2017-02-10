@@ -25,6 +25,7 @@
 #include <osmscout/Database.h>
 #include <osmscout/Pixel.h>
 #include <osmscout/RoutingService.h>
+#include <osmscout/TypeConfig.h>
 
 #include <osmscout/util/FileScanner.h>
 
@@ -51,7 +52,8 @@ bool ReadCellsForRoutingTree(osmscout::Database& database,
 
     std::cout << "Opening routing file '" << fullFilename << "'" << std::endl;
 
-    scanner.Open(fullFilename,osmscout::FileScanner::Sequential,false);
+    scanner.Open(fullFilename,osmscout::FileScanner::Sequential,false,
+                 osmscout::FILE_FORMAT_VERSION);
 
     scanner.Read(count);
 
@@ -92,7 +94,8 @@ bool ReadRouteNodesForCells(osmscout::Database& database,
 
     std::cout << "Opening routing file '" << fullFilename << "'" << std::endl;
 
-    scanner.Open(fullFilename,osmscout::FileScanner::Sequential,false);
+    scanner.Open(fullFilename,osmscout::FileScanner::Sequential,false,
+                 osmscout::FILE_FORMAT_VERSION);
 
     scanner.Read(count);
 
