@@ -345,36 +345,39 @@ namespace osmscout {
   {
       return GetRelationOfPointToArea(point, nodes.asVector());
   }  
-  /* // THIS METHOD IS BROKEN PROBABLY
-  template<typename N>
+
+  /**
+   * \ingroup Geometry
+   * Gives information about the position of the point in relation to the area.
+   *
+   * If -1 returned, the point is outside the area, if 0, the point is on the area boundary, 1
+   * the point is within the area.
+   */
+  /*
+  template<typename N,typename M>
   inline int GetRelationOfPointToArea(const N& point,
-                                      const PointSequence& nodes)
+                                      const std::vector<M>& nodes)
   {
+    size_t i,j;
     bool   c=false;
 
-    PointSequenceIterator it = nodes.begin();
-    Point a = *it;
-    Point b = nodes[nodes.size() -1];
-    
-    for (;  it != nodes.end(); b = a, ++it) {
-      
-      if (point.GetLat()==a.GetLat() &&
-          point.GetLon()==a.GetLon()) {
+    for (i=0, j=nodes.size()-1; i<nodes.size(); j=i++) {
+      if (point.GetLat()==nodes[i].GetLat() &&
+          point.GetLon()==nodes[i].GetLon()) {
         return 0;
       }
 
-      if ((((a.GetLat()<=point.GetLat()) && (point.GetLat()<b.GetLat())) ||
-           ((b.GetLat()<=point.GetLat()) && (point.GetLat()<a.GetLat()))) &&
-          (point.GetLon()<(b.GetLon()-a.GetLon())*(point.GetLat()-a.GetLat())/(b.GetLat()-a.GetLat())+
-           a.GetLon())) {
+      if ((((nodes[i].GetLat()<=point.GetLat()) && (point.GetLat()<nodes[j].GetLat())) ||
+           ((nodes[j].GetLat()<=point.GetLat()) && (point.GetLat()<nodes[i].GetLat()))) &&
+          (point.GetLon()<(nodes[j].GetLon()-nodes[i].GetLon())*(point.GetLat()-nodes[i].GetLat())/(nodes[j].GetLat()-nodes[i].GetLat())+
+           nodes[i].GetLon())) {
         c=!c;
       }
     }
 
     return c ? 1 : -1;
   }
-   */
-  
+  */
 
   /**
    * \ingroup Geometry
