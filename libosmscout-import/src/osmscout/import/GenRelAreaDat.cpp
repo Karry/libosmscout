@@ -1201,7 +1201,7 @@ namespace osmscout {
               break;
             }
 
-            if (ring.nodes.size()>FileWriter::MAX_NODES) {
+            if (ring.GetNodes().size()>FileWriter::MAX_NODES) {
               big=true;
               break;
             }

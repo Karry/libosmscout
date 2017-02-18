@@ -371,7 +371,7 @@ namespace osmscout {
           size_t secondOuterRing=GetFirstOuterRingWithId(*candidateArea,
                                                          id);
 
-          if (area.rings[firstOuterRing].nodes.size()+candidateArea->rings[secondOuterRing].nodes.size()>FileWriter::MAX_NODES) {
+          if (area.rings[firstOuterRing].GetNodes().size()+candidateArea->rings[secondOuterRing].GetNodes().size()>FileWriter::MAX_NODES) {
             // We could merge, but we could not store the resulting area anymore
             candidate++;
             continue;
