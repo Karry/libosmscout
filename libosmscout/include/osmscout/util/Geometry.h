@@ -440,10 +440,16 @@ namespace osmscout {
    */
   template<typename N,typename M>
   inline bool IsAreaAtLeastPartlyInArea(const std::vector<N>& a,
-                                        const std::vector<M>& b)
-  {
+                                        const std::vector<M>& b,
+                                        const GeoBox aBox,
+                                        const GeoBox bBox)
+   {
+    if (!aBox.Intersects(bBox)){
+      return false;
+    }
+
     for (const auto& node : a) {
-      if (GetRelationOfPointToArea(node,b)>=0) {
+      if (bBox.Includes(node, /*openInterval*/ false) && GetRelationOfPointToArea(node,b)>=0) {
         return true;
       }
     }
@@ -455,12 +461,31 @@ namespace osmscout {
    * \ingroup Geometry
    * Return true, if at least one point of area a in within area b
    */
+  template<typename N>
+  inline bool IsAreaAtLeastPartlyInArea(const std::vector<N>& a,
+                                        const PointSequence& b,
+                                        const GeoBox aBox)
+  {
+    return IsAreaAtLeastPartlyInArea(a, b.asVector(), aBox, b.bbox());
+  }
+
+  /**
+   * \ingroup Geometry
+   * Return true, if at least one point of area a in within area b
+   */
   template<typename M>
   inline bool IsAreaAtLeastPartlyInArea(const PointSequence& a,
                                         const std::vector<M>& b)
   {
+    GeoBox aBox=a.bbox();
+    GeoBox bBox;
+    GetBoundingBox(b, bBox);
+    
+    if (!aBox.Intersects(bBox)){
+      return false;
+    }
     for (const auto& node : a) {
-      if (GetRelationOfPointToArea(node,b)>=0) {
+      if (bBox.Includes(node, /*openInterval*/ false) && GetRelationOfPointToArea(node,b)>=0) {
         return true;
       }
     }
@@ -476,13 +501,21 @@ namespace osmscout {
   inline bool IsAreaAtLeastPartlyInArea(const std::vector<N>& a,
                                         const PointSequence& b)
   {
-    for (const auto& node : a) {
-      if (GetRelationOfPointToArea(node,b)>=0) {
-        return true;
-      }
-    }
+    GeoBox aBox;
+    GetBoundingBox(a, aBox);
+    return IsAreaAtLeastPartlyInArea(a,b,aBox,b.bbox());;
+  }
 
-    return false;
+  template<typename N,typename M>
+  inline bool IsAreaAtLeastPartlyInArea(const std::vector<N>& a,
+                                        const std::vector<M>& b)
+  {
+    GeoBox aBox;
+    GeoBox bBox;
+    GetBoundingBox(a, aBox);
+    GetBoundingBox(b, bBox);
+
+    return IsAreaAtLeastPartlyInArea(a,b,aBox,bBox);
   }
 
   /**

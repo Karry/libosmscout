@@ -84,6 +84,11 @@ namespace osmscout {
     unsigned long nodeDataCacheSize;
     unsigned long wayDataCacheSize;
     unsigned long areaDataCacheSize;
+
+    bool routerDataMMap;
+    bool nodesDataMMap;
+    bool areasDataMMap;
+    bool waysDataMMap;
   public:
     DatabaseParameter();
 
@@ -95,6 +100,11 @@ namespace osmscout {
     void SetOptimisedWaysDataCacheSize(unsigned long  size);
     void SetOptimisedAreasDataCacheSize(unsigned long  size);
 
+    void SetRouterDataMMap(bool mmap);
+    void SetNodesDataMMap(bool mmap);
+    void SetAreasDataMMap(bool mmap);
+    void SetWaysDataMMap(bool mmap);
+
     unsigned long GetAreaAreaIndexCacheSize() const;
     unsigned long GetAreaNodeIndexCacheSize() const;
     unsigned long GetNodeDataCacheSize() const;
@@ -102,6 +112,11 @@ namespace osmscout {
     unsigned long GetAreaDataCacheSize() const;
     unsigned long GetOptimisedWaysDataCacheSize() const;
     unsigned long GetOptimisedAreasDataCacheSize() const;
+
+    bool GetRouterDataMMap() const;
+    bool GetNodesDataMMap() const;
+    bool GetAreasDataMMap() const;
+    bool GetWaysDataMMap() const;
   };
 
   /**
@@ -168,6 +183,11 @@ namespace osmscout {
 
     std::string GetPath() const;
     TypeConfigRef GetTypeConfig() const;
+
+    inline bool GetRouterDataMMap() const
+    {
+      return parameter.GetRouterDataMMap();
+    };
 
     BoundingBoxDataFileRef GetBoundingBoxDataFile() const;
 
