@@ -45,19 +45,34 @@ namespace osmscout {
       size_t nVertex;
       size_t direction;
     };
+    struct FontDescriptor
+    {
+      QString       fontName;
+      size_t        fontSize;
+      QFont::Weight weight;
+      bool          italic;
+
+      bool operator<(const FontDescriptor& other) const
+      {
+        return fontName<other.fontName &&
+               fontSize<other.fontSize &&
+               weight<other.weight &&
+               italic<other.italic;
+      }
+    };
 
   private:
-    CoordBufferImpl<Vertex2D> *coordBuffer;
+    CoordBufferImpl<Vertex2D>  *coordBuffer;
 
-    QPainter                  *painter;
+    QPainter                   *painter;
 
-    std::vector<QImage>       images;        //! vector of QImage for icons
-    std::vector<QImage>       patternImages; //! vector of QImage for fill patterns
-    std::vector<QBrush>       patterns;      //! vector of QBrush for fill patterns
-    std::map<size_t,QFont>    fonts;         //! Cached fonts
-    std::vector<double>       sin;           //! Lookup table for sin calculation
+    std::vector<QImage>        images;        //! vector of QImage for icons
+    std::vector<QImage>        patternImages; //! vector of QImage for fill patterns
+    std::vector<QBrush>        patterns;      //! vector of QBrush for fill patterns
+    QMap<FontDescriptor,QFont> fonts;         //! Cached fonts
+    std::vector<double>        sin;           //! Lookup table for sin calculation
 
-    std::mutex                mutex;         //! Mutex for locking concurrent calls
+    std::mutex                 mutex;         //! Mutex for locking concurrent calls
 
   private:
     QFont GetFont(const Projection& projection,
