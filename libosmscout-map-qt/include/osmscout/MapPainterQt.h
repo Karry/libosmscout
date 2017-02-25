@@ -54,10 +54,13 @@ namespace osmscout {
 
       bool operator<(const FontDescriptor& other) const
       {
-        return fontName<other.fontName &&
-               fontSize<other.fontSize &&
-               weight<other.weight &&
-               italic<other.italic;
+        if (fontName!=other.fontName)
+         return fontName<other.fontName;
+        if (fontSize!=other.fontSize)
+         return fontSize<other.fontSize;
+        if (weight!=other.weight)
+         return weight<other.weight;
+        return italic<other.italic;
       }
     };
 
