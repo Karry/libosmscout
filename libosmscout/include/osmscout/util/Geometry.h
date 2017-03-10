@@ -976,6 +976,20 @@ namespace osmscout {
    */
   extern OSMSCOUT_API double distanceToSegment(double px, double py, double p1x, double p1y, double p2x, double p2y, double &r, double &qx, double &qy);
 
+  /**
+   * \ingroup Geometry
+   *
+   * Extract part of polygon delimited by cutWays.
+   *
+   * @param base
+   * @param cutWays
+   * @param cutedPolygon
+   * @return true if area is cut
+   */
+  extern OSMSCOUT_API bool CutPolygonByOpenWays(const std::vector<std::vector<Point>> &polygons,
+                                                const std::vector<std::vector<Point>> &cutWays,
+                                                std::vector<std::vector<Point>> &outputPolygons);
+
   class OSMSCOUT_API PolygonMerger
   {
   private:

@@ -18,6 +18,7 @@
 */
 
 #include <osmscout/util/Geometry.h>
+#include <osmscout/util/Clipper.h>
 
 #include <cstdlib>
 
@@ -525,6 +526,55 @@ namespace osmscout {
             return sqrt(dist2);
         }
     }
+  }
+
+  bool InetersectPolygons(const std::vector<std::vector<Point>> &aPolygons,
+                          const std::vector<std::vector<Point>> &bPolygons,
+                          std::vector<std::vector<Point>> &intersectPolygons)
+  {
+    ClipperLib::Clipper c;
+    ClipperLib::Path path;
+    double scale=((ClipperLib::cInt)1)<<40; // cInt is 64 bit signed integer
+
+    for (const auto &subjectPolygon:aPolygons){
+      path.clear();
+      for (const auto &p:subjectPolygon){
+        path.push_back(ClipperLib::IntPoint((ClipperLib::cInt)(p.GetLat() * scale),
+                                            (ClipperLib::cInt)(p.GetLon() * scale)));
+      }
+      c.AddPath(path, ClipperLib::ptSubject, true);
+    }
+
+    for (const auto &clipPolygon:bPolygons){
+      path.clear();
+      for (const auto &p:clipPolygon){
+        path.push_back(ClipperLib::IntPoint((ClipperLib::cInt)(p.GetLat() * scale),
+                                            (ClipperLib::cInt)(p.GetLon() * scale)));
+      }
+      c.AddPath(path, ClipperLib::ptClip, true);
+    }
+    ClipperLib::Paths solution;
+
+    if (!c.Execute(ClipperLib::ctIntersection,
+                   solution,
+                   ClipperLib::pftNonZero,
+                   ClipperLib::pftNonZero)){
+      //cout << "clip failed!\n\n");
+      return false;
+    }
+
+    std::vector<Point> sPath;
+    for (const auto &sp:solution){
+      sPath.clear();
+      for (const auto &p:sp){
+        sPath.push_back(Point(0,GeoCoord(((double)p.X)/scale,
+                                         ((double)p.Y)/scale)));
+      }
+      //assert(AreaIsCCW(sPath));
+      intersectPolygons.push_back(sPath);
+    }
+
+    return true;
   }
 
   void PolygonMerger::AddPolygon(const std::vector<Point>& polygonCoords)
