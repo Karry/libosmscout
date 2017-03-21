@@ -587,12 +587,6 @@ void Parser::AREASYMBOLSTYLE(FillPartialStyle& fillStyle, BorderPartialStyle& bo
 		}
 		while (!(la->kind == _EOF || la->kind == 12 /* "}" */)) {SynErr(110); Get();}
 		Expect(12 /* "}" */);
-		fillStyle.style->SetBorderColor(borderStyle.style->GetColor());
-		fillStyle.style->SetBorderWidth(borderStyle.style->GetWidth());
-		if (borderStyle.style->HasDashes()) {
-		 fillStyle.style->SetBorderDashes(borderStyle.style->GetDash());
-		}
-		
 }
 
 void Parser::COORD(Vertex2D& coord) {
@@ -1995,13 +1989,13 @@ void Parser::AREABORDERSTYLE(StyleFilter filter, bool state) {
 		BorderPartialStyle style;
 		std::string        slot;
 		
-		while (!(la->kind == _EOF || la->kind == 11 /* "{" */)) {SynErr(159); Get();}
-		Expect(11 /* "{" */);
 		if (la->kind == 51 /* "#" */) {
 			Get();
 			IDENT(slot);
 			style.style->SetSlot(slot); 
 		}
+		while (!(la->kind == _EOF || la->kind == 11 /* "{" */)) {SynErr(159); Get();}
+		Expect(11 /* "{" */);
 		while (StartOf(2)) {
 			BORDERSTYLEATTR(style);
 			ExpectWeak(16 /* ";" */, 3);

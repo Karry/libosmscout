@@ -93,12 +93,10 @@ namespace osmscout {
                                             bool& /*save*/)
   {
     try {
-      for (std::vector<Area::Ring>::iterator ring=area.rings.begin();
-           ring!=area.rings.end();
-           ++ring) {
-        NameFeatureValue     *nameValue=nameReader->GetValue(ring->GetFeatureValueBuffer());
-        LocationFeatureValue *locationValue=locationReader->GetValue(ring->GetFeatureValueBuffer());
-        AddressFeatureValue  *addressValue=addressReader->GetValue(ring->GetFeatureValueBuffer());
+      for (auto& ring : area.rings) {
+        NameFeatureValue     *nameValue=nameReader->GetValue(ring.GetFeatureValueBuffer());
+        LocationFeatureValue *locationValue=locationReader->GetValue(ring.GetFeatureValueBuffer());
+        AddressFeatureValue  *addressValue=addressReader->GetValue(ring.GetFeatureValueBuffer());
 
         std::string          name;
         std::string          location;
@@ -116,18 +114,18 @@ namespace osmscout {
           address=addressValue->GetAddress();
         }
 
-        bool isAddress=!ring->GetType()->GetIgnore() &&
+        bool isAddress=!ring.GetType()->GetIgnore() &&
                        !location.empty() &&
                        !address.empty();
 
-        bool isPoi=!name.empty() && ring->GetType()->GetIndexAsPOI();
+        bool isPoi=!name.empty() && ring.GetType()->GetIndexAsPOI();
 
         size_t locationIndex;
 
-        if (locationReader->GetIndex(ring->GetFeatureValueBuffer(),
+        if (locationReader->GetIndex(ring.GetFeatureValueBuffer(),
                                      locationIndex) &&
-            ring->GetFeatureValueBuffer().HasFeature(locationIndex)) {
-          ring->UnsetFeature(locationIndex);
+            ring.GetFeatureValueBuffer().HasFeature(locationIndex)) {
+          ring.UnsetFeature(locationIndex);
         }
 
         if (!isAddress && !isPoi) {
@@ -136,12 +134,10 @@ namespace osmscout {
 
         if (ring->IsMasterRing() &&
             ring->GetNodes().empty()) {
-          for (std::vector<Area::Ring>::const_iterator r=area.rings.begin();
-               r!=area.rings.end();
-               ++r) {
+          for (const auto& r : area.rings) {
             if (r->IsOuterRing()) {
               writer.WriteFileOffset(offset);
-              writer.WriteNumber(ring->GetType()->GetAreaId());
+              writer.WriteNumber(ring.GetType()->GetAreaId());
               writer.Write(name);
               writer.Write(location);
               writer.Write(address);
@@ -153,7 +149,7 @@ namespace osmscout {
         }
         else {
           writer.WriteFileOffset(offset);
-          writer.WriteNumber(ring->GetType()->GetAreaId());
+          writer.WriteNumber(ring.GetType()->GetAreaId());
           writer.Write(name);
           writer.Write(location);
           writer.Write(address);
