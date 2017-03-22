@@ -2109,7 +2109,6 @@ namespace osmscout {
                             intersection,
                             intersectionsCW,
                             visitedIntersections,
-                            //coastline,
                             cellBoundaries,
                             data)){
             std::cout << "Can't walk around cell boundary!" << std::endl;
@@ -2140,10 +2139,6 @@ namespace osmscout {
       std::cout << " - cell " << cellEntry.first.x << " " << cellEntry.first.y <<
         " (level offset " << level.indexEntryOffset << "): " << std::endl;
 #endif
-      std::list<CoastlineDataRef> intersectCoastlines;
-      for (const auto& currentCoastline : cellEntry.second) {
-        intersectCoastlines.push_back(data.coastlines[currentCoastline]);
-      }
 
       HandleCoastlineCell(cellEntry.first,
                           cellEntry.second,
