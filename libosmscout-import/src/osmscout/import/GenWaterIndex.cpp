@@ -2193,7 +2193,7 @@ namespace osmscout {
     CalculateCoastEnvironment(progress,
                               levelStruct,
                               cellGroundTileMap);
-    /*
+
     if (parameter.GetAssumeLand()) {
       // Assume cell type 'land' for cells that intersect with 'land' object types
       AssumeLand(parameter,
@@ -2201,8 +2201,7 @@ namespace osmscout {
                  *typeConfig,
                  levelStruct);
     }
-     */
-    /*
+
     if (!coastlines.empty()) {
       // Marks all still 'unknown' cells neighbouring 'water' cells as 'water', too
       FillWater(progress,
@@ -2212,7 +2211,6 @@ namespace osmscout {
     // Marks all still 'unknown' cells between 'coast' or 'land' and 'land' cells as 'land', too
     FillLand(progress,
              levelStruct);
-    */
 
     levelStruct.hasCellData=false;
     levelStruct.defaultCellData=unknown;
