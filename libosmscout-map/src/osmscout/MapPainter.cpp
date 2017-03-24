@@ -535,6 +535,7 @@ namespace osmscout {
       seaFill=this->seaFill;
     }
 
+    /*
     if (!coastFill) {
       coastFill=this->seaFill;
     }
@@ -542,6 +543,7 @@ namespace osmscout {
     if (!unknownFill) {
       unknownFill=this->seaFill;
     }
+     */
 
     for (const auto& tile : data.groundTiles) {
       AreaData areaData;
