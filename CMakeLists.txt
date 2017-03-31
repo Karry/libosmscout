@@ -266,6 +266,7 @@ endif()
 
 option(OSMSCOUT_BUILD_TESTS "Enable build of test applications" ON)
 if(OSMSCOUT_BUILD_TESTS)
+  enable_testing()
   add_subdirectory(Tests)
 endif()
 
