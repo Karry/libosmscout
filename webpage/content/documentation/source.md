@@ -23,19 +23,19 @@ protobuf-c, protobuf-compiler (optional)
 marisa (optional)
 : for an additional location full text search index
 
-libagg (optional)
+libagg (optional),
 freetype (optional)
 : for the agg backend. If you use agg, freetype must be available, too
 
-cairo (optional)
+cairo (optional),
 pango (optional)
 : for the cairo backend, if pango is available it will be used for complex
   text rendering instead of the cairo toy font rendering code
 
-Qt (optional)
-: for the Qt backend
+Qt5 (optional)
+: for the Qt5 backend. 
 
-freeglut (optional)
+freeglut (optional),
 glu (optional)
 : for the OpenGL demo
 
@@ -43,6 +43,14 @@ Currently the library does compile without any external dependencies, however
 since you need to be able to import OSM data to make any use of the library
 you should at least have libxml2 or protobuf available.
 
+## Preparations
+
+Note, that if your distribution supports Qt4 and Qt5 make
+sure that you install the Qt5 packages. If you have installed Qt4 and Qt5
+packages in parallel you might have to install additional packages that offer
+you ways to default to Qt5 or select Qt5 dynamically (e.g. qt5-default for
+debian).
+  
 ## Build
 
 You can also find detailed build instructions
@@ -81,9 +89,17 @@ In the top level directory type:
 This should recursivly analyse dependencies for all project sub directories and
 afterwards build them.
 
+Real life example for building using VisualStudio:
+```bash
+mkdir build
+cd build
+cmake .. -G "Visual Studio 14 2015" -DCMAKE_SYSTEM_VERSION=10.0.10586.0 -DCMAKE_INSTALL_PREFIX=D:\Mine\OpenSource\osmlib
+cmake --build . --config Release --target install
+```
+
 ### Building of OSMScout2
 
-The OSMScout2 Qt based demo is build using qmake if autoconf is used. The
+The OSMScout2 Qt5 based demo is build using qmake if autoconf is used. The
 CMake build uses it own build file.
 
 ### Running applications
@@ -95,6 +111,7 @@ you must  make sure, that the libosmsocut libraries are found by the loader.
 For this `LD_LIBRARY_PATH` has to be extended. See the `setupAutoconf.sh`
 script in the top level directory for how to do it.
 
-### Windows
-Libraries are search via `PATH` or mst be in the same directory as the
+#### Windows
+Libraries are searched via `PATH` or must be in the same directory as the
 executable that requires it.
+

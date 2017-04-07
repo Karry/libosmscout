@@ -164,12 +164,12 @@ void Scanner::Init() {
 	start.set(61, 21);
 	start.set(59, 22);
 	start.set(44, 23);
-	start.set(91, 24);
-	start.set(93, 25);
-	start.set(45, 26);
-	start.set(58, 27);
-	start.set(60, 28);
-	start.set(46, 29);
+	start.set(46, 24);
+	start.set(91, 25);
+	start.set(93, 26);
+	start.set(45, 27);
+	start.set(58, 28);
+	start.set(60, 29);
 	start.set(40, 30);
 	start.set(41, 31);
 	start.set(33, 32);
@@ -184,57 +184,57 @@ void Scanner::Init() {
 	keywords.set("WAYS", 18);
 	keywords.set("GROUP", 19);
 	keywords.set("SYMBOL", 21);
-	keywords.set("POLYGON", 22);
-	keywords.set("RECTANGLE", 23);
-	keywords.set("x", 24);
-	keywords.set("CIRCLE", 25);
-	keywords.set("CONST", 26);
-	keywords.set("COLOR", 27);
-	keywords.set("MAG", 28);
-	keywords.set("UINT", 29);
-	keywords.set("STYLE", 30);
-	keywords.set("FEATURE", 33);
-	keywords.set("PATH", 34);
-	keywords.set("TYPE", 35);
-	keywords.set("ONEWAY", 37);
-	keywords.set("BRIDGE", 38);
-	keywords.set("TUNNEL", 39);
-	keywords.set("SIZE", 40);
-	keywords.set("m", 41);
-	keywords.set("mm", 42);
-	keywords.set("px", 44);
-	keywords.set("NODE", 46);
-	keywords.set("TEXT", 48);
-	keywords.set("ICON", 50);
-	keywords.set("WAY", 51);
-	keywords.set("SHIELD", 52);
-	keywords.set("AREA", 53);
-	keywords.set("BORDERTEXT", 54);
-	keywords.set("BORDERSYMBOL", 55);
-	keywords.set("color", 56);
-	keywords.set("dash", 57);
-	keywords.set("gapColor", 58);
-	keywords.set("displayWidth", 59);
-	keywords.set("width", 60);
-	keywords.set("displayOffset", 61);
-	keywords.set("offset", 62);
-	keywords.set("cap", 63);
-	keywords.set("joinCap", 64);
-	keywords.set("endCap", 65);
-	keywords.set("priority", 66);
-	keywords.set("zIndex", 67);
-	keywords.set("pattern", 68);
-	keywords.set("patternMinMag", 69);
-	keywords.set("borderColor", 70);
-	keywords.set("borderWidth", 71);
-	keywords.set("borderDash", 72);
-	keywords.set("label", 73);
-	keywords.set("style", 74);
-	keywords.set("size", 75);
-	keywords.set("scaleMag", 76);
-	keywords.set("autoSize", 77);
-	keywords.set("position", 78);
-	keywords.set("backgroundColor", 79);
+	keywords.set("BORDER", 22);
+	keywords.set("AREA", 23);
+	keywords.set("POLYGON", 25);
+	keywords.set("RECTANGLE", 26);
+	keywords.set("x", 27);
+	keywords.set("CIRCLE", 28);
+	keywords.set("CONST", 29);
+	keywords.set("COLOR", 30);
+	keywords.set("MAG", 31);
+	keywords.set("UINT", 32);
+	keywords.set("STYLE", 33);
+	keywords.set("FEATURE", 36);
+	keywords.set("PATH", 37);
+	keywords.set("TYPE", 38);
+	keywords.set("ONEWAY", 40);
+	keywords.set("BRIDGE", 41);
+	keywords.set("TUNNEL", 42);
+	keywords.set("EMBANKMENT", 43);
+	keywords.set("SIZE", 44);
+	keywords.set("m", 45);
+	keywords.set("mm", 46);
+	keywords.set("px", 48);
+	keywords.set("NODE", 50);
+	keywords.set("TEXT", 51);
+	keywords.set("ICON", 53);
+	keywords.set("WAY", 54);
+	keywords.set("SHIELD", 55);
+	keywords.set("BORDERTEXT", 56);
+	keywords.set("BORDERSYMBOL", 57);
+	keywords.set("color", 58);
+	keywords.set("dash", 59);
+	keywords.set("gapColor", 60);
+	keywords.set("displayWidth", 61);
+	keywords.set("width", 62);
+	keywords.set("displayOffset", 63);
+	keywords.set("offset", 64);
+	keywords.set("cap", 65);
+	keywords.set("joinCap", 66);
+	keywords.set("endCap", 67);
+	keywords.set("priority", 68);
+	keywords.set("zIndex", 69);
+	keywords.set("pattern", 70);
+	keywords.set("patternMinMag", 71);
+	keywords.set("label", 72);
+	keywords.set("style", 73);
+	keywords.set("size", 74);
+	keywords.set("scaleMag", 75);
+	keywords.set("autoSize", 76);
+	keywords.set("position", 77);
+	keywords.set("backgroundColor", 78);
+	keywords.set("borderColor", 79);
 	keywords.set("shieldSpace", 80);
 	keywords.set("symbol", 81);
 	keywords.set("symbolSpace", 82);
@@ -481,17 +481,17 @@ TokenRef Scanner::NextToken() {
 		case 23:
 			{t->kind = 20; break;}
 		case 24:
-			{t->kind = 31; break;}
+			{t->kind = 24; break;}
 		case 25:
-			{t->kind = 32; break;}
+			{t->kind = 34; break;}
 		case 26:
-			{t->kind = 36; break;}
+			{t->kind = 35; break;}
 		case 27:
-			{t->kind = 43; break;}
+			{t->kind = 39; break;}
 		case 28:
-			{t->kind = 45; break;}
-		case 29:
 			{t->kind = 47; break;}
+		case 29:
+			{t->kind = 49; break;}
 		case 30:
 			{t->kind = 90; break;}
 		case 31:
@@ -499,9 +499,9 @@ TokenRef Scanner::NextToken() {
 		case 32:
 			{t->kind = 93; break;}
 		case 33:
-			recEnd = pos; recKind = 49;
+			recEnd = pos; recKind = 52;
 			if ((ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f')) {AddCh(); goto case_4;}
-			else {t->kind = 49; break;}
+			else {t->kind = 52; break;}
 
   }
   AppendVal(t);

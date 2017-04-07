@@ -33,19 +33,10 @@
 
 namespace osmscout {
 
-  const char* RelAreaDataGenerator::RELAREA_TMP="relarea.tmp";
-  const char* RelAreaDataGenerator::WAYAREABLACK_DAT="wayareablack.dat";
-
-  /**
-    Returns true, if area a is in area b
-   */
-  inline bool IsAreaInArea(const std::vector<bool>& includes,
-                           size_t count,
-                           size_t a,
-                           size_t b)
-  {
-    return includes[a*count+b];
-  }
+  const char*           RelAreaDataGenerator::RELAREA_TMP="relarea.tmp";
+  const char*           RelAreaDataGenerator::WAYAREABLACK_DAT="wayareablack.dat";
+  static const uint64_t MAX_WAYS=1000;
+  static const uint64_t MAX_COORDS=100000;
 
   /**
     Find a top level role.
@@ -60,7 +51,7 @@ namespace osmscout {
     size_t i=0;
     for (std::list<MultipolygonPart>::const_iterator r=rings.begin();
          r!=rings.end();
-         r++) {
+         ++r) {
       if (!state.IsUsed(i)) {
         bool included=false;
 
@@ -97,7 +88,8 @@ namespace osmscout {
   {
     size_t i=0;
     for (std::list<MultipolygonPart>::const_iterator r=rings.begin();
-         r!=rings.end(); r++) {
+         r!=rings.end();
+         ++r) {
       if (!state.IsUsed(i) &&
           state.Includes(i,topIndex)) {
         bool included=false;
@@ -239,7 +231,7 @@ namespace osmscout {
             otherPart=match->second.begin();
             while (otherPart!=match->second.end() &&
                    usedParts.find(*otherPart)!=usedParts.end()) {
-              otherPart++;
+              ++otherPart;
             }
 
             if (otherPart!=match->second.end()) {
@@ -418,24 +410,22 @@ namespace osmscout {
                                                 const RawRelation& rawRelation,
                                                 std::list<MultipolygonPart>& parts)
   {
-    for (std::vector<RawRelation::Member>::const_iterator member=rawRelation.members.begin();
-         member!=rawRelation.members.end();
-         member++) {
-      if (member->type==RawRelation::memberRelation) {
+    for (const auto& member : rawRelation.members) {
+      if (member.type==RawRelation::memberRelation) {
         progress.Warning("Unsupported relation reference in relation "+
                          NumberToString(rawRelation.GetId())+" "+
                          rawRelation.GetType()->GetName()+" "+
                          name);
       }
-      else if (member->type==RawRelation::memberWay &&
-               (member->role=="inner" ||
-                member->role=="outer" ||
-                member->role.empty())) {
-        IdRawWayMap::const_iterator wayEntry=wayMap.find(member->id);
+      else if (member.type==RawRelation::memberWay &&
+               (member.role=="inner" ||
+                member.role=="outer" ||
+                member.role.empty())) {
+        IdRawWayMap::const_iterator wayEntry=wayMap.find(member.id);
 
         if (wayEntry==wayMap.end()) {
           progress.Error("Cannot resolve way member "+
-                         NumberToString(member->id)+
+                         NumberToString(member.id)+
                          " for relation "+
                          NumberToString(rawRelation.GetId())+" "+
                          rawRelation.GetType()->GetName()+" "+
@@ -633,6 +623,14 @@ namespace osmscout {
            member.role=="outer" ||
            member.role.empty())) {
         wayIds.insert(member.id);
+
+        if (wayIds.size()>MAX_WAYS) {
+          progress.Error("Relation "+
+                         NumberToString(rawRelation.GetId())+" "+name+
+                         " references too many ways (" +
+                         NumberToString(wayIds.size())+")");
+          return false;
+        }
       }
       else if (member.type==RawRelation::memberRelation &&
                (member.role=="inner" ||
@@ -692,6 +690,14 @@ namespace osmscout {
                member.role=="outer" ||
                member.role.empty())) {
             wayIds.insert(member.id);
+
+            if (wayIds.size()>MAX_WAYS) {
+              progress.Error("Relation "+
+                             NumberToString(rawRelation.GetId())+" "+name+
+                             " references too many ways (" +
+                             NumberToString(wayIds.size())+")");
+              return false;
+            }
           }
           else if (member.type==RawRelation::memberRelation &&
                    (member.role=="inner" ||
@@ -759,6 +765,14 @@ namespace osmscout {
 
     // Now load all node coordinates
 
+    if (nodeIds.size()>MAX_COORDS) {
+      progress.Error("Relation "+
+                     NumberToString(rawRelation.GetId())+" "+name+
+                     " references too many nodes (" +
+                     NumberToString(nodeIds.size())+")");
+      return false;
+    }
+
     if (!coordDataFile.Get(nodeIds,
                            coordMap)) {
       progress.Error("Cannot resolve child nodes of relation "+
@@ -793,6 +807,79 @@ namespace osmscout {
                                 rawRelation,
                                 parts);
     }
+  }
+
+  /**
+   * Tries to detect the type of the relation based on the types of the outer rings. In cases where
+   * outer rings have different types. Takes the type with occurs most. In the case where there is only
+   * one outer ring, return it as copyPart to allow calling code to copy attributes from it.
+   *
+   * @param parameter
+   *    Parameter object
+   * @param typeConfig
+   *    Type configuration
+   * @param rawRelation
+   *    The raw relation to analyse (only passed for type and id)
+   * @param parts
+   *    The list of parts for the raw relation
+   * @param copyPart
+   *    Optional reference of the part tat defines the outer ring
+   * @return
+   */
+  TypeInfoRef RelAreaDataGenerator::AutodetectRelationType(const ImportParameter& parameter,
+                                                           const TypeConfig& typeConfig,
+                                                           const RawRelation& rawRelation,
+                                                           std::list<MultipolygonPart>& parts,
+                                                           std::list<MultipolygonPart>::iterator& copyPart) const
+  {
+    std::vector<size_t>                                typeCount(typeConfig.GetTypeCount(),0);
+    std::vector<std::list<MultipolygonPart>::iterator> partRef(typeConfig.GetTypeCount(),parts.end());
+
+    TypeInfoRef masterType=typeConfig.typeInfoIgnore;
+
+    // Count the occurence of outer types and store the last outer ring found for each type
+    for (std::list<MultipolygonPart>::iterator ring=parts.begin(); ring!=parts.end(); ++ring) {
+      if (ring->role.IsOuterRing() &&
+          ring->IsArea() &&
+          ring->role.GetType()!=typeConfig.typeInfoIgnore) {
+        typeCount[ring->role.GetType()->GetIndex()]++;
+        partRef[ring->role.GetType()->GetIndex()]=ring;
+      }
+    }
+
+    size_t maxCount=0;
+    size_t maxCountType=0;
+    size_t countTypes=0;
+
+    for (size_t i=0; i<typeCount.size(); i++) {
+      if (typeCount[i]>maxCount) {
+        maxCount=typeCount[i];
+        maxCountType=i;
+        countTypes=1;
+      }
+      else if (typeCount[i]==maxCount) {
+        countTypes++;
+      }
+    }
+
+    masterType=typeConfig.GetTypes()[maxCountType];
+
+    if (countTypes>1 &&
+        masterType!=typeConfig.typeInfoIgnore) {
+      parameter.GetErrorReporter()->ReportRelation(rawRelation.GetId(),
+                                                   rawRelation.GetType(),
+                                                   "Conflicting types for outer ring (choosen type "+
+                                                   masterType->GetName()+")");
+    }
+
+    if (countTypes==1) {
+      copyPart=partRef[masterType->GetIndex()];
+    }
+    else {
+      copyPart=parts.end();
+    }
+
+    return masterType;
   }
 
   bool RelAreaDataGenerator::HandleMultipolygonRelation(const ImportParameter& parameter,
@@ -868,27 +955,26 @@ namespace osmscout {
     masterRing.MarkAsMasterRing();
 
     if (masterRing.GetType()==typeConfig.typeInfoIgnore) {
-      for (auto& ring : parts) {
-        if (ring.role.IsOuterRing() &&
-            ring.IsArea() &&
-            ring.role.GetType()!=typeConfig.typeInfoIgnore) {
-          if (masterRing.GetType()==typeConfig.typeInfoIgnore) {
-            if (progress.OutputDebug()) {
-              progress.Debug("Autodetecting type of multipolygon relation "+
-                             NumberToString(rawRelation.GetId())+" as "+
-                             ring.role.GetType()->GetName());
-            }
+      std::list<MultipolygonPart>::iterator copyPart=parts.end();
 
-            masterRing.SetFeatures(ring.role.GetFeatureValueBuffer());
-          }
-          else if (masterRing.GetType()!=ring.role.GetType()) {
-            parameter.GetErrorReporter()->ReportRelation(rawRelation.GetId(),
-                                                         rawRelation.GetType(),
-                                                         "Conflicting types for outer ring ("+
-                                                         masterRing.GetType()->GetName()+
-                                                         " vs. "+ring.ways.front()->GetType()->GetName()+")");
-          }
-        }
+      TypeInfoRef masterType=AutodetectRelationType(parameter,
+                                                    typeConfig,
+                                                    rawRelation,
+                                                    parts,
+                                                    copyPart);
+
+      if (progress.OutputDebug() && masterType!=typeConfig.typeInfoIgnore) {
+        progress.Debug("Autodetecting type of multipolygon relation "+
+                       NumberToString(rawRelation.GetId())+" as "+
+                       masterType->GetName());
+      }
+
+      if (copyPart!=parts.end())  {
+        masterRing.SetFeatures(copyPart->role.GetFeatureValueBuffer());
+        //copyPart->role.SetType(typeConfig.typeInfoIgnore);
+      }
+      else {
+        masterRing.SetType(masterType);
       }
     }
 
@@ -921,14 +1007,39 @@ namespace osmscout {
     bool optimizeAwayMaster=false;
 
     if (masterRing.HasAnyFeaturesSet()) {
-      bool outerRingsClean=true;
+      // Check: Master ring has values and there is one explicit outer ring
+      size_t outerRingCount=0;
 
       for (const auto& ring : parts) {
         if (ring.role.IsOuterRing()) {
-          if (ring.role.GetType()!=masterRing.GetType()) {
-            outerRingsClean=false;
+          outerRingCount++;
+
+          if (outerRingCount>1) {
             break;
           }
+        }
+      }
+
+      if (outerRingCount==1) {
+        optimizeAwayMaster=true;
+
+        for (auto& ring : parts) {
+          if (ring.role.IsOuterRing()) {
+            ring.role.SetFeatures(masterRing.GetFeatureValueBuffer());
+            break;
+          }
+        }
+      }
+    }
+    else {
+      // Check: The master ring does not have any values and has the same type as all outer rings
+      bool outerRingsClean=true;
+
+      for (const auto& ring : parts) {
+        if (ring.role.IsOuterRing() &&
+            ring.role.GetType()!=masterRing.GetType()) {
+          outerRingsClean=false;
+          break;
         }
       }
 
@@ -941,7 +1052,8 @@ namespace osmscout {
       relation.rings.push_back(masterRing);
     }
 
-    relation.rings.reserve(parts.size());
+    relation.rings.reserve(parts.size()+relation.rings.size());
+
     for (const auto& ring : parts) {
       assert(!ring.role.nodes.empty());
 
@@ -950,7 +1062,8 @@ namespace osmscout {
 
     if (!optimizeAwayMaster) {
       for (auto& ring : relation.rings) {
-        if (ring.IsOuterRing() && ring.GetType()==masterRing.GetType()) {
+        if (ring.IsOuterRing() &&
+            ring.GetType()==masterRing.GetType()) {
           ring.SetType(typeConfig.typeInfoIgnore);
         }
       }
@@ -1016,9 +1129,9 @@ namespace osmscout {
 
     CoordDataFile              coordDataFile;
 
-    RawWayIndexedDataFile      wayDataFile(parameter.GetRawWayIndexCacheSize());
+    RawWayIndexedDataFile      wayDataFile(parameter.GetRawWayIndexCacheSize(),/*dataCache*/0);
 
-    RawRelationIndexedDataFile relDataFile(parameter.GetRawWayIndexCacheSize());
+    RawRelationIndexedDataFile relDataFile(parameter.GetRawWayIndexCacheSize(),/*dataCache*/0);
     FeatureRef                 featureName(typeConfig->GetFeature(RefFeature::NAME));
 
     if (!coordDataFile.Open(parameter.GetDestinationDirectory(),
@@ -1163,6 +1276,7 @@ namespace osmscout {
 
         writer.Write((uint8_t)osmRefRelation);
         writer.Write(rawRel.GetId());
+
         rel.WriteImport(*typeConfig,
                         writer);
 

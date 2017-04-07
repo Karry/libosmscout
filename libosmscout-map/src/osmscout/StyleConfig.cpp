@@ -172,6 +172,7 @@ namespace osmscout {
   StyleResolveContext::StyleResolveContext(const TypeConfigRef& typeConfig)
   : bridgeReader(*typeConfig),
     tunnelReader(*typeConfig),
+    embankmentReader(*typeConfig),
     accessReader(*typeConfig)
   {
     // no code
@@ -569,9 +570,7 @@ namespace osmscout {
   FillStyle::FillStyle()
    : fillColor(1.0,0.0,0.0,0.0),
      patternId(0),
-     patternMinMag(Magnification::magWorld),
-     borderColor(1.0,0.0,0.0,0.0),
-     borderWidth(0.0)
+     patternMinMag(Magnification::magWorld)
   {
     // no code
   }
@@ -582,9 +581,6 @@ namespace osmscout {
     this->pattern=style.pattern;
     this->patternId=style.patternId;
     this->patternMinMag=style.patternMinMag;
-    this->borderColor=style.borderColor;
-    this->borderWidth=style.borderWidth;
-    this->borderDash=style.borderDash;
   }
 
   FillStyle& FillStyle::SetFillColor(const Color& color)
@@ -613,27 +609,6 @@ namespace osmscout {
     return *this;
   }
 
-  FillStyle& FillStyle::SetBorderColor(const Color& color)
-  {
-    borderColor=color;
-
-    return *this;
-  }
-
-  FillStyle& FillStyle::SetBorderWidth(double value)
-  {
-    borderWidth=value;
-
-    return *this;
-  }
-
-  FillStyle& FillStyle::SetBorderDashes(const std::vector<double> dashes)
-  {
-    borderDash=dashes;
-
-    return *this;
-  }
-
   void FillStyle::CopyAttributes(const FillStyle& other,
                                  const std::set<Attribute>& attributes)
   {
@@ -649,15 +624,6 @@ namespace osmscout {
       case attrPatternMinMag:
         patternMinMag=other.patternMinMag;
         break;
-      case attrBorderColor:
-        borderColor=other.borderColor;
-        break;
-      case attrBorderWidth:
-        borderWidth=other.borderWidth;
-        break;
-      case attrBorderDashes:
-        borderDash=other.borderDash;
-        break;
       }
     }
   }
@@ -672,19 +638,7 @@ namespace osmscout {
       return false;
     }
 
-    if (patternMinMag!=other.patternMinMag) {
-      return false;
-    }
-
-    if (borderColor!=other.borderColor) {
-      return false;
-    }
-
-    if (borderWidth!=other.borderWidth) {
-      return false;
-    }
-
-    return borderDash==other.borderDash;
+    return patternMinMag!=other.patternMinMag;
   }
 
   bool FillStyle::operator!=(const FillStyle& other) const
@@ -702,19 +656,130 @@ namespace osmscout {
       return pattern<other.pattern;
     }
 
-    if (patternMinMag!=other.patternMinMag) {
-      return patternMinMag<other.patternMinMag;
+    return patternMinMag<other.patternMinMag;
+  }
+
+  BorderStyle::BorderStyle()
+    : color(1.0,0.0,0.0,0.0),
+      width(0.0),
+      displayOffset(0.0),
+      offset(0.0)
+  {
+    // no code
+  }
+
+  BorderStyle& BorderStyle::SetSlot(const std::string& slot)
+  {
+    this->slot=slot;
+
+    return *this;
+  }
+
+  BorderStyle::BorderStyle(const BorderStyle& style)
+  {
+    this->color=style.color;
+    this->width=style.width;
+    this->dash=style.dash;
+  }
+
+  BorderStyle& BorderStyle::SetColor(const Color& color)
+  {
+    this->color=color;
+
+    return *this;
+  }
+
+  BorderStyle& BorderStyle::SetWidth(double value)
+  {
+    width=value;
+
+    return *this;
+  }
+
+  BorderStyle& BorderStyle::SetDashes(const std::vector<double> dashes)
+  {
+    dash=dashes;
+
+    return *this;
+  }
+
+  BorderStyle& BorderStyle::SetDisplayOffset(double value)
+  {
+    displayOffset=value;
+
+    return *this;
+  }
+
+  BorderStyle& BorderStyle::SetOffset(double value)
+  {
+    offset=value;
+
+    return *this;
+  }
+
+  BorderStyle& BorderStyle::SetPriority(int priority)
+  {
+    this->priority=priority;
+
+    return *this;
+  }
+
+  void BorderStyle::CopyAttributes(const BorderStyle& other,
+                                   const std::set<Attribute>& attributes)
+  {
+    for (const auto& attribute : attributes) {
+      switch (attribute) {
+      case attrColor:
+        color=other.color;
+        break;
+      case attrWidth:
+        width=other.width;
+        break;
+      case attrDashes:
+        dash=other.dash;
+        break;
+      case attrDisplayOffset:
+        displayOffset=other.displayOffset;
+        break;
+      case attrOffset:
+        offset=other.offset;
+        break;
+      case attrPriority:
+        priority=other.priority;
+        break;
+      }
+    }
+  }
+
+  bool BorderStyle::operator==(const BorderStyle& other) const
+  {
+    if (color!=other.color) {
+      return false;
     }
 
-    if (borderColor!=other.borderColor) {
-      return borderColor<other.borderColor;
+    if (width!=other.width) {
+      return false;
     }
 
-    if (borderWidth!=other.borderWidth) {
-      return borderWidth<other.borderWidth;
+    return dash==other.dash;
+  }
+
+  bool BorderStyle::operator!=(const BorderStyle& other) const
+  {
+    return !operator==(other);
+  }
+
+  bool BorderStyle::operator<(const BorderStyle& other) const
+  {
+    if (color!=other.color) {
+      return color<other.color;
     }
 
-    return borderDash<other.borderDash;
+    if (width!=other.width) {
+      return width<other.width;
+    }
+
+    return dash<other.dash;
   }
 
   LabelStyle::LabelStyle()
@@ -1212,14 +1277,18 @@ namespace osmscout {
     // no code
   }
 
-  DrawPrimitive::DrawPrimitive(const FillStyleRef& fillStyle)
-  : fillStyle(fillStyle)
+  DrawPrimitive::DrawPrimitive(const FillStyleRef& fillStyle,
+                               const BorderStyleRef& borderStyle)
+  : fillStyle(fillStyle),
+    borderStyle(borderStyle)
   {
     // no code
   }
 
-  PolygonPrimitive::PolygonPrimitive(const FillStyleRef& fillStyle)
-  : DrawPrimitive(fillStyle)
+  PolygonPrimitive::PolygonPrimitive(const FillStyleRef& fillStyle,
+                                     const BorderStyleRef& borderStyle)
+  : DrawPrimitive(fillStyle,
+                  borderStyle)
   {
     // no code
   }
@@ -1251,8 +1320,10 @@ namespace osmscout {
   RectanglePrimitive::RectanglePrimitive(const Vertex2D& topLeft,
                                          double width,
                                          double height,
-                                         const FillStyleRef& fillStyle)
-  : DrawPrimitive(fillStyle),
+                                         const FillStyleRef& fillStyle,
+                                         const BorderStyleRef& borderStyle)
+  : DrawPrimitive(fillStyle,
+                  borderStyle),
     topLeft(topLeft),
     width(width),
     height(height)
@@ -1274,8 +1345,10 @@ namespace osmscout {
 
   CirclePrimitive::CirclePrimitive(const Vertex2D& center,
                                    double radius,
-                                   const FillStyleRef& fillStyle)
-  : DrawPrimitive(fillStyle),
+                                   const FillStyleRef& fillStyle,
+                                   const BorderStyleRef& borderStyle)
+  : DrawPrimitive(fillStyle,
+                  borderStyle),
     center(center),
     radius(radius)
   {
@@ -1456,6 +1529,7 @@ namespace osmscout {
     maxLevel(std::numeric_limits<size_t>::max()),
     bridge(false),
     tunnel(false),
+    embankment(false),
     oneway(false)
   {
     // no code
@@ -1468,6 +1542,7 @@ namespace osmscout {
     this->maxLevel=other.maxLevel;
     this->bridge=other.bridge;
     this->tunnel=other.tunnel;
+    this->embankment=other.embankment;
     this->oneway=other.oneway;
     this->sizeCondition=other.sizeCondition;
   }
@@ -1507,6 +1582,13 @@ namespace osmscout {
     return *this;
   }
 
+  StyleFilter& StyleFilter::SetEmbankment(bool embankment)
+  {
+    this->embankment=embankment;
+
+    return *this;
+  }
+    
   StyleFilter& StyleFilter::SetOneway(bool oneway)
   {
     this->oneway=oneway;
@@ -1524,6 +1606,7 @@ namespace osmscout {
   StyleCriteria::StyleCriteria()
   : bridge(false),
     tunnel(false),
+    embankment(false),
     oneway(false)
   {
     // no code
@@ -1533,6 +1616,7 @@ namespace osmscout {
   {
     this->bridge=other.GetBridge();
     this->tunnel=other.GetTunnel();
+    this->embankment=other.GetEmbankment();
     this->oneway=other.GetOneway();
     this->sizeCondition=other.GetSizeCondition();
   }
@@ -1541,23 +1625,26 @@ namespace osmscout {
   {
     this->bridge=other.bridge;
     this->tunnel=other.tunnel;
+    this->embankment=other.embankment;
     this->oneway=other.oneway;
     this->sizeCondition=other.sizeCondition;
   }
 
   bool StyleCriteria::operator==(const StyleCriteria& other) const
   {
-    return bridge==other.bridge &&
-           tunnel==other.tunnel &&
-           oneway==other.oneway &&
+    return bridge==other.bridge         &&
+           tunnel==other.tunnel         &&
+           embankment==other.embankment &&
+           oneway==other.oneway         &&
            sizeCondition==other.sizeCondition;
   }
 
   bool StyleCriteria::operator!=(const StyleCriteria& other) const
   {
-    return bridge!=other.bridge ||
-           tunnel!=other.tunnel ||
-           oneway!=other.oneway ||
+    return bridge!=other.bridge         ||
+           tunnel!=other.tunnel         ||
+           embankment!=other.embankment ||
+           oneway!=other.oneway         ||
            sizeCondition!=other.sizeCondition;
   }
 
@@ -1572,6 +1659,10 @@ namespace osmscout {
       return false;
     }
 
+    if (embankment) {
+      return false;
+    }
+      
     if (oneway) {
       return false;
     }
@@ -1600,6 +1691,11 @@ namespace osmscout {
       return false;
     }
 
+    if (embankment &&
+       !context.IsEmbankment(buffer)) {
+      return false;
+    }
+      
     if (oneway &&
         !context.IsOneway(buffer)) {
       return false;
@@ -1661,12 +1757,14 @@ namespace osmscout {
     wayTypeSets.clear();
 
     areaFillStyleConditionals.clear();
+    areaBorderStyleConditionals.clear();
     areaTextStyleConditionals.clear();
     areaIconStyleConditionals.clear();
     areaBorderTextStyleConditionals.clear();
     areaBorderSymbolStyleConditionals.clear();
 
     areaFillStyleSelectors.clear();
+    areaBorderStyleSelectors.clear();
     areaTextStyleSelectors.clear();
     areaIconStyleSelectors.clear();
     areaBorderTextStyleSelectors.clear();
@@ -2036,6 +2134,8 @@ namespace osmscout {
 
     GetMaxLevelInConditionals(areaFillStyleConditionals,
                               maxLevel);
+    GetMaxLevelInConditionals(areaBorderStyleConditionals,
+                              maxLevel);
     GetMaxLevelInConditionals(areaTextStyleConditionals,
                               maxLevel);
     GetMaxLevelInConditionals(areaIconStyleConditionals,
@@ -2050,6 +2150,24 @@ namespace osmscout {
                        maxLevel,
                        areaFillStyleSelectors);
 
+    std::unordered_map<std::string,std::list<BorderConditionalStyle> > borderStyleBySlot;
+
+    for (auto& conditional : areaBorderStyleConditionals) {
+      borderStyleBySlot[conditional.style.style->GetSlot()].push_back(conditional);
+    }
+
+    areaBorderStyleSelectors.resize(borderStyleBySlot.size());
+
+    size_t idx=0;
+    for (const auto& entry : borderStyleBySlot) {
+      SortInConditionals(*typeConfig,
+                         entry.second,
+                         maxLevel,
+                         areaBorderStyleSelectors[idx]);
+
+      idx++;
+    }
+
     std::unordered_map<std::string,std::list<TextConditionalStyle> > textStyleBySlot;
 
     for (auto& conditional : areaTextStyleConditionals) {
@@ -2058,7 +2176,7 @@ namespace osmscout {
 
     areaTextStyleSelectors.resize(textStyleBySlot.size());
 
-    size_t idx=0;
+    idx=0;
     for (const auto& entry : textStyleBySlot) {
       SortInConditionals(*typeConfig,
                          entry.second,
@@ -2094,6 +2212,10 @@ namespace osmscout {
                        maxLevel,
                        areaTypeSets);
     CalculateUsedTypes(*typeConfig,
+                       areaBorderStyleConditionals,
+                       maxLevel,
+                       areaTypeSets);
+    CalculateUsedTypes(*typeConfig,
                        areaTextStyleConditionals,
                        maxLevel,
                        areaTypeSets);
@@ -2111,6 +2233,7 @@ namespace osmscout {
                        areaTypeSets);
 
     areaFillStyleConditionals.clear();
+    areaBorderStyleConditionals.clear();
     areaTextStyleConditionals.clear();
     areaIconStyleConditionals.clear();
     areaBorderTextStyleConditionals.clear();
@@ -2274,6 +2397,14 @@ namespace osmscout {
     FillConditionalStyle conditional(filter,style);
 
     areaFillStyleConditionals.push_back(conditional);
+  }
+
+  void StyleConfig::AddAreaBorderStyle(const StyleFilter& filter,
+                                       BorderPartialStyle& style)
+  {
+    BorderConditionalStyle conditional(filter,style);
+
+    areaBorderStyleConditionals.push_back(conditional);
   }
 
   void StyleConfig::AddAreaTextStyle(const StyleFilter& filter,
@@ -2506,6 +2637,31 @@ namespace osmscout {
                     buffer,
                     projection,
                     fillStyle);
+  }
+
+  void StyleConfig::GetAreaBorderStyles(const TypeInfoRef& type,
+                                        const FeatureValueBuffer& buffer,
+                                        const Projection& projection,
+                                        std::vector<BorderStyleRef>& borderStyles) const
+  {
+    BorderStyleRef style;
+
+    borderStyles.clear();
+    borderStyles.reserve(areaBorderStyleSelectors.size());
+
+    for (size_t slot=0; slot<areaBorderStyleSelectors.size(); slot++) {
+      style=NULL;
+
+      GetFeatureStyle(styleResolveContext,
+                      areaBorderStyleSelectors[slot][type->GetIndex()],
+                      buffer,
+                      projection,
+                      style);
+
+      if (style) {
+        borderStyles.push_back(style);
+      }
+    }
   }
 
   bool StyleConfig::HasAreaTextStyles(const TypeInfoRef& type,

@@ -169,6 +169,7 @@ namespace osmscout {
   private:
     BridgeFeatureReader      bridgeReader;
     TunnelFeatureReader      tunnelReader;
+    EmbankmentFeatureReader  embankmentReader;
     AccessFeatureValueReader accessReader;
 
   public:
@@ -182,6 +183,11 @@ namespace osmscout {
     inline bool IsTunnel(const FeatureValueBuffer& buffer) const
     {
       return tunnelReader.IsSet(buffer);
+    }
+
+    inline bool IsEmbankment(const FeatureValueBuffer& buffer) const
+    {
+      return embankmentReader.IsSet(buffer);
     }
 
     bool IsOneway(const FeatureValueBuffer& buffer) const;
@@ -303,6 +309,7 @@ namespace osmscout {
     size_t                maxLevel;
     bool                  bridge;
     bool                  tunnel;
+    bool                  embankment;
     bool                  oneway;
     SizeConditionRef      sizeCondition;
 
@@ -316,6 +323,7 @@ namespace osmscout {
     StyleFilter& SetMaxLevel(size_t level);
     StyleFilter& SetBridge(bool bridge);
     StyleFilter& SetTunnel(bool tunnel);
+    StyleFilter& SetEmbankment(bool embankment);
     StyleFilter& SetOneway(bool oneway);
 
     StyleFilter& SetSizeCondition(const SizeConditionRef& condition);
@@ -350,6 +358,11 @@ namespace osmscout {
       return tunnel;
     }
 
+    inline bool GetEmbankment() const
+    {
+      return embankment;
+    }
+
     inline bool GetOneway() const
     {
       return oneway;
@@ -380,6 +393,7 @@ namespace osmscout {
   private:
     bool             bridge;
     bool             tunnel;
+    bool             embankment;
     bool             oneway;
     SizeConditionRef sizeCondition;
 
@@ -393,9 +407,10 @@ namespace osmscout {
 
     inline bool HasCriteria() const
     {
-      return bridge ||
-             tunnel ||
-             oneway ||
+      return bridge     ||
+             tunnel     ||
+             embankment ||
+             oneway     ||
              sizeCondition;
     }
 
@@ -407,6 +422,11 @@ namespace osmscout {
     inline bool GetTunnel() const
     {
       return tunnel;
+    }
+
+    inline bool GetEmbankment() const
+    {
+      return embankment;
     }
 
     inline bool GetOneway() const
@@ -643,10 +663,7 @@ namespace osmscout {
     enum Attribute {
       attrFillColor,
       attrPattern,
-      attrPatternMinMag,
-      attrBorderColor,
-      attrBorderWidth,
-      attrBorderDashes
+      attrPatternMinMag
     };
 
   private:
@@ -654,9 +671,6 @@ namespace osmscout {
     std::string         pattern;
     mutable size_t      patternId;
     Magnification       patternMinMag;
-    Color               borderColor;
-    double              borderWidth;
-    std::vector<double> borderDash;
 
   public:
     FillStyle();
@@ -666,14 +680,10 @@ namespace osmscout {
     FillStyle& SetPattern(const std::string& pattern);
     void SetPatternId(size_t id) const;
     FillStyle& SetPatternMinMag(const Magnification& mag);
-    FillStyle& SetBorderColor(const Color& color);
-    FillStyle& SetBorderWidth(double value);
-    FillStyle& SetBorderDashes(const std::vector<double> dashes);
 
     inline bool IsVisible() const
     {
       return (fillColor.IsVisible() ||
-              (borderWidth>0 && borderColor.IsVisible()) ||
               !pattern.empty());
     }
 
@@ -702,26 +712,6 @@ namespace osmscout {
       return patternMinMag;
     }
 
-    inline const Color& GetBorderColor() const
-    {
-      return borderColor;
-    }
-
-    inline double GetBorderWidth() const
-    {
-      return borderWidth;
-    }
-
-    inline bool HasBorderDashes() const
-    {
-      return !borderDash.empty();
-    }
-
-    inline const std::vector<double>& GetBorderDash() const
-    {
-      return borderDash;
-    }
-
     void CopyAttributes(const FillStyle& other,
                         const std::set<Attribute>& attributes);
 
@@ -736,6 +726,105 @@ namespace osmscout {
   typedef StyleSelector<FillStyle,FillStyle::Attribute>    FillStyleSelector;
   typedef std::list<FillStyleSelector>                     FillStyleSelectorList; //! List of selectors
   typedef std::vector<std::vector<FillStyleSelectorList> > FillStyleLookupTable;  //!Index selectors by type and level
+
+  /**
+   * \ingroup Stylesheet
+   *
+   * Style options for borders around an area.
+   */
+  class OSMSCOUT_MAP_API BorderStyle
+  {
+  public:
+    enum Attribute {
+      attrColor,
+      attrWidth,
+      attrDashes,
+      attrDisplayOffset,
+      attrOffset,
+      attrPriority
+    };
+
+  private:
+    std::string         slot;
+    Color               color;
+    double              width;
+    std::vector<double> dash;
+    double              displayOffset;
+    double              offset;
+    int                 priority;
+
+  public:
+    BorderStyle();
+    BorderStyle(const BorderStyle& style);
+
+    BorderStyle& SetSlot(const std::string& slot);
+
+    BorderStyle& SetColor(const Color& color);
+    BorderStyle& SetWidth(double value);
+    BorderStyle& SetDashes(const std::vector<double> dashes);
+    BorderStyle& SetDisplayOffset(double value);
+    BorderStyle& SetOffset(double value);
+    BorderStyle& SetPriority(int priority);
+
+    inline bool IsVisible() const
+    {
+      return width>0 && color.IsVisible();
+    }
+
+    inline const std::string& GetSlot() const
+    {
+      return slot;
+    }
+
+    inline const Color& GetColor() const
+    {
+      return color;
+    }
+
+    inline double GetWidth() const
+    {
+      return width;
+    }
+
+    inline bool HasDashes() const
+    {
+      return !dash.empty();
+    }
+
+    inline const std::vector<double>& GetDash() const
+    {
+      return dash;
+    }
+
+    inline double GetDisplayOffset() const
+    {
+      return displayOffset;
+    }
+
+    inline double GetOffset() const
+    {
+      return offset;
+    }
+
+    inline int GetPriority() const
+    {
+      return priority;
+    }
+
+    void CopyAttributes(const BorderStyle& other,
+                        const std::set<Attribute>& attributes);
+
+    bool operator==(const BorderStyle& other) const;
+    bool operator!=(const BorderStyle& other) const;
+    bool operator<(const BorderStyle& other) const;
+  };
+
+  typedef std::shared_ptr<BorderStyle>                         BorderStyleRef;
+  typedef PartialStyle<BorderStyle,BorderStyle::Attribute>     BorderPartialStyle;
+  typedef ConditionalStyle<BorderStyle,BorderStyle::Attribute> BorderConditionalStyle;
+  typedef StyleSelector<BorderStyle,BorderStyle::Attribute>    BorderStyleSelector;
+  typedef std::list<BorderStyleSelector>                       BorderStyleSelectorList; //! List of selectors
+  typedef std::vector<std::vector<BorderStyleSelectorList> >   BorderStyleLookupTable;  //!Index selectors by type and level
 
   /**
    * \ingroup Stylesheet
@@ -1138,15 +1227,22 @@ namespace osmscout {
   class OSMSCOUT_MAP_API DrawPrimitive
   {
   private:
-    FillStyleRef fillStyle;
+    FillStyleRef   fillStyle;
+    BorderStyleRef borderStyle;
 
   public:
-    DrawPrimitive(const FillStyleRef& fillStyle);
+    DrawPrimitive(const FillStyleRef& fillStyle,
+                  const BorderStyleRef& borderStyle);
     virtual ~DrawPrimitive();
 
     inline const FillStyleRef& GetFillStyle() const
     {
       return fillStyle;
+    }
+
+    inline const BorderStyleRef& GetBorderStyle() const
+    {
+      return borderStyle;
     }
 
     virtual void GetBoundingBox(double& minX,
@@ -1167,7 +1263,8 @@ namespace osmscout {
     std::list<Vertex2D> coords;
 
   public:
-    PolygonPrimitive(const FillStyleRef& fillStyle);
+    PolygonPrimitive(const FillStyleRef& fillStyle,
+                     const BorderStyleRef& borderStyle);
 
     void AddCoord(const Vertex2D& coord);
 
@@ -1199,7 +1296,8 @@ namespace osmscout {
     RectanglePrimitive(const Vertex2D& topLeft,
                        double width,
                        double height,
-                       const FillStyleRef& fillStyle);
+                       const FillStyleRef& fillStyle,
+                       const BorderStyleRef& borderStyle);
 
     inline const Vertex2D& GetTopLeft() const
     {
@@ -1237,7 +1335,8 @@ namespace osmscout {
   public:
     CirclePrimitive(const Vertex2D& center,
                     double radius,
-                    const FillStyleRef& fillStyle);
+                    const FillStyleRef& fillStyle,
+                    const BorderStyleRef& borderStyle);
 
     inline const Vertex2D& GetCenter() const
     {
@@ -1505,12 +1604,14 @@ namespace osmscout {
     // Area
 
     std::list<FillConditionalStyle>            areaFillStyleConditionals;
+    std::list<BorderConditionalStyle>          areaBorderStyleConditionals;
     std::list<TextConditionalStyle>            areaTextStyleConditionals;
     std::list<IconConditionalStyle>            areaIconStyleConditionals;
     std::list<PathTextConditionalStyle>        areaBorderTextStyleConditionals;
     std::list<PathSymbolConditionalStyle>      areaBorderSymbolStyleConditionals;
 
     FillStyleLookupTable                       areaFillStyleSelectors;
+    std::vector<BorderStyleLookupTable>        areaBorderStyleSelectors;
     std::vector<TextStyleLookupTable>          areaTextStyleSelectors;
     IconStyleLookupTable                       areaIconStyleSelectors;
     PathTextStyleLookupTable                   areaBorderTextStyleSelectors;
@@ -1554,6 +1655,11 @@ namespace osmscout {
     void AddFlag(const std::string& name,
                  bool value);
 
+    inline const std::unordered_map<std::string,bool> GetFlags() const
+    {
+      return flags;
+    }
+
     StyleConstantRef GetConstantByName(const std::string& name) const;
     void AddConstant(const std::string& name,
                      const StyleConstantRef& variable);
@@ -1584,6 +1690,8 @@ namespace osmscout {
 
     void AddAreaFillStyle(const StyleFilter& filter,
                           FillPartialStyle& style);
+    void AddAreaBorderStyle(const StyleFilter& filter,
+                            BorderPartialStyle& style);
     void AddAreaTextStyle(const StyleFilter& filter,
                           TextPartialStyle& style);
     void AddAreaIconStyle(const StyleFilter& filter,
@@ -1643,6 +1751,10 @@ namespace osmscout {
                           const FeatureValueBuffer& buffer,
                           const Projection& projection,
                           FillStyleRef& fillStyle) const;
+    void GetAreaBorderStyles(const TypeInfoRef& type,
+                             const FeatureValueBuffer& buffer,
+                             const Projection& projection,
+                             std::vector<BorderStyleRef>& borderStyles) const;
     bool HasAreaTextStyles(const TypeInfoRef& type,
                            const Magnification& magnification) const;
     void GetAreaTextStyles(const TypeInfoRef& type,
