@@ -51,7 +51,7 @@ bool ReadCellsForRoutingTree(osmscout::Database& database,
 
     std::cout << "Opening routing file '" << fullFilename << "'" << std::endl;
 
-    scanner.Open(fullFilename,osmscout::FileScanner::Sequential,false);
+    scanner.Open(fullFilename,osmscout::FileScanner::Sequential,false,osmscout::TypeConfig::MAX_FORMAT_VERSION);
 
     scanner.Read(count);
 
@@ -92,7 +92,7 @@ bool ReadRouteNodesForCells(osmscout::Database& database,
 
     std::cout << "Opening routing file '" << fullFilename << "'" << std::endl;
 
-    scanner.Open(fullFilename,osmscout::FileScanner::Sequential,false);
+    scanner.Open(fullFilename,osmscout::FileScanner::Sequential,false,osmscout::TypeConfig::MAX_FORMAT_VERSION);
 
     scanner.Read(count);
 

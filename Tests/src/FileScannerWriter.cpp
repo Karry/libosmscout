@@ -6,6 +6,7 @@
 #include <osmscout/util/FileWriter.h>
 
 #include <osmscout/CoreFeatures.h>
+#include <osmscout/TypeConfig.h>
 
 int errors=0;
 
@@ -188,7 +189,7 @@ int main()
 
     writer.Close();
 
-    scanner.Open("test.dat",osmscout::FileScanner::Normal,false);
+    scanner.Open("test.dat",osmscout::FileScanner::Normal,false,osmscout::TypeConfig::MAX_FORMAT_VERSION);
 
     // Read/Write
 
