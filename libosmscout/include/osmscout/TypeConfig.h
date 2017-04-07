@@ -1099,7 +1099,7 @@ namespace osmscout {
 
   typedef std::shared_ptr<FeatureValueBuffer> FeatureValueBufferRef;
 
-  static const uint32_t FILE_FORMAT_VERSION = 11;
+  static const uint32_t FILE_FORMAT_VERSION = 12;
   static const uint32_t FILE_FORMAT_MIN_VERSION = 6;
 
   /**
@@ -1167,6 +1167,7 @@ namespace osmscout {
     FeatureRef                                  featureGrade;
     FeatureRef                                  featureBridge;
     FeatureRef                                  featureTunnel;
+    FeatureRef                                  featureEmbankment;
     FeatureRef                                  featureRoundabout;
 
   public:

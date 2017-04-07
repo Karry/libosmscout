@@ -1074,6 +1074,11 @@ namespace osmscout {
     featureTunnel=std::make_shared<TunnelFeature>();
     RegisterFeature(featureTunnel);
 
+    if (fileFormatVersion>=12){
+      featureEmbankment=std::make_shared<EmbankmentFeature>();
+      RegisterFeature(featureEmbankment);
+    }
+      
     featureRoundabout=std::make_shared<RoundaboutFeature>();
     RegisterFeature(featureRoundabout);
 
@@ -1258,6 +1263,11 @@ namespace osmscout {
       }
       if (!typeInfo->HasFeature(TunnelFeature::NAME)) {
         typeInfo->AddFeature(featureTunnel);
+      }
+      if (fileFormatVersion>=12){
+        if (!typeInfo->HasFeature(EmbankmentFeature::NAME)) {
+          typeInfo->AddFeature(featureEmbankment);
+        }
       }
       if (!typeInfo->HasFeature(RoundaboutFeature::NAME)) {
         typeInfo->AddFeature(featureRoundabout);

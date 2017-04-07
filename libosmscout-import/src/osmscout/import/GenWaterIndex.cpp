@@ -635,6 +635,7 @@ namespace osmscout {
 
     BridgeFeatureReader bridgeFeatureRader(typeConfig);
     TunnelFeatureReader tunnelFeatureRader(typeConfig);
+    EmbankmentFeatureReader embankmentFeatureRader(typeConfig);
     FileScanner         scanner;
     uint32_t            wayCount=0;
 
@@ -661,7 +662,8 @@ namespace osmscout {
             !way.GetType()->GetIgnoreSeaLand() &&
             !tunnelFeatureRader.IsSet(way.GetFeatureValueBuffer()) &&
             !bridgeFeatureRader.IsSet(way.GetFeatureValueBuffer()) &&
-            way.GetNodes().size()>=2) {
+            !embankmentFeatureRader.IsSet(way.GetFeatureValueBuffer()) &&
+            way.nodes.size()>=2) {
           std::set<Pixel> coords;
 
           GetCells(level,way.GetNodes().asVector(),coords);
@@ -1251,13 +1253,15 @@ namespace osmscout {
         polygon.TransformArea(projection,
                               parameter.GetOptimizationWayMethod(),
                               coast->coast,
-                              1.0);
+                              1.0,
+                              TransPolygon::simple);
       }
       else {
         polygon.TransformWay(projection,
                              parameter.GetOptimizationWayMethod(),
                              coast->coast,
-                             1.0);
+                             1.0,
+                             TransPolygon::simple);
       }
 
       if (coast->isArea) {
