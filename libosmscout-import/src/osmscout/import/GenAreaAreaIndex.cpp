@@ -132,16 +132,16 @@ namespace osmscout {
           continue;
         }
 
-        if (ring->IsMasterRing() &&
-            ring->GetNodes().empty()) {
+        if (ring.IsMasterRing() &&
+            ring.GetNodes().empty()) {
           for (const auto& r : area.rings) {
-            if (r->IsOuterRing()) {
+            if (r.IsOuterRing()) {
               writer.WriteFileOffset(offset);
               writer.WriteNumber(ring.GetType()->GetAreaId());
               writer.Write(name);
               writer.Write(location);
               writer.Write(address);
-              writer.Write(r->GetNodes(),false);
+              writer.Write(r.GetNodes(),false);
 
               overallDataCount++;
             }
@@ -153,7 +153,7 @@ namespace osmscout {
           writer.Write(name);
           writer.Write(location);
           writer.Write(address);
-          writer.Write(ring->GetNodes(),false);
+          writer.Write(ring.GetNodes(),false);
 
           overallDataCount++;
         }

@@ -437,13 +437,14 @@ namespace osmscout {
                                    double optimizeErrorTolerance,
                                    OutputConstraint constraint)
   {
-      return TransformArea(projection, optimize, TempVectorPointSequence(&nodes), optimizeErrorTolerance);
+      return TransformArea(projection, optimize, TempVectorPointSequence(&nodes), optimizeErrorTolerance, constraint);
   }
   
   void TransPolygon::TransformArea(const Projection& projection,
                                    OptimizeMethod optimize,
                                    const PointSequence& nodes,
-                                   double optimizeErrorTolerance)
+                                   double optimizeErrorTolerance,
+                                   OutputConstraint constraint)
   {
     if (nodes.size()<2) {
       length=0;
@@ -497,13 +498,14 @@ namespace osmscout {
                                   double optimizeErrorTolerance,
                                   OutputConstraint constraint)
   {
-      return TransformWay(projection, optimize, TempVectorPointSequence(&nodes), optimizeErrorTolerance);
+      return TransformWay(projection, optimize, TempVectorPointSequence(&nodes), optimizeErrorTolerance, constraint);
   }
   
   void TransPolygon::TransformWay(const Projection& projection,
                                   OptimizeMethod optimize,
                                   const PointSequence& nodes,
-                                  double optimizeErrorTolerance)
+                                  double optimizeErrorTolerance,
+                                  OutputConstraint constraint)
   {
     if (nodes.empty()) {
       length=0;

@@ -133,9 +133,22 @@ namespace osmscout {
                        double optimizeErrorTolerance,
                        OutputConstraint constraint=noConstraint);
 
+    void TransformArea(const Projection& projection,
+                       OptimizeMethod optimize,
+                       const std::vector<Point>& nodes,
+                       double optimizeErrorTolerance,
+                       OutputConstraint constraint=noConstraint);
+
+    void TransformWay(const Projection& projection,
+                      OptimizeMethod optimize,
+                      const std::vector<Point>& nodes,
+                      double optimizeErrorTolerance,
+                      OutputConstraint constraint=noConstraint);
+
     void TransformWay(const Projection& projection,
                       OptimizeMethod optimize,
                       const PointSequence& nodes,
+                      double optimizeErrorTolerance,
                       OutputConstraint constraint=noConstraint);
 
     bool GetBoundingBox(double& xmin, double& ymin,

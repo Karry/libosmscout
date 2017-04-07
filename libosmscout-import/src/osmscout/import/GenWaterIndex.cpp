@@ -663,7 +663,7 @@ namespace osmscout {
             !tunnelFeatureRader.IsSet(way.GetFeatureValueBuffer()) &&
             !bridgeFeatureRader.IsSet(way.GetFeatureValueBuffer()) &&
             !embankmentFeatureRader.IsSet(way.GetFeatureValueBuffer()) &&
-            way.nodes.size()>=2) {
+            way.GetNodes().size()>=2) {
           std::set<Pixel> coords;
 
           GetCells(level,way.GetNodes().asVector(),coords);
