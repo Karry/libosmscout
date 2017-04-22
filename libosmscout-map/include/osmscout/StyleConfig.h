@@ -167,27 +167,25 @@ namespace osmscout {
   class OSMSCOUT_MAP_API StyleResolveContext
   {
   private:
-    BridgeFeatureReader      bridgeReader;
-    TunnelFeatureReader      tunnelReader;
-    EmbankmentFeatureReader  embankmentReader;
-    AccessFeatureValueReader accessReader;
+    TypeConfigRef                     typeConfig;
+    std::map<std::string,size_t>      featureReaderMap; //< Map that maps feature names to index in the feature reader vector
+    std::vector<DynamicFeatureReader> featureReaders;   //< List of feature readers
+    AccessFeatureValueReader          accessReader;
 
   public:
     StyleResolveContext(const TypeConfigRef& typeConfig);
 
-    inline bool IsBridge(const FeatureValueBuffer& buffer) const
+    size_t GetFeatureReaderIndex(const Feature& feature);
+
+    inline bool HasFeature(size_t featureIndex,
+                           const FeatureValueBuffer& buffer) const
     {
-      return bridgeReader.IsSet(buffer);
+      return featureReaders[featureIndex].IsSet(buffer);
     }
 
-    inline bool IsTunnel(const FeatureValueBuffer& buffer) const
+    inline std::string GetFeatureName(size_t featureIndex) const
     {
-      return tunnelReader.IsSet(buffer);
-    }
-
-    inline bool IsEmbankment(const FeatureValueBuffer& buffer) const
-    {
-      return embankmentReader.IsSet(buffer);
+      return featureReaders[featureIndex].GetFeatureName();
     }
 
     bool IsOneway(const FeatureValueBuffer& buffer) const;
@@ -304,33 +302,36 @@ namespace osmscout {
   public:
 
   private:
-    TypeInfoSet           types;
-    size_t                minLevel;
-    size_t                maxLevel;
-    bool                  bridge;
-    bool                  tunnel;
-    bool                  embankment;
-    bool                  oneway;
-    SizeConditionRef      sizeCondition;
+    bool             filtersByType;
+    TypeInfoSet      types;
+    size_t           minLevel;
+    size_t           maxLevel;
+    std::set<size_t> features;
+    bool             oneway;
+    SizeConditionRef sizeCondition;
 
   public:
     StyleFilter();
     StyleFilter(const StyleFilter& other);
 
     StyleFilter& SetTypes(const TypeInfoSet& types);
-
     StyleFilter& SetMinLevel(size_t level);
     StyleFilter& SetMaxLevel(size_t level);
-    StyleFilter& SetBridge(bool bridge);
-    StyleFilter& SetTunnel(bool tunnel);
-    StyleFilter& SetEmbankment(bool embankment);
+
+    StyleFilter& AddFeature(const size_t featureFilterIndex);
+
     StyleFilter& SetOneway(bool oneway);
 
     StyleFilter& SetSizeCondition(const SizeConditionRef& condition);
 
-    inline bool HasTypes() const
+    inline bool FiltersByType() const
     {
-      return !types.Empty();
+      return filtersByType;
+    }
+
+    inline bool FiltersByFeature() const
+    {
+      return !features.empty();
     }
 
     inline bool HasType(const TypeInfoRef& type) const
@@ -348,19 +349,9 @@ namespace osmscout {
       return maxLevel;
     }
 
-    inline bool GetBridge() const
+    inline const std::set<size_t>& GetFeatures() const
     {
-      return bridge;
-    }
-
-    inline bool GetTunnel() const
-    {
-      return tunnel;
-    }
-
-    inline bool GetEmbankment() const
-    {
-      return embankment;
+      return features;
     }
 
     inline bool GetOneway() const
@@ -391,9 +382,7 @@ namespace osmscout {
   public:
 
   private:
-    bool             bridge;
-    bool             tunnel;
-    bool             embankment;
+    std::set<size_t> features;
     bool             oneway;
     SizeConditionRef sizeCondition;
 
@@ -407,26 +396,9 @@ namespace osmscout {
 
     inline bool HasCriteria() const
     {
-      return bridge     ||
-             tunnel     ||
-             embankment ||
+      return !features.empty() ||
              oneway     ||
              sizeCondition;
-    }
-
-    inline bool GetBridge() const
-    {
-      return bridge;
-    }
-
-    inline bool GetTunnel() const
-    {
-      return tunnel;
-    }
-
-    inline bool GetEmbankment() const
-    {
-      return embankment;
     }
 
     inline bool GetOneway() const
@@ -434,8 +406,6 @@ namespace osmscout {
       return oneway;
     }
 
-    bool Matches(double meterInPixel,
-                 double meterInMM) const;
     bool Matches(const StyleResolveContext& context,
                  const FeatureValueBuffer& buffer,
                  double meterInPixel,
@@ -737,6 +707,7 @@ namespace osmscout {
   public:
     enum Attribute {
       attrColor,
+      attrGapColor,
       attrWidth,
       attrDashes,
       attrDisplayOffset,
@@ -747,6 +718,7 @@ namespace osmscout {
   private:
     std::string         slot;
     Color               color;
+    Color               gapColor;
     double              width;
     std::vector<double> dash;
     double              displayOffset;
@@ -760,6 +732,7 @@ namespace osmscout {
     BorderStyle& SetSlot(const std::string& slot);
 
     BorderStyle& SetColor(const Color& color);
+    BorderStyle& SetGapColor(const Color& color);
     BorderStyle& SetWidth(double value);
     BorderStyle& SetDashes(const std::vector<double> dashes);
     BorderStyle& SetDisplayOffset(double value);
@@ -779,6 +752,11 @@ namespace osmscout {
     inline const Color& GetColor() const
     {
       return color;
+    }
+
+    inline const Color& GetGapColor() const
+    {
+      return gapColor;
     }
 
     inline double GetWidth() const
@@ -1559,7 +1537,7 @@ namespace osmscout {
   {
   private:
     TypeConfigRef                              typeConfig;             //!< Reference to the type configuration
-    StyleResolveContext                        styleResolveContext;    //!< Instance of helper class that can get passed around to templated helper methods
+    mutable StyleResolveContext                styleResolveContext;    //!< Instance of helper class that can get passed around to templated helper methods
 
     FeatureValueBuffer                         tileLandBuffer;         //!< Fake FeatureValueBuffer for land tiles
     FeatureValueBuffer                         tileSeaBuffer;          //!< Fake FeatureValueBuffer for sea tiles
@@ -1670,6 +1648,8 @@ namespace osmscout {
     void Postprocess();
 
     TypeConfigRef GetTypeConfig() const;
+
+    size_t GetFeatureFilterIndex(const Feature& feature) const;
 
     StyleConfig& SetWayPrio(const TypeInfoRef& type,
                             size_t prio);

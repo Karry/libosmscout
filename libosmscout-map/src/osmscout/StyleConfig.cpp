@@ -170,9 +170,7 @@ namespace osmscout {
   }
 
   StyleResolveContext::StyleResolveContext(const TypeConfigRef& typeConfig)
-  : bridgeReader(*typeConfig),
-    tunnelReader(*typeConfig),
-    embankmentReader(*typeConfig),
+  : typeConfig(typeConfig),
     accessReader(*typeConfig)
   {
     // no code
@@ -190,6 +188,23 @@ namespace osmscout {
 
       return accessValueDefault.IsOneway();
     }
+  }
+
+  size_t StyleResolveContext::GetFeatureReaderIndex(const Feature& feature)
+  {
+    auto entry=featureReaderMap.find(feature.GetName());
+
+    if (entry!=featureReaderMap.end()) {
+      return entry->second;
+    }
+
+    featureReaders.push_back(DynamicFeatureReader(*typeConfig,
+                                                  feature));
+    size_t index=featureReaders.size()-1;
+
+    featureReaderMap[feature.GetName()]=index;
+
+    return index;
   }
 
   StyleConstant::StyleConstant()
@@ -689,6 +704,13 @@ namespace osmscout {
     return *this;
   }
 
+  BorderStyle& BorderStyle::SetGapColor(const Color& gapColor)
+  {
+    this->gapColor=gapColor;
+
+    return *this;
+  }
+
   BorderStyle& BorderStyle::SetWidth(double value)
   {
     width=value;
@@ -732,6 +754,9 @@ namespace osmscout {
       case attrColor:
         color=other.color;
         break;
+      case attrGapColor:
+        gapColor=other.gapColor;
+        break;
       case attrWidth:
         width=other.width;
         break;
@@ -757,11 +782,27 @@ namespace osmscout {
       return false;
     }
 
-    if (width!=other.width) {
+    if (gapColor!=other.gapColor) {
       return false;
     }
 
-    return dash==other.dash;
+    if (width!=other.width) {
+      return width<other.width;
+    }
+
+    if (dash!=other.dash) {
+      return dash<other.dash;
+    }
+
+    if (displayOffset!=other.displayOffset) {
+      return displayOffset<other.displayOffset;
+    }
+
+    if (offset!=other.offset) {
+      return offset<other.offset;
+    }
+
+    return priority<other.priority;
   }
 
   bool BorderStyle::operator!=(const BorderStyle& other) const
@@ -775,11 +816,27 @@ namespace osmscout {
       return color<other.color;
     }
 
+    if (gapColor!=other.gapColor) {
+      return gapColor<other.gapColor;
+    }
+
     if (width!=other.width) {
       return width<other.width;
     }
 
-    return dash<other.dash;
+    if (displayOffset!=other.displayOffset) {
+      return displayOffset<other.displayOffset;
+    }
+
+    if (offset!=other.offset) {
+      return offset<other.offset;
+    }
+
+    if (dash!=other.dash) {
+      return dash<other.dash;
+    }
+
+    return priority<other.priority;
   }
 
   LabelStyle::LabelStyle()
@@ -1525,11 +1582,9 @@ namespace osmscout {
   }
 
   StyleFilter::StyleFilter()
-  : minLevel(0),
+  : filtersByType(false),
+    minLevel(0),
     maxLevel(std::numeric_limits<size_t>::max()),
-    bridge(false),
-    tunnel(false),
-    embankment(false),
     oneway(false)
   {
     // no code
@@ -1537,12 +1592,11 @@ namespace osmscout {
 
   StyleFilter::StyleFilter(const StyleFilter& other)
   {
+    this->filtersByType=other.filtersByType;
     this->types=other.types;
     this->minLevel=other.minLevel;
     this->maxLevel=other.maxLevel;
-    this->bridge=other.bridge;
-    this->tunnel=other.tunnel;
-    this->embankment=other.embankment;
+    this->features=other.features;
     this->oneway=other.oneway;
     this->sizeCondition=other.sizeCondition;
   }
@@ -1550,6 +1604,7 @@ namespace osmscout {
   StyleFilter& StyleFilter::SetTypes(const TypeInfoSet& types)
   {
     this->types=types;
+    this->filtersByType=true;
 
     return *this;
   }
@@ -1568,27 +1623,6 @@ namespace osmscout {
     return *this;
   }
 
-  StyleFilter& StyleFilter::SetBridge(bool bridge)
-  {
-    this->bridge=bridge;
-
-    return *this;
-  }
-
-  StyleFilter& StyleFilter::SetTunnel(bool tunnel)
-  {
-    this->tunnel=tunnel;
-
-    return *this;
-  }
-
-  StyleFilter& StyleFilter::SetEmbankment(bool embankment)
-  {
-    this->embankment=embankment;
-
-    return *this;
-  }
-    
   StyleFilter& StyleFilter::SetOneway(bool oneway)
   {
     this->oneway=oneway;
@@ -1603,77 +1637,45 @@ namespace osmscout {
     return *this;
   }
 
+  StyleFilter& StyleFilter::AddFeature(const size_t featureFilterIndex)
+  {
+    features.insert(featureFilterIndex);
+
+    return *this;
+  }
+
   StyleCriteria::StyleCriteria()
-  : bridge(false),
-    tunnel(false),
-    embankment(false),
-    oneway(false)
+  : oneway(false)
   {
     // no code
   }
 
   StyleCriteria::StyleCriteria(const StyleFilter& other)
   {
-    this->bridge=other.GetBridge();
-    this->tunnel=other.GetTunnel();
-    this->embankment=other.GetEmbankment();
+    this->features=other.GetFeatures();
     this->oneway=other.GetOneway();
     this->sizeCondition=other.GetSizeCondition();
   }
 
   StyleCriteria::StyleCriteria(const StyleCriteria& other)
   {
-    this->bridge=other.bridge;
-    this->tunnel=other.tunnel;
-    this->embankment=other.embankment;
+    this->features=other.features;
     this->oneway=other.oneway;
     this->sizeCondition=other.sizeCondition;
   }
 
   bool StyleCriteria::operator==(const StyleCriteria& other) const
   {
-    return bridge==other.bridge         &&
-           tunnel==other.tunnel         &&
-           embankment==other.embankment &&
+    return features==other.features     &&
            oneway==other.oneway         &&
            sizeCondition==other.sizeCondition;
   }
 
   bool StyleCriteria::operator!=(const StyleCriteria& other) const
   {
-    return bridge!=other.bridge         ||
-           tunnel!=other.tunnel         ||
-           embankment!=other.embankment ||
+    return features!=other.features     ||
            oneway!=other.oneway         ||
            sizeCondition!=other.sizeCondition;
-  }
-
-  bool StyleCriteria::Matches(double meterInPixel,
-                              double meterInMM) const
-  {
-    if (bridge) {
-      return false;
-    }
-
-    if (tunnel) {
-      return false;
-    }
-
-    if (embankment) {
-      return false;
-    }
-      
-    if (oneway) {
-      return false;
-    }
-
-    if (sizeCondition) {
-      if (!sizeCondition->Evaluate(meterInPixel,meterInMM)) {
-        return false;
-      }
-    }
-
-    return true;
   }
 
   bool StyleCriteria::Matches(const StyleResolveContext& context,
@@ -1681,21 +1683,15 @@ namespace osmscout {
                               double meterInPixel,
                               double meterInMM) const
   {
-    if (bridge &&
-        !context.IsBridge(buffer)) {
-      return false;
+    if (!features.empty()) {
+      for (size_t index : features) {
+        if (!context.HasFeature(index,
+                                buffer)) {
+          return false;
+        }
+      }
     }
 
-    if (tunnel &&
-        !context.IsTunnel(buffer)) {
-      return false;
-    }
-
-    if (embankment &&
-       !context.IsEmbankment(buffer)) {
-      return false;
-    }
-      
     if (oneway &&
         !context.IsOneway(buffer)) {
       return false;
@@ -1854,9 +1850,7 @@ namespace osmscout {
 
   bool StyleConfig::RegisterSymbol(const SymbolRef& symbol)
   {
-    std::pair<std::unordered_map<std::string,SymbolRef>::iterator,bool> result;
-
-    result=symbols.insert(std::make_pair(symbol->GetName(),symbol));
+    auto result=symbols.insert(std::make_pair(symbol->GetName(),symbol));
 
     return result.second;
   }
@@ -2328,6 +2322,11 @@ namespace osmscout {
   TypeConfigRef StyleConfig::GetTypeConfig() const
   {
     return typeConfig;
+  }
+
+  size_t StyleConfig::GetFeatureFilterIndex(const Feature& feature) const
+  {
+    return styleResolveContext.GetFeatureReaderIndex(feature);
   }
 
   StyleConfig& StyleConfig::SetWayPrio(const TypeInfoRef& type,
@@ -2968,5 +2967,6 @@ namespace osmscout {
   {
     return errors;
   }
+
 }
 

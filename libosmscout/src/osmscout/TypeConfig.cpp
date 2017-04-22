@@ -1019,6 +1019,7 @@ namespace osmscout {
 
     RegisterTag("area");
     RegisterTag("natural");
+    RegisterTag("datapolygon");
     RegisterTag("type");
     RegisterTag("restriction");
     RegisterTag("junction");
@@ -1142,12 +1143,14 @@ namespace osmscout {
 
     tagArea=GetTagId("area");
     tagNatural=GetTagId("natural");
+    tagDataPolygon=GetTagId("datapolygon");
     tagType=GetTagId("type");
     tagRestriction=GetTagId("restriction");
     tagJunction=GetTagId("junction");
 
     assert(tagArea!=tagIgnore);
     assert(tagNatural!=tagIgnore);
+    assert(tagDataPolygon!=tagIgnore);
     assert(tagType!=tagIgnore);
     assert(tagRestriction!=tagIgnore);
     assert(tagJunction!=tagIgnore);
