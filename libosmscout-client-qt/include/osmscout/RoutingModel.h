@@ -147,6 +147,10 @@ public:
     QHash<int, QByteArray> roleNames() const;
 
     Q_INVOKABLE RouteStep* get(int row) const;
+
+    inline Q_INVOKABLE LocationEntry* locationEntryFromPosition(double lat, double lon){
+      return new LocationEntry("",osmscout::GeoCoord(lat,lon));
+    }
 };
 
 #endif
