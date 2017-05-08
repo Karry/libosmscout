@@ -11,6 +11,13 @@ target_include_directories(CalculateResolution PRIVATE ${OSMSCOUT_BASE_DIR_SOURC
 target_link_libraries(CalculateResolution osmscout)
 add_test(NAME CalculateResolution COMMAND CalculateResolution)
 
+#---- ColorParse
+add_executable(ColorParse src/ColorParse.cpp)
+set_property(TARGET ColorParse PROPERTY CXX_STANDARD 11)
+target_include_directories(ColorParse PRIVATE ${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout/include)
+target_link_libraries(ColorParse osmscout)
+add_test(NAME ColorParse COMMAND ColorParse)
+
 #---- CoordinateCalculations
 add_executable(CoordinateCalculations src/CoordinateCalculations.cpp)
 set_property(TARGET CoordinateCalculations PROPERTY CXX_STANDARD 11)
@@ -158,3 +165,10 @@ set_property(TARGET TransPolygon PROPERTY CXX_STANDARD 11)
 target_include_directories(TransPolygon PRIVATE include ${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout/include)
 target_link_libraries(TransPolygon osmscout)
 add_test(NAME TransPolygon COMMAND TransPolygon)
+
+#---- TransPolygon
+add_executable(GeoBox src/GeoBox.cpp)
+set_property(TARGET GeoBox PROPERTY CXX_STANDARD 11)
+target_include_directories(GeoBox PRIVATE include ${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout/include)
+target_link_libraries(GeoBox osmscout)
+add_test(NAME GeoBox COMMAND TransPolygon)
