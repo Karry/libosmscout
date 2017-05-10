@@ -148,8 +148,8 @@ public:
 
     Q_INVOKABLE RouteStep* get(int row) const;
 
-    inline Q_INVOKABLE LocationEntry* locationEntryFromPosition(double lat, double lon){
-      return new LocationEntry("",osmscout::GeoCoord(lat,lon));
+    inline Q_INVOKABLE LocationEntry* locationEntryFromPosition(double lat, double lon, QString label=""){
+      return new LocationEntry(label,osmscout::GeoCoord(lat,lon));
     }
 };
 
