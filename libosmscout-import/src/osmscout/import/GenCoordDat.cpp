@@ -28,6 +28,7 @@
 #include <osmscout/import/RawCoord.h>
 
 #include <osmscout/util/String.h>
+#include <osmscout/system/Compiler.h>
 
 namespace osmscout {
 
@@ -120,6 +121,7 @@ namespace osmscout {
             }
 
             assert(currentUpperLimit<oldUpperLimit);
+            unused(oldUpperLimit);
           }
         }
 
@@ -296,6 +298,7 @@ namespace osmscout {
             }
 
             assert(currentUpperLimit<oldUpperLimit);
+            unused(oldUpperLimit);
           }
         }
 

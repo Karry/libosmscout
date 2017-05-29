@@ -431,9 +431,11 @@ namespace osmscout {
                                   visitor);
 
         if (action==AdminRegionVisitor::error) {
+          scanner.Close();
           return false;
         }
         else if (action==AdminRegionVisitor::stop) {
+          scanner.Close();
           return true;
         }
         else if (action==AdminRegionVisitor::skipChildren) {
@@ -475,6 +477,7 @@ namespace osmscout {
                                       visitor,
                                       recursive,
                                       stopped)) {
+        scanner.Close();
         return false;
       }
 
