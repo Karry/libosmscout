@@ -37,7 +37,7 @@
 
 namespace osmscout {
 
-  static void GetGridPoints(const std::vector<Point>& nodes,
+  static void GetGridPoints(const PointSequence& nodes,
                             double gridSizeHoriz,
                             double gridSizeVert,
                             std::set<GeoCoord>& intersections)
@@ -849,7 +849,7 @@ namespace osmscout {
                                          const MapParameter& parameter,
                                          const PathShieldStyleRef& shieldStyle,
                                          const std::string& text,
-                                         const std::vector<Point>& nodes)
+                                         const PointSequence& nodes)
   {
     double               fontHeight;
     const LabelStyleRef& style=shieldStyle->GetShieldStyle();
@@ -1546,7 +1546,7 @@ namespace osmscout {
                           parameter,
                           shieldStyle,
                           shieldLabel,
-                          data.nodes);
+                          data.GetNodes());
     waysLabelDrawn++;
   }
 

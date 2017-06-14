@@ -1165,6 +1165,8 @@ namespace osmscout {
             }
           }
           else {
+            GeoBox ringBBox;
+            area->rings[r].GetBoundingBox(ringBBox);
             if (!IsAreaAtLeastPartlyInArea(entry.coords,
                                            area->rings[r].GetNodes(),
                                            entry.bbox)) {
@@ -1561,19 +1563,19 @@ namespace osmscout {
     for (const auto& way : ways) {
       double  distance=std::numeric_limits<double>::max(); // In Km
 
-      for (size_t i=0; i<way->nodes.size(); i++) {
+      for (size_t i=0; i<way->GetNodes().size(); i++) {
         double   currentDistance;
         GeoCoord a;
         GeoCoord b;
         GeoCoord intersection;
 
         if (i>0) {
-          a=way->nodes[i-1].GetCoord();
-          b=way->nodes[i].GetCoord();
+          a=way->GetNodes()[i-1].GetCoord();
+          b=way->GetNodes()[i].GetCoord();
         }
         else {
-          a=way->nodes[way->nodes.size()-1].GetCoord();
-          b=way->nodes[i].GetCoord();
+          a=way->GetNodes()[way->GetNodes().size()-1].GetCoord();
+          b=way->GetNodes()[i].GetCoord();
         }
 
         currentDistance=CalculateDistancePointToLineSegment(location,
@@ -2066,7 +2068,7 @@ namespace osmscout {
     std::map<Point,std::set<std::string>> routeNodeUseCount;
 
     for (const auto& candidate : candidates) {
-      for (const auto& point : candidate->nodes) {
+      for (const auto& point : candidate->GetNodes()) {
         if (point.IsRelevant()) {
           routeNodeUseCount[point].insert(nameFeatureLabelReader.GetLabel(candidate->GetFeatureValueBuffer()));
         }
@@ -2100,7 +2102,7 @@ namespace osmscout {
     std::list<WayRef> crossingWays;
 
     for (const auto& way : candidates) {
-      for (const auto& point : way->nodes) {
+      for (const auto& point : way->GetNodes()) {
         if (candidate.IsIdentical(point)) {
           crossingWays.push_back(way);
         }

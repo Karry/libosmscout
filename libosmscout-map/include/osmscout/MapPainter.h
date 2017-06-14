@@ -328,7 +328,7 @@ namespace osmscout {
                                const MapParameter& parameter,
                                const PathShieldStyleRef& style,
                                const std::string& text,
-                               const std::vector<Point>& nodes);
+                               const PointSequence& nodes);
 
     bool RegisterPointLabel(const Projection& projection,
                             const MapParameter& parameter,

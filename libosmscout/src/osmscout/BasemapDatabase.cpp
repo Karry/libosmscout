@@ -18,6 +18,7 @@
 */
 
 #include <osmscout/BasemapDatabase.h>
+#include <osmscout/TypeConfig.h>
 
 #include <osmscout/util/Logger.h>
 #include <osmscout/util/StopClock.h>
@@ -90,7 +91,7 @@ namespace osmscout {
 
       StopClock timer;
 
-      if (!waterIndex->Open(path)) {
+      if (!waterIndex->Open(path,FILE_FORMAT_VERSION)) {
         log.Error() << "Cannot load water index!";
         waterIndex=NULL;
 
