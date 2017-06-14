@@ -552,7 +552,10 @@ void TiledMapRenderer::onlineTilesEnabledChanged(bool b)
         onlineTileCache.invalidate();
         onlineTileCache.clearPendingRequests();
     }
-    emit Redraw();
+
+    // when online tiles are disabled, basemap is rendered
+    // we need to invalidate offline tiles on this change
+    InvalidateVisualCache();
 }
 
 void TiledMapRenderer::onOfflineMapChanged(bool b)
@@ -652,7 +655,8 @@ void TiledMapRenderer::onLoadJobFinished(QMap<QString,QMap<osmscout::TileId,osms
                       tiles,
                       &drawParameter,
                       &p,
-                      /*drawCanvasBackground*/ false);
+                      /*drawCanvasBackground*/ false,
+                      /*renderBasemap*/ !onlineTilesEnabled);
       dbThread->RunJob(&job);
       success=job.IsSuccess();
     }

@@ -140,6 +140,11 @@ namespace osmscout {
 
     void TransformWay(const Projection& projection,
                       OptimizeMethod optimize,
+                      const std::vector<GeoCoord>& nodes,
+                      double optimizeErrorTolerance,
+                      OutputConstraint constraint=noConstraint);
+    void TransformWay(const Projection& projection,
+                      OptimizeMethod optimize,
                       const std::vector<Point>& nodes,
                       double optimizeErrorTolerance,
                       OutputConstraint constraint=noConstraint);
@@ -149,6 +154,11 @@ namespace osmscout {
                       const PointSequence& nodes,
                       double optimizeErrorTolerance,
                       OutputConstraint constraint=noConstraint);
+    void TransformBoundingBox(const Projection& projection,
+                              OptimizeMethod optimize,
+                              const GeoBox& boundingBox,
+                              double optimizeErrorTolerance,
+                              OutputConstraint constraint=noConstraint);
 
     bool GetBoundingBox(double& xmin, double& ymin,
                         double& xmax, double& ymax) const;

@@ -20,6 +20,8 @@
 
 #include <osmscout/PlaneMapRenderer.h>
 
+#include <osmscout/OSMTile.h>
+
 // Timeout for the first rendering after rerendering was triggered (render what ever data is available)
 static int INITIAL_DATA_RENDERING_TIMEOUT = 10;
 
@@ -141,24 +143,42 @@ bool PlaneMapRenderer::RenderMap(QPainter& painter,
   }
 
   osmscout::MercatorProjection requestProjection;
-  requestProjection.Set(request.coord,
-                 request.angle,
-                 request.magnification,
-                 mapDpi,
-                 request.width,
-                 request.height);
+
+  if (!requestProjection.Set(request.coord,
+                             request.angle,
+                             request.magnification,
+                             mapDpi,
+                             request.width,
+                             request.height)) {
+    osmscout::log.Warn() << "Invalid request projection!";
+    return false;
+  }
 
   osmscout::MercatorProjection finalImgProjection;
-  finalImgProjection.Set(finishedCoord,
-                 finishedAngle,
-                 finishedMagnification,
-                 mapDpi,
-                 finishedImage->width(),
-                 finishedImage->height());
+
+  if (!finalImgProjection.Set(finishedCoord,
+                              finishedAngle,
+                              finishedMagnification,
+                              mapDpi,
+                              finishedImage->width(),
+                              finishedImage->height())) {
+    osmscout::log.Warn() << "Invalid finished projection!";
+    return false;
+  }
 
   osmscout::GeoBox finalImgBoundingBox;
   finalImgProjection.GetDimensions(finalImgBoundingBox);
 
+  finalImgProjection.GetDimensions(finalImgBoundingBox);
+
+  // projection bounding box may be smaller than projection dimensions...
+  double srcX1;
+  double srcY1;
+  double srcX2;
+  double srcY2;
+
+  finalImgProjection.GeoToPixel(finalImgBoundingBox.GetMaxCoord(),srcX2,srcY1); // max coord => right top
+  finalImgProjection.GeoToPixel(finalImgBoundingBox.GetMinCoord(),srcX1,srcY2); // min coord => left bottom
 
   double x1;
   double y1;
@@ -181,7 +201,7 @@ bool PlaneMapRenderer::RenderMap(QPainter& painter,
 
   // TODO: handle angle
   //qDebug() << "Draw final image to canvas:" << QRectF(x1,y1,x2-x1,y2-y1);
-  painter.drawImage(QRectF(x1,y1,x2-x1,y2-y1),*finishedImage);
+  painter.drawImage(QRectF(x1,y1,x2-x1,y2-y1),*finishedImage,QRectF(srcX1,srcY1,srcX2-srcX1,srcY2-srcY1));
 
   RenderMapRequest extendedRequest=request;
   extendedRequest.width*=canvasOverrun;
