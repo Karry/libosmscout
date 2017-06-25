@@ -55,6 +55,7 @@ set(HEADER_FILES
     include/osmscout/Intersection.h
     include/osmscout/Location.h
     include/osmscout/LocationIndex.h
+    include/osmscout/LocationIndex13.h
     include/osmscout/LocationService.h
     include/osmscout/Navigation.h
     include/osmscout/Node.h
@@ -134,6 +135,7 @@ set(SOURCE_FILES
     src/osmscout/Intersection.cpp
     src/osmscout/Location.cpp
     src/osmscout/LocationIndex.cpp
+    src/osmscout/LocationIndex13.cpp
     src/osmscout/LocationService.cpp
     src/osmscout/Node.cpp
     src/osmscout/NodeDataFile.cpp

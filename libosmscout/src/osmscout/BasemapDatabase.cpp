@@ -90,7 +90,7 @@ namespace osmscout {
 
       StopClock timer;
 
-      if (!waterIndex->Open(path)) {
+      if (!waterIndex->Open(path,TypeConfig::MAX_FORMAT_VERSION)) {
         log.Error() << "Cannot load water index!";
         waterIndex=NULL;
 

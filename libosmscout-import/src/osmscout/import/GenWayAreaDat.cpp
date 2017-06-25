@@ -271,7 +271,7 @@ namespace osmscout {
 
     if (!coordDataFile.Open(parameter.GetDestinationDirectory(),
                             parameter.GetCoordDataMemoryMaped(),
-                            osmscout::FILE_FORMAT_VERSION))) {
+                            osmscout::FILE_FORMAT_VERSION)) {
       log.Error() << "Cannot open coord data file!";
       return false;
     }

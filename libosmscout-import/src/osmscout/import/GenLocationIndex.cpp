@@ -1915,7 +1915,8 @@ namespace osmscout {
       scanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                    SortNodeDataGenerator::NODEADDRESS_DAT),
                    FileScanner::Sequential,
-                   true);
+                   true,
+                   TypeConfig::MAX_FORMAT_VERSION);
 
       scanner.Read(nodeCount);
 
