@@ -199,7 +199,7 @@ namespace osmscout {
   /**
    * Open the index file.
    *
-   * Method is not thread-safe.
+   * Method is NOT thread-safe.
    */
   template <class N>
   bool DataFile<N>::Open(const TypeConfigRef& typeConfig,
@@ -228,7 +228,7 @@ namespace osmscout {
   /**
    * Return true, if index is currently opened.
    *
-   * Method is not thread-safe.
+   * Method is NOT thread-safe.
    */
   template <class N>
   bool DataFile<N>::IsOpen() const
@@ -239,7 +239,7 @@ namespace osmscout {
   /**
    * Close the index.
    *
-   * Method is not thread-safe.
+   * Method is NOT thread-safe.
    */
   template <class N>
   bool DataFile<N>::Close()
@@ -280,6 +280,8 @@ namespace osmscout {
    *    vector containing data. Data is appended.
    * @return
    *    false if there was an error, else true
+   *
+   * Method is thread-safe.
    */
   template <class N>
   template <typename IteratorIn>
@@ -287,6 +289,7 @@ namespace osmscout {
                                 std::vector<ValueType>& data) const
   {
     data.reserve(data.size()+size);
+    std::lock_guard<std::mutex> lock(accessMutex);
 
     for (IteratorIn offsetIter=begin; offsetIter!=end; ++offsetIter) {
       ValueCacheRef entryRef;
@@ -325,6 +328,7 @@ namespace osmscout {
                                 std::vector<ValueType>& data) const
   {
     data.reserve(data.size()+size);
+    std::lock_guard<std::mutex> lock(accessMutex);
 
     for (IteratorIn offsetIter=begin; offsetIter!=end; ++offsetIter) {
       ValueType value=std::make_shared<N>();
@@ -488,12 +492,11 @@ namespace osmscout {
     data.reserve(data.size()+overallCount);
 
     try {
+      std::lock_guard<std::mutex> lock(accessMutex);
       for (IteratorIn spanIter=begin; spanIter!=end; ++spanIter) {
         if (spanIter->count==0) {
           continue;
         }
-
-        std::lock_guard<std::mutex> lock(accessMutex);
 
         bool offsetSetup=false;
         FileOffset offset=spanIter->startOffset;
@@ -585,7 +588,7 @@ namespace osmscout {
              std::vector<ValueType>& data) const;
     bool Get(const std::set<I>& ids,
              std::vector<ValueType>& data) const;
-    
+
     bool Get(const std::set<I>& ids,
              std::unordered_map<I,ValueType>& data) const;
 
@@ -651,7 +654,7 @@ namespace osmscout {
                            end,
                            size,
                            offsets);
-  };
+  }
 
   template <class I, class N>
   bool IndexedDataFile<I,N>::GetOffset(const I& id,

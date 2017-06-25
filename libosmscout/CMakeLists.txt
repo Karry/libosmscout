@@ -48,6 +48,7 @@ set(HEADER_FILES
     include/osmscout/TypeDistributionDataFile.h
     include/osmscout/Database.h
     include/osmscout/DataFile.h
+    include/osmscout/BasemapDatabase.h
     include/osmscout/DebugDatabase.h
     include/osmscout/GeoCoord.h
     include/osmscout/GroundTile.h
@@ -85,7 +86,7 @@ set(HEADER_FILES
     include/osmscout/WaterIndex9.h
     include/osmscout/Way.h
     include/osmscout/WayDataFile.h
-        include/osmscout/system/Compiler.h)
+    include/osmscout/system/Compiler.h include/osmscout/util/CmdLineParsing.h)
 
 set(SOURCE_FILES
     src/osmscout/ost/Parser.cpp
@@ -127,6 +128,7 @@ set(SOURCE_FILES
     src/osmscout/TypeDistributionDataFile.cpp
     src/osmscout/Database.cpp
     src/osmscout/DebugDatabase.cpp
+    src/osmscout/BasemapDatabase.cpp
     src/osmscout/GeoCoord.cpp
     src/osmscout/GroundTile.cpp
     src/osmscout/Intersection.cpp
@@ -162,7 +164,7 @@ set(SOURCE_FILES
     src/osmscout/WaterIndex9.cpp
     src/osmscout/Way.cpp
     src/osmscout/WayDataFile.cpp
-)
+        src/osmscout/util/CmdLineParsing.cpp)
 
 if(MARISA_FOUND)
     list(APPEND HEADER_FILES include/osmscout/TextSearchIndex.h)
@@ -177,6 +179,12 @@ target_include_directories(osmscout PRIVATE include ${CMAKE_CURRENT_BINARY_DIR}/
 if(MARISA_FOUND)
     target_include_directories(osmscout PRIVATE ${MARISA_INCLUDE_DIRS})
     target_link_libraries(osmscout ${MARISA_LIBRARIES})
+endif()
+if (ICONV_FOUND)
+  target_link_libraries(osmscout ${ICONV_LIBRARIES})
+endif()
+if(CMAKE_THREAD_LIBS_INIT)
+  target_link_libraries(osmscout ${CMAKE_THREAD_LIBS_INIT})
 endif()
 target_compile_definitions(osmscout PRIVATE -DOSMSCOUT_EXPORT_SYMBOLS)
 install(TARGETS osmscout

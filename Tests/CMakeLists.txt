@@ -1,3 +1,24 @@
+#---- AccessParse
+add_executable(AccessParse src/AccessParse.cpp)
+set_property(TARGET AccessParse PROPERTY CXX_STANDARD 11)
+target_include_directories(AccessParse PRIVATE include ${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout/include)
+target_link_libraries(AccessParse osmscout)
+add_test(NAME AccessParse COMMAND AccessParse)
+
+#---- Bearing
+add_executable(Bearing src/Bearing.cpp)
+set_property(TARGET Bearing PROPERTY CXX_STANDARD 11)
+target_include_directories(Bearing PRIVATE include ${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout/include)
+target_link_libraries(Bearing osmscout)
+add_test(NAME Bearing COMMAND Bearing)
+
+#---- BitsAndBytesNeeded
+add_executable(BitsAndBytesNeeded src/BitsAndBytesNeeded.cpp)
+set_property(TARGET BitsAndBytesNeeded PROPERTY CXX_STANDARD 11)
+target_include_directories(BitsAndBytesNeeded PRIVATE include ${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout/include)
+target_link_libraries(BitsAndBytesNeeded osmscout)
+add_test(NAME BitsAndBytesNeeded COMMAND BitsAndBytesNeeded)
+
 #---- CachePerformance
 add_executable(CachePerformance src/CachePerformance.cpp)
 set_property(TARGET CachePerformance PROPERTY CXX_STANDARD 11)
@@ -11,10 +32,17 @@ target_include_directories(CalculateResolution PRIVATE ${OSMSCOUT_BASE_DIR_SOURC
 target_link_libraries(CalculateResolution osmscout)
 add_test(NAME CalculateResolution COMMAND CalculateResolution)
 
+#---- CmdLineParsing
+add_executable(CmdLineParsing src/CmdLineParsing.cpp)
+set_property(TARGET CmdLineParsing PROPERTY CXX_STANDARD 11)
+target_include_directories(CmdLineParsing PRIVATE include ${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout/include)
+target_link_libraries(CmdLineParsing osmscout)
+add_test(NAME CmdLineParsing COMMAND CmdLineParsing)
+
 #---- ColorParse
 add_executable(ColorParse src/ColorParse.cpp)
 set_property(TARGET ColorParse PROPERTY CXX_STANDARD 11)
-target_include_directories(ColorParse PRIVATE ${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout/include)
+target_include_directories(ColorParse PRIVATE include ${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout/include)
 target_link_libraries(ColorParse osmscout)
 add_test(NAME ColorParse COMMAND ColorParse)
 
@@ -67,9 +95,9 @@ endif()
 
 
 if(${OSMSCOUT_BUILD_MAP_QT})
-  set(CMAKE_AUTOMOC ON)
-
-  add_executable(DrawTextQt src/DrawTextQt.cpp include/DrawWindow.h)
+  set(src_files src/DrawTextQt.cpp include/DrawWindow.h)
+  qt5_wrap_cpp(src_files include/DrawWindow.h)
+  add_executable(DrawTextQt ${src_files})
   set_property(TARGET DrawTextQt PROPERTY CXX_STANDARD 11)
   target_include_directories(DrawTextQt PRIVATE include ${CMAKE_CURRENT_BINARY_DIR} ${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout/include ${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout-map/include ${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout-map-qt/include ${Qt5Gui_INCLUDE_DIRS} ${Qt5Widgets_INCLUDE_DIRS})
   target_link_libraries(DrawTextQt osmscout osmscout_map osmscout_map_qt ${Qt5Widgets_LIBRARIES})
@@ -102,20 +130,6 @@ if(${OSMSCOUT_BUILD_MAP})
 else()
 	message("Skip MapRotate test libosmscout-map, is missing.")
 endif()
-
-#---- AccessParse
-add_executable(AccessParse src/AccessParse.cpp)
-set_property(TARGET AccessParse PROPERTY CXX_STANDARD 11)
-target_include_directories(AccessParse PRIVATE ${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout/include)
-target_link_libraries(AccessParse osmscout)
-add_test(NAME AccessParse COMMAND AccessParse)
-
-#---- BitsAndBytesNeeded
-add_executable(BitsAndBytesNeeded src/BitsAndBytesNeeded.cpp)
-set_property(TARGET BitsAndBytesNeeded PROPERTY CXX_STANDARD 11)
-target_include_directories(BitsAndBytesNeeded PRIVATE ${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout/include)
-target_link_libraries(BitsAndBytesNeeded osmscout)
-add_test(NAME BitsAndBytesNeeded COMMAND BitsAndBytesNeeded)
 
 #---- EncodeNumber
 add_executable(EncodeNumber src/EncodeNumber.cpp)
@@ -171,4 +185,16 @@ add_executable(GeoBox src/GeoBox.cpp)
 set_property(TARGET GeoBox PROPERTY CXX_STANDARD 11)
 target_include_directories(GeoBox PRIVATE include ${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout/include)
 target_link_libraries(GeoBox osmscout)
-add_test(NAME GeoBox COMMAND TransPolygon)
+add_test(NAME GeoBox COMMAND GeoBox)
+
+#---- OSTAndOSSCheck
+if(${OSMSCOUT_BUILD_MAP})
+  add_executable(OSTAndOSSCheck src/OSTAndOSSCheck.cpp)
+  set_property(TARGET OSTAndOSSCheck PROPERTY CXX_STANDARD 11)
+  target_include_directories(OSTAndOSSCheck PRIVATE include ${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout/include ${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout-map/include)
+  target_link_libraries(OSTAndOSSCheck osmscout osmscout_map)
+  add_test(NAME OSTAndOSSCheck COMMAND OSTAndOSSCheck)
+  set_tests_properties(OSTAndOSSCheck PROPERTIES ENVIRONMENT TESTS_TOP_DIR=${CMAKE_CURRENT_SOURCE_DIR})
+else()
+    message("Skip MapRotate test libosmscout-map, is missing.")
+endif()

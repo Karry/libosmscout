@@ -28,6 +28,7 @@
 #include <osmscout/import/RawCoord.h>
 
 #include <osmscout/util/String.h>
+#include <osmscout/system/Compiler.h>
 
 namespace osmscout {
 
@@ -113,13 +114,14 @@ namespace osmscout {
               auto pageEntry=coordPages.rbegin();
               Id highestPageId=pageEntry->first;
 
-              currentCoordCount-=pageEntry->second.size();
-              loadedCoordCount-=pageEntry->second.size();
+              currentCoordCount-=(uint32_t)pageEntry->second.size();
+              loadedCoordCount-=(uint32_t)pageEntry->second.size();
               coordPages.erase(highestPageId);
               currentUpperLimit=highestPageId-1;
             }
 
             assert(currentUpperLimit<oldUpperLimit);
+            unused(oldUpperLimit);
           }
         }
 
@@ -289,13 +291,14 @@ namespace osmscout {
               auto pageEntry=coordPages.rbegin();
               OSMId highestPageId=pageEntry->first;
 
-              currentCoordCount-=pageEntry->second.size();
-              loadedCoordCount-=pageEntry->second.size();
+              currentCoordCount-=(uint32_t)pageEntry->second.size();
+              loadedCoordCount-=(uint32_t)pageEntry->second.size();
               coordPages.erase(highestPageId);
               currentUpperLimit=highestPageId-1;
             }
 
             assert(currentUpperLimit<oldUpperLimit);
+            unused(oldUpperLimit);
           }
         }
 

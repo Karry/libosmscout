@@ -17,9 +17,10 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307  USA
 */
 
-#include <osmscout/private/Config.h>
-
 #include <osmscout/import/PreprocessPBF.h>
+
+#include <osmscout/private/Config.h>
+#include <osmscout/ImportFeatures.h>
 
 #include <cstdio>
 
@@ -34,7 +35,7 @@
   #include <arpa/inet.h>
 #endif
 
-#if defined(HAVE_LIB_ZLIB)
+#if defined(HAVE_LIB_ZLIB) || defined(OSMSCOUT_IMPORT_HAVE_PROTOBUF_SUPPORT)
   #include <zlib.h>
 #endif
 
@@ -97,7 +98,7 @@ namespace osmscout {
 
   bool PreprocessPBF::ReadBlockHeader(Progress& progress,
                                       FILE* file,
-                                      PBF::BlockHeader& blockHeader,
+                                      OSMPBF::BlobHeader& blockHeader,
                                       bool silent)
   {
     uint32_t blockHeaderLength;
@@ -134,10 +135,10 @@ namespace osmscout {
 
   bool PreprocessPBF::ReadHeaderBlock(Progress& progress,
                                       FILE* file,
-                                      const PBF::BlockHeader& blockHeader,
-                                      PBF::HeaderBlock& headerBlock)
+                                      const OSMPBF::BlobHeader& blockHeader,
+                                      OSMPBF::HeaderBlock& headerBlock)
   {
-    PBF::Blob               blob;
+    OSMPBF::Blob            blob;
     google::protobuf::int32 length=blockHeader.datasize();
 
     if (length==0 || length>MAX_BLOB_SIZE) {
@@ -163,7 +164,7 @@ namespace osmscout {
       memcpy(buffer,blob.raw().data(),(size_t)length);
     }
     else if (blob.has_zlib_data()) {
-#if defined(HAVE_LIB_ZLIB)
+#if defined(HAVE_LIB_ZLIB) || defined(OSMSCOUT_IMPORT_HAVE_PROTOBUF_SUPPORT)
       length=blob.raw_size();
       AssureBlockSize(length);
 
@@ -195,10 +196,6 @@ namespace osmscout {
       progress.Error("Data is zlib encoded but zlib support is not enabled!");
       return false;
 #endif
-    }
-    else if (blob.has_bzip2_data()) {
-      progress.Error("Data is bzip2 encoded but bzip2 support is not enabled!");
-      return false;
     }
     else if (blob.has_lzma_data()) {
       progress.Error("Data is lzma encoded but lzma support is not enabled!");
@@ -215,10 +212,10 @@ namespace osmscout {
 
   bool PreprocessPBF::ReadPrimitiveBlock(Progress& progress,
                                          FILE* file,
-                                         const PBF::BlockHeader& blockHeader,
-                                         PBF::PrimitiveBlock& primitiveBlock)
+                                         const OSMPBF::BlobHeader& blockHeader,
+                                         OSMPBF::PrimitiveBlock& primitiveBlock)
   {
-    PBF::Blob               blob;
+    OSMPBF::Blob            blob;
     google::protobuf::int32 length=blockHeader.datasize();
 
     if (length==0 || length>MAX_BLOB_SIZE) {
@@ -244,7 +241,7 @@ namespace osmscout {
       memcpy(buffer,blob.raw().data(),(size_t)length);
     }
     else if (blob.has_zlib_data()) {
-#if defined(HAVE_LIB_ZLIB)
+#if defined(HAVE_LIB_ZLIB) || defined(OSMSCOUT_IMPORT_HAVE_PROTOBUF_SUPPORT)
       length=blob.raw_size();
       AssureBlockSize(length);
 
@@ -277,10 +274,6 @@ namespace osmscout {
       return false;
 #endif
     }
-    else if (blob.has_bzip2_data()) {
-      progress.Error("Data is bzip2 encoded but bzip2 support is not enabled!");
-      return false;
-    }
     else if (blob.has_lzma_data()) {
       progress.Error("Data is lzma encoded but lzma support is not enabled!");
       return false;
@@ -295,8 +288,8 @@ namespace osmscout {
   }
 
   void PreprocessPBF::ReadNodes(const TypeConfig& typeConfig,
-                                const PBF::PrimitiveBlock& block,
-                                const PBF::PrimitiveGroup& group,
+                                const OSMPBF::PrimitiveBlock& block,
+                                const OSMPBF::PrimitiveGroup& group,
                                 PreprocessorCallback::RawBlockData& data)
   {
     data.nodeData.reserve(data.nodeData.size()+group.nodes_size());
@@ -304,7 +297,7 @@ namespace osmscout {
     for (int n=0; n<group.nodes_size(); n++) {
       PreprocessorCallback::RawNodeData nodeData;
 
-      const PBF::Node &inputNode=group.nodes(n);
+      const OSMPBF::Node &inputNode=group.nodes(n);
 
       nodeData.id=inputNode.id();
       nodeData.coord.Set((inputNode.lat()*block.granularity()+block.lat_offset())/NANO,
@@ -325,15 +318,15 @@ namespace osmscout {
   }
 
   void PreprocessPBF::ReadDenseNodes(const TypeConfig& typeConfig,
-                                     const PBF::PrimitiveBlock& block,
-                                     const PBF::PrimitiveGroup& group,
+                                     const OSMPBF::PrimitiveBlock& block,
+                                     const OSMPBF::PrimitiveGroup& group,
                                      PreprocessorCallback::RawBlockData& data)
   {
-    const PBF::DenseNodes& dense=group.dense();
-    Id                     dId=0;
-    double                 dLat=0;
-    double                 dLon=0;
-    int                    t=0;
+    const OSMPBF::DenseNodes& dense=group.dense();
+    Id                        dId=0;
+    double                    dLat=0;
+    double                    dLon=0;
+    int                       t=0;
 
     data.nodeData.reserve(data.nodeData.size()+dense.id_size());
 
@@ -372,8 +365,8 @@ namespace osmscout {
   }
 
   void PreprocessPBF::ReadWays(const TypeConfig& typeConfig,
-                               const PBF::PrimitiveBlock& block,
-                               const PBF::PrimitiveGroup& group,
+                               const OSMPBF::PrimitiveBlock& block,
+                               const OSMPBF::PrimitiveGroup& group,
                                PreprocessorCallback::RawBlockData& data)
   {
     data.wayData.reserve(data.wayData.size()+group.ways_size());
@@ -381,7 +374,7 @@ namespace osmscout {
     for (int w=0; w<group.ways_size(); w++) {
       PreprocessorCallback::RawWayData wayData;
 
-      const PBF::Way &inputWay=group.ways(w);
+      const OSMPBF::Way &inputWay=group.ways(w);
 
       wayData.id=inputWay.id();
 
@@ -393,7 +386,7 @@ namespace osmscout {
         }
       }
 
-      wayData.nodes.reserve(inputWay.refs_size());
+      wayData.nodes.reserve((size_t)inputWay.refs_size());
 
       OSMId ref=0;
       for (int r=0; r<inputWay.refs_size(); r++) {
@@ -407,8 +400,8 @@ namespace osmscout {
   }
 
   void PreprocessPBF::ReadRelations(const TypeConfig& typeConfig,
-                                    const PBF::PrimitiveBlock& block,
-                                    const PBF::PrimitiveGroup& group,
+                                    const OSMPBF::PrimitiveBlock& block,
+                                    const OSMPBF::PrimitiveGroup& group,
                                     PreprocessorCallback::RawBlockData& data)
   {
     data.relationData.reserve(data.relationData.size()+group.relations_size());
@@ -416,7 +409,7 @@ namespace osmscout {
     for (int r=0; r<group.relations_size(); r++) {
       PreprocessorCallback::RawRelationData relationData;
 
-      const PBF::Relation &inputRelation=group.relations(r);
+      const OSMPBF::Relation &inputRelation=group.relations(r);
 
       relationData.id=inputRelation.id();
 
@@ -430,20 +423,20 @@ namespace osmscout {
         }
       }
 
-      relationData.members.reserve(inputRelation.types_size());
+      relationData.members.reserve((size_t)inputRelation.types_size());
 
       Id ref=0;
       for (int m=0; m<inputRelation.types_size(); m++) {
         RawRelation::Member member;
 
         switch (inputRelation.types(m)) {
-        case PBF::Relation::NODE:
+        case OSMPBF::Relation::NODE:
           member.type=RawRelation::memberNode;
           break;
-        case PBF::Relation::WAY:
+        case OSMPBF::Relation::WAY:
           member.type=RawRelation::memberWay;
           break;
-        case PBF::Relation::RELATION:
+        case OSMPBF::Relation::RELATION:
           member.type=RawRelation::memberRelation;
           break;
         }
@@ -474,14 +467,14 @@ namespace osmscout {
   }
 
   void PreprocessPBF::ProcessBlock(const TypeConfigRef& typeConfig,
-                                   std::unique_ptr<PBF::PrimitiveBlock>&& block)
+                                   std::unique_ptr<OSMPBF::PrimitiveBlock>&& block)
   {
     PreprocessorCallback::RawBlockDataRef blockData(new PreprocessorCallback::RawBlockData());
 
     for (int currentGroup=0;
          currentGroup<block->primitivegroup_size();
          currentGroup++) {
-      const PBF::PrimitiveGroup &group=block->primitivegroup(currentGroup);
+      const OSMPBF::PrimitiveGroup &group=block->primitivegroup(currentGroup);
 
       if (group.nodes_size()>0) {
         ReadNodes(*typeConfig,
@@ -536,7 +529,7 @@ namespace osmscout {
 
       // BlockHeader
 
-      PBF::BlockHeader blockHeader;
+      OSMPBF::BlobHeader blockHeader;
 
       if (!ReadBlockHeader(progress,file,blockHeader,false)) {
         fclose(file);
@@ -549,7 +542,7 @@ namespace osmscout {
         return false;
       }
 
-      PBF::HeaderBlock headerBlock;
+      OSMPBF::HeaderBlock headerBlock;
 
       if (!ReadHeaderBlock(progress,
                            file,
@@ -575,7 +568,7 @@ namespace osmscout {
       std::future<void> currentBlockTask;
 
       while (true) {
-        PBF::BlockHeader blockHeader;
+        OSMPBF::BlobHeader blockHeader;
 
         if (!GetPos(file,
                     currentPosition)) {
@@ -601,7 +594,7 @@ namespace osmscout {
           return false;
         }
 
-        std::unique_ptr<PBF::PrimitiveBlock> block(new PBF::PrimitiveBlock());
+        std::unique_ptr<OSMPBF::PrimitiveBlock> block(new OSMPBF::PrimitiveBlock());
 
         if (!ReadPrimitiveBlock(progress,
                                 file,

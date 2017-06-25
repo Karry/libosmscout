@@ -19,6 +19,8 @@
 
 #include <osmscout/DBInstance.h>
 
+#include <osmscout/util/Logger.h>
+
 QBreaker::QBreaker()
   : osmscout::Breaker(),
     aborted(false)
@@ -112,13 +114,13 @@ bool DBInstance::LoadStyle(QString stylesheetFilename,
 
   if (newStyleConfig->Load(stylesheetFilename.toLocal8Bit().data())) {
     // Tear down
-    if (painterHolder!=NULL){
-      delete painterHolder;
-      painterHolder=NULL;
-    }
+    qDeleteAll(painterHolder);
+    painterHolder.clear();
 
     // Recreate
     styleConfig=newStyleConfig;
+
+    osmscout::log.Info()<< "Create new style with " << stylesheetFilename.toStdString();
   }
   else {
     std::list<std::string> errorsStrings=newStyleConfig->GetErrors();
@@ -170,13 +172,21 @@ bool DBInstance::AssureRouter(osmscout::Vehicle /*vehicle*/,
 osmscout::MapPainterQt* DBInstance::GetPainter()
 {
   QMutexLocker locker(&mutex);
-  if (painterHolder==NULL){
-    painterHolder=new QThreadStorage<osmscout::MapPainterQt*>();
+  if (!painterHolder.contains(QThread::currentThread()) && styleConfig){
+    painterHolder[QThread::currentThread()]=new osmscout::MapPainterQt(styleConfig);
+    connect(QThread::currentThread(),SIGNAL(finished()),
+            this,SLOT(onThreadFinished()));
   }
-  if (!painterHolder->hasLocalData() && styleConfig){
-    painterHolder->setLocalData(new osmscout::MapPainterQt(styleConfig));
+  return painterHolder[QThread::currentThread()];
+}
+
+void DBInstance::onThreadFinished()
+{
+  QMutexLocker locker(&mutex);
+  if (painterHolder.contains(QThread::currentThread())){
+    delete painterHolder[QThread::currentThread()];
+    painterHolder.remove(QThread::currentThread());
   }
-  return painterHolder->localData();
 }
 
 void DBInstance::close()
@@ -185,15 +195,10 @@ void DBInstance::close()
   if (router && router->IsOpen()) {
     router->Close();
   }
-  if (painterHolder!=NULL){
-    delete painterHolder;
-    painterHolder=NULL;
-  }
 
-  if (callbackId){
-    mapService->DeregisterTileStateCallback(callbackId);
-  }
-  callbackId = 0;
+  qDeleteAll(painterHolder);
+  painterHolder.clear();
+
   if (database->IsOpen()) {
     database->Close();
   }

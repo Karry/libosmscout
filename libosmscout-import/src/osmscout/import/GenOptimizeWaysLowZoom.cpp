@@ -693,7 +693,7 @@ namespace osmscout
             // TODO: Wee need to make import parameters for the width and the height
             OptimizeWays(newWays,
                          optimizedWays,
-                         1280,768,
+                         800,480,
                          dpi,
                          pixel,
                          magnification,

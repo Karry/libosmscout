@@ -2,12 +2,31 @@
 
 set -e
 
+echo "Original locale settings:"
+locale
+
+echo "Setting LANG to C.UTF-8:"
+export LANG="C.UTF-8"
+
+echo "New locale settings:"
+locale
+
 echo "Build start time: `date`"
 
 if [ "$TARGET" = "build" ]; then
+  if  [ "$TRAVIS_OS_NAME" = "osx" ]; then
+    export PATH="/usr/local/opt/qt/bin:$PATH"
+    export PATH="/usr/local/opt/gettext/bin:$PATH"
+    export PATH="/usr/local/opt/libxml2/bin:$PATH"
+  fi
+
   if [ "$BUILDTOOL" = "autoconf" ]; then
     make full
     (cd Tests && make check)
+  elif [ "$BUILDTOOL" = "meson" ]; then
+    meson debug
+    cd debug
+    ninja
   elif [ "$BUILDTOOL" = "cmake" ]; then
     mkdir build
     cd build

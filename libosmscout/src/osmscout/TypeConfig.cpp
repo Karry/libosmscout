@@ -33,7 +33,6 @@
 #include <osmscout/util/Number.h>
 #include <osmscout/util/String.h>
 
-#include <iostream>
 namespace osmscout {
 
   FeatureValue::FeatureValue()
@@ -1303,22 +1302,6 @@ namespace osmscout {
       return existingType->second;
     }
 
-    if ((typeInfo->CanBeArea() ||
-         typeInfo->CanBeNode()) &&
-         typeInfo->GetIndexAsAddress()) {
-      if (!typeInfo->HasFeature(LocationFeature::NAME)) {
-        typeInfo->AddFeature(featureLocation);
-      }
-      if (!typeInfo->HasFeature(AddressFeature::NAME)) {
-        typeInfo->AddFeature(featureAddress);
-      }
-      if (fileFormatVersion>=8){
-        if (!typeInfo->HasFeature(PostalCodeFeature::NAME)) {
-          typeInfo->AddFeature(featurePostalCode);
-        }
-      }
-    }
-
     // All ways have a layer
     if (typeInfo->CanBeWay()) {
       if (!typeInfo->HasFeature(LayerFeature::NAME)) {
@@ -1328,7 +1311,8 @@ namespace osmscout {
 
     // All that is PATH-like automatically has a number of features,
     // even if it is not routable
-    if (typeInfo->IsPath()) {
+    if (typeInfo->CanBeWay() &&
+        typeInfo->IsPath()) {
       if (!typeInfo->HasFeature(WidthFeature::NAME)) {
         typeInfo->AddFeature(featureWidth);
       }
@@ -1352,7 +1336,9 @@ namespace osmscout {
     }
 
     // Everything routable should have access information and max speed information
-    if (typeInfo->CanRoute()) {
+    if ((typeInfo->CanBeArea() ||
+         typeInfo->CanBeWay()) &&
+         typeInfo->CanRoute()) {
       if (!typeInfo->HasFeature(AccessFeature::NAME)) {
         typeInfo->AddFeature(featureAccess);
       }
@@ -1364,10 +1350,37 @@ namespace osmscout {
       }
     }
 
-    // Something that has a name and is a POI automatically get the
-    // location, address website and phone features, too.
+    // All addressable areas and nodes get the postal code, location and address feature
+    if ((typeInfo->CanBeArea() ||
+         typeInfo->CanBeNode()) &&
+        typeInfo->GetIndexAsAddress()) {
+
+      if (fileFormatVersion>=8 && !typeInfo->HasFeature(PostalCodeFeature::NAME)) {
+        typeInfo->AddFeature(featurePostalCode);
+      }
+      if (!typeInfo->HasFeature(LocationFeature::NAME)) {
+        typeInfo->AddFeature(featureLocation);
+      }
+      if (!typeInfo->HasFeature(AddressFeature::NAME)) {
+        typeInfo->AddFeature(featureAddress);
+      }
+    }
+
+    // All ways with a name have a postal code and a location
+    if (typeInfo->CanBeWay() &&
+        typeInfo->HasFeature(NameFeature::NAME)) {
+      if (fileFormatVersion>=8 && !typeInfo->HasFeature(PostalCodeFeature::NAME)) {
+        typeInfo->AddFeature(featurePostalCode);
+      }
+    }
+
+    // Something that has a name and is a POI automatically gets the
+    // postal code, location, address, website and phone features, too.
     if (typeInfo->HasFeature(NameFeature::NAME) &&
         typeInfo->GetIndexAsPOI()) {
+      if (fileFormatVersion>=8 && !typeInfo->HasFeature(PostalCodeFeature::NAME)) {
+        typeInfo->AddFeature(featurePostalCode);
+      }
       if (!typeInfo->HasFeature(LocationFeature::NAME)) {
         typeInfo->AddFeature(featureLocation);
       }

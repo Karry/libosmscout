@@ -31,8 +31,13 @@
 
 #include <osmscout/import/Preprocessor.h>
 
-#include <osmscout/import/pbf/fileformat.pb.h>
-#include <osmscout/import/pbf/osmformat.pb.h>
+#if defined(OSMSCOUT_IMPORT_MESON_BUILD)
+  #include <fileformat.pb.h>
+  #include <osmformat.pb.h>
+#else
+  #include <osmscout/import/pbf/fileformat.pb.h>
+  #include <osmscout/import/pbf/osmformat.pb.h>
+#endif
 
 #include <osmscout/system/Compiler.h>
 
@@ -56,41 +61,41 @@ namespace osmscout {
 
     bool ReadBlockHeader(Progress& progress,
                          FILE* file,
-                         PBF::BlockHeader& blockHeader,
+                         OSMPBF::BlobHeader& blockHeader,
                          bool silent);
 
     bool ReadHeaderBlock(Progress& progress,
                          FILE* file,
-                         const PBF::BlockHeader& blockHeader,
-                         PBF::HeaderBlock& headerBlock);
+                         const OSMPBF::BlobHeader& blockHeader,
+                         OSMPBF::HeaderBlock& headerBlock);
 
     bool ReadPrimitiveBlock(Progress& progress,
                             FILE* file,
-                            const PBF::BlockHeader& blockHeader,
-                            PBF::PrimitiveBlock& primitiveBlock);
+                            const OSMPBF::BlobHeader& blockHeader,
+                            OSMPBF::PrimitiveBlock& primitiveBlock);
 
     void ReadNodes(const TypeConfig& typeConfig,
-                   const PBF::PrimitiveBlock& block,
-                   const PBF::PrimitiveGroup &group,
+                   const OSMPBF::PrimitiveBlock& block,
+                   const OSMPBF::PrimitiveGroup &group,
                    PreprocessorCallback::RawBlockData& data);
 
     void ReadDenseNodes(const TypeConfig& typeConfig,
-                        const PBF::PrimitiveBlock& block,
-                        const PBF::PrimitiveGroup &group,
+                        const OSMPBF::PrimitiveBlock& block,
+                        const OSMPBF::PrimitiveGroup &group,
                         PreprocessorCallback::RawBlockData& data);
 
     void ReadWays(const TypeConfig& typeConfig,
-                  const PBF::PrimitiveBlock& block,
-                  const PBF::PrimitiveGroup &group,
+                  const OSMPBF::PrimitiveBlock& block,
+                  const OSMPBF::PrimitiveGroup &group,
                   PreprocessorCallback::RawBlockData& data);
 
     void ReadRelations(const TypeConfig& typeConfig,
-                       const PBF::PrimitiveBlock& block,
-                       const PBF::PrimitiveGroup &group,
+                       const OSMPBF::PrimitiveBlock& block,
+                       const OSMPBF::PrimitiveGroup &group,
                        PreprocessorCallback::RawBlockData& data);
 
     void ProcessBlock(const TypeConfigRef& typeConfig,
-                      std::unique_ptr<PBF::PrimitiveBlock>&& block);
+                      std::unique_ptr<OSMPBF::PrimitiveBlock>&& block);
 
   public:
     PreprocessPBF(PreprocessorCallback& callback);

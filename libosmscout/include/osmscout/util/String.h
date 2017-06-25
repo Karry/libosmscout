@@ -41,6 +41,29 @@ namespace osmscout {
 
   /**
    * \ingroup Util
+   * Convert the given string to a boolean value
+   *
+   * @param string
+   *    string with a potential boolean value (either 'true' or 'false')
+   * @param value
+   *    value to copy the result to if no error occured
+   * @return
+   *    'true' if the value was parsed, else 'false'
+   */
+  extern OSMSCOUT_API bool StringToBool(const char* string, bool& value);
+
+  /**
+   * Rteurns a string representation of the given boolean value (either 'true' or 'false')
+   *
+   * @param value
+   *    value to return
+   * @return
+   *    result of the conversion
+   */
+  extern OSMSCOUT_API const char* BoolToString(bool value);
+
+  /**
+   * \ingroup Util
    * Returns the numerical value of the given character, if the character
    * is a digit in a numerical value. The current code allows digits
    * in the range from 0-9 and a-f and A-F. And thus supports
@@ -344,6 +367,10 @@ namespace osmscout {
       ::f(string,number,base);
   }
 
+
+  extern OSMSCOUT_API bool StringToNumber(const char* string, double& value);
+  extern OSMSCOUT_API bool StringToNumber(const std::string& string, double& value);
+
   /**
    * \ingroup Util
    *
@@ -410,6 +437,30 @@ namespace osmscout {
   /**
    * \ingroup Util
    *
+   * Converts the given std::string with content in the current locale to a std::wstring
+   *
+   * @param text
+   *    String to get converted
+   * @return
+   *    corresponding std::wstring
+   */
+  extern OSMSCOUT_API std::wstring LocaleStringToWString(const std::string& text);
+
+  /**
+   * \ingroup Util
+   *
+   * Converts the given std::wstring to a std::string with content in the current locale
+   *
+   * @param text
+   *    String to get converted
+   * @return
+   *    corresponding std::string
+   */
+  extern OSMSCOUT_API std::string WStringToLocaleString(const std::wstring& text);
+
+  /**
+   * \ingroup Util
+   *
    * Convert the given std::string containign a UTF8 character sequence to a std::wstring
    *
    * @param text
@@ -430,6 +481,32 @@ namespace osmscout {
    *    the converted std::string
    */
   extern OSMSCOUT_API std::string WStringToUTF8String(const std::wstring& text);
+
+  /**
+   * \ingroup Util
+   *
+   * Convert the given std::string in the current locale to a std::string containing a corresponding
+   * UTF8 character sequence
+   *
+   * @param text
+   *    the std::wstring to get converted
+   * @return
+   *    the converted std::string
+   */
+  extern OSMSCOUT_API std::string LocaleStringToUTF8String(const std::string& text);
+
+  /**
+   * \ingroup Util
+   *
+   * Convert the given std::string in UTF-8 a std::string containing to corresponding string in the
+   * current locale.
+   *
+   * @param text
+   *    the std::wstring to get converted
+   * @return
+   *    the converted std::string
+   */
+  extern OSMSCOUT_API std::string UTF8StringToLocaleString(const std::string& text);
 
   /**
    * Convert the given std::string containing a UTF8 character sequence to upper case using

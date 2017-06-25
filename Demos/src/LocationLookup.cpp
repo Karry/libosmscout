@@ -20,11 +20,26 @@
 #include <cctype>
 #include <iostream>
 #include <iomanip>
+#include <locale>
 
 #include <osmscout/Database.h>
 #include <osmscout/LocationService.h>
 
+#include <osmscout/util/CmdLineParsing.h>
 #include <osmscout/util/String.h>
+
+struct Arguments
+{
+  bool                   help;
+  std::string            databaseDirectory;
+  std::list<std::string> location;
+
+  Arguments()
+    : help(false)
+  {
+    // no code
+  }
+};
 
 bool GetAdminRegionHierachie(const osmscout::LocationServiceRef& locationService,
                              const osmscout::AdminRegionRef& adminRegion,
@@ -41,14 +56,14 @@ bool GetAdminRegionHierachie(const osmscout::LocationServiceRef& locationService
       path.append("/");
     }
 
-    path.append(adminRegion->aliasName);
+    path.append(osmscout::UTF8StringToLocaleString(adminRegion->aliasName));
   }
 
   if (!path.empty()) {
     path.append("/");
   }
 
-  path.append(adminRegion->name);
+  path.append(osmscout::UTF8StringToLocaleString(adminRegion->name));
 
   osmscout::FileOffset parentRegionOffset=adminRegion->parentRegionOffset;
 
@@ -65,7 +80,7 @@ bool GetAdminRegionHierachie(const osmscout::LocationServiceRef& locationService
       path.append("/");
     }
 
-    path.append(parentRegion->name);
+    path.append(osmscout::UTF8StringToLocaleString(parentRegion->name));
 
     parentRegionOffset=parentRegion->parentRegionOffset;
   }
@@ -84,7 +99,7 @@ std::string GetAddress(const osmscout::LocationSearchResult::Entry& entry)
     label="~ ";
   }
 
-  label+="Address ("+entry.address->name+" "+entry.address->postalCode+")";
+  label+="Address ("+osmscout::UTF8StringToLocaleString(entry.address->name)+")";
 
   return label;
 }
@@ -100,7 +115,7 @@ std::string GetLocation(const osmscout::LocationSearchResult::Entry& entry)
     label="~ ";
   }
 
-  label+="Location ("+entry.location->name+")";
+  label+="Location ("+osmscout::UTF8StringToLocaleString(entry.location->name)+")";
 
   return label;
 }
@@ -116,7 +131,23 @@ std::string GetPOI(const osmscout::LocationSearchResult::Entry& entry)
     label=" ~ ";
   }
 
-  label+="POI ("+entry.poi->name+")";
+  label+="POI ("+osmscout::UTF8StringToLocaleString(entry.poi->name)+")";
+
+  return label;
+}
+
+std::string GetPostalArea(const osmscout::LocationSearchResult::Entry& entry)
+{
+  std::string label;
+
+  if (entry.postalAreaMatchQuality==osmscout::LocationSearchResult::match) {
+    label="= ";
+  }
+  else {
+    label="~ ";
+  }
+
+  label+="PostalArea ("+osmscout::UTF8StringToLocaleString(entry.postalArea->name)+")";
 
   return label;
 }
@@ -133,10 +164,10 @@ std::string GetAdminRegion(const osmscout::LocationSearchResult::Entry& entry)
   }
 
   if (!entry.adminRegion->aliasName.empty()) {
-    label.append(entry.adminRegion->aliasName);
+    label.append(osmscout::UTF8StringToLocaleString(entry.adminRegion->aliasName));
   }
   else {
-    label.append(entry.adminRegion->name);
+    label.append(osmscout::UTF8StringToLocaleString(entry.adminRegion->name));
   }
 
   return label;
@@ -200,45 +231,84 @@ std::string GetAdminRegionHierachie(const osmscout::LocationServiceRef& location
 
 int main(int argc, char* argv[])
 {
-  std::string map;
-  std::string areaPattern;
-  std::string locationPattern;
-  std::string addressPattern;
+  osmscout::CmdLineParser   argParser("LocationLookup",
+                                      argc,argv);
+  std::vector<std::string>  helpArgs{"h","help"};
+  Arguments                 args;
 
-  if (argc<3) {
-    std::cerr << "LocationLookup <map directory> [location [address]] <area>" << std::endl;
+  argParser.AddOption(osmscout::CmdLineFlag([&args](const bool& value) {
+                        args.help=value;
+                      }),
+                      helpArgs,
+                      "Return argument help",
+                      true);
+
+  argParser.AddPositional(osmscout::CmdLineStringOption([&args](const std::string& value) {
+                            args.databaseDirectory=value;
+                          }),
+                          "DATABASE",
+                          "Directory of the database to use");
+
+  argParser.AddPositional(osmscout::CmdLineStringListOption([&args](const std::string& value) {
+                            args.location.push_back(value);
+                          }),
+                          "LOCATION",
+                          "list of location search attributes");
+
+  osmscout::CmdLineParseResult result=argParser.Parse();
+
+  if (result.HasError()) {
+    std::cerr << "ERROR: " << result.GetErrorDescription() << std::endl;
+    std::cout << argParser.GetHelp() << std::endl;
     return 1;
   }
+  else if (args.help) {
+    std::cout << argParser.GetHelp() << std::endl;
+    return 0;
+  }
 
-  map=argv[1];
+  /*
+  osmscout::log.Debug(true);
+  osmscout::log.Info(true);
+  osmscout::log.Warn(true);
+  osmscout::log.Error(true);*/
+
+  try {
+    std::locale::global(std::locale(""));
+  }
+  catch (const std::runtime_error& e) {
+    std::cerr << "Cannot set locale: \"" << e.what() << "\"" << std::endl;
+  }
 
   std::string searchPattern;
 
-  for (int i=2; i<argc; i++) {
+  for (const auto& location : args.location) {
     if (!searchPattern.empty()) {
       searchPattern.append(" ");
     }
 
-    searchPattern.append(argv[i]);
+    searchPattern.append(location);
   }
+
+  std::cout << "Searching for pattern \"" <<searchPattern  << "\"" << std::endl;
 
   osmscout::DatabaseParameter databaseParameter;
   osmscout::DatabaseRef       database(new osmscout::Database(databaseParameter));
 
-  if (!database->Open(map.c_str())) {
+  if (!database->Open(args.databaseDirectory)) {
     std::cerr << "Cannot open database" << std::endl;
 
     return 1;
   }
 
-  osmscout::LocationServiceRef                            locationService(new osmscout::LocationService(database));
+  osmscout::LocationServiceRef                            locationService=std::make_shared<osmscout::LocationService>(database);
   osmscout::LocationSearch                                search;
   osmscout::LocationSearchResult                          searchResult;
   std::map<osmscout::FileOffset,osmscout::AdminRegionRef> adminRegionMap;
 
   search.limit=50;
 
-  if (!locationService->InitializeLocationSearchEntries(searchPattern,
+  if (!locationService->InitializeLocationSearchEntries(osmscout::LocaleStringToUTF8String(searchPattern),
                                                         search)) {
     std::cerr << "Error while parsing search string" << std::endl;
     return false;
@@ -255,7 +325,10 @@ int main(int argc, char* argv[])
     if (entry.adminRegion &&
         entry.location &&
         entry.address) {
-      std::cout << GetLocation(entry) << " " << GetAddress(entry) << " " << GetAdminRegion(entry) << std::endl;
+      std::cout << GetLocation(entry) << " ";
+      std::cout << GetAddress(entry) << " ";
+      std::cout << GetPostalArea(entry) << " ";
+      std::cout << GetAdminRegion(entry) << std::endl;
 
       std::cout << "   * " << GetAdminRegionHierachie(locationService,
                                                       adminRegionMap,
@@ -268,7 +341,9 @@ int main(int argc, char* argv[])
     }
     else if (entry.adminRegion &&
              entry.location) {
-      std::cout << GetLocation(entry) << " " << GetAdminRegion(entry) << std::endl;
+      std::cout << GetLocation(entry) << " ";
+      std::cout << GetPostalArea(entry) << " ";
+      std::cout << GetAdminRegion(entry) << std::endl;
 
       std::cout << "   * " << GetAdminRegionHierachie(locationService,
                                                       adminRegionMap,
@@ -282,7 +357,8 @@ int main(int argc, char* argv[])
     }
     else if (entry.adminRegion &&
              entry.poi) {
-      std::cout << GetPOI(entry) << " " << GetAdminRegion(entry) << std::endl;
+      std::cout << GetPOI(entry) << " ";
+      std::cout << GetAdminRegion(entry) << std::endl;
 
       std::cout << "   * " << GetAdminRegionHierachie(locationService,
                                                       adminRegionMap,
