@@ -105,8 +105,6 @@ public:
     return vehicles;
   }
 
-  Q_INVOKABLE RouteStep* get(int row) const;
-
   /**
    * Create LocationEntry from geographic coordinate with optional label.
    * It may be used from QML when selecting route start/end via point on map.

@@ -107,7 +107,7 @@ namespace osmscout {
       writer.WriteNumber(way.GetType()->GetWayId());
 
       writer.Write(name);
-      writer.Write(location);
+      writer.Write(postalCode);
       writer.Write(way.GetNodes(),false);
 
       overallDataCount++;

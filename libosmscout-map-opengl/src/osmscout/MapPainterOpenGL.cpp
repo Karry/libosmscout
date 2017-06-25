@@ -148,7 +148,7 @@ namespace osmscout {
 
           foundRing = true;
 
-          std::vector<Point> p = area->rings[i].nodes;
+          std::vector<Point> p = area->rings[i].GetNodes().asVector();
           std::vector<osmscout::Area::Ring> r;
 
           size_t j = i + 1;
@@ -170,7 +170,7 @@ namespace osmscout {
             std::vector<std::vector<osmscout::Point>> polygons;
             polygons.push_back(p);
             for (const auto &ring: r) {
-              polygons.push_back(ring.nodes);
+              polygons.push_back(ring.GetNodes().asVector());
             }
             points = osmscout::Triangulate::TriangulateWithHoles(polygons);
           } else {

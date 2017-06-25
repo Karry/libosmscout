@@ -482,7 +482,7 @@ osmscout::RoutePosition Router::GetClosestRoutableNode(const QString databasePat
           return;
         }
 
-        position=database->router->GetClosestRoutableNode(way->nodes[0].GetCoord(),
+        position=database->router->GetClosestRoutableNode((*(way->GetNodes().begin())).GetCoord(),
                                                           routingProfile,
                                                           radius);
         return;
