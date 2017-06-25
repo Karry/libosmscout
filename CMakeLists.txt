@@ -6,7 +6,8 @@ set(CMAKE_ALLOW_LOOSE_LOOP_CONSTRUCTS ON)
 set(CMAKE_CXX_STANDARD_REQUIRED ON) # build should fail when compiler don't support standard defined by CMAKE_CXX_STANDARD
 set(CMAKE_MACOSX_RPATH 1)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/" "$ENV{QTDIR}" "${QTDIR}" "$ENV{QTDIR}/lib/cmake" "${QTDIR}/lib/cmake")
-
+set(CMAKE_ENABLE_COMPILE_COMMANDS ON)
+#
 # default build type
 if(CMAKE_BUILD_TYPE STREQUAL "")
   set(CMAKE_BUILD_TYPE "RelWithDebInfo" CACHE STRING "Choose the type of build, options are: None (CMAKE_CXX_FLAGS or CMAKE_C_FLAGS used) Debug Release RelWithDebInfo MinSizeRel." FORCE)
@@ -74,6 +75,7 @@ if(MSVC)
   if(OSMSCOUT_BUILD_MSVC_MP)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
   endif()
+  add_definitions(-D_WIN32_WINNT=0x0600)
   add_definitions(-D_CRT_SECURE_NO_DEPRECATE -D_CRT_NONSTDC_NO_DEPRECATE -DDLL_EXPORT)
 endif()
 
@@ -203,6 +205,10 @@ else()
 endif()
 option(OSMSCOUT_BUILD_MAP_DIRECTX "Enable build of DirectX map drawing backend" ${OSMSCOUT_BUILD_MAP_DIRECTX_CACHE})
 if(OSMSCOUT_BUILD_MAP_DIRECTX)
+  message("DirectX root dir: ${DirectX_ROOT_DIR}")
+  message("DirectX includes: ${Direct2D_INCLUDE_DIRS}")
+  message("DirectX libs:     ${Direct2D_LIBRARIES}")
+
   add_subdirectory(libosmscout-map-directx)
 endif()
 

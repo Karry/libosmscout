@@ -271,8 +271,8 @@ namespace osmscout {
 
     if (!coordDataFile.Open(parameter.GetDestinationDirectory(),
                             parameter.GetCoordDataMemoryMaped(),
-                       osmscout::FILE_FORMAT_VERSION)) {
-      std::cerr << "Cannot open coord data file!" << std::endl;
+                            osmscout::FILE_FORMAT_VERSION)) {
+      log.Error() << "Cannot open coord data file!";
       return false;
     }
 
@@ -283,7 +283,7 @@ namespace osmscout {
                                    Preprocess::RAWWAYS_DAT),
                    FileScanner::Sequential,
                    parameter.GetRawWayDataMemoryMaped(),
-                       osmscout::FILE_FORMAT_VERSION);
+                   osmscout::FILE_FORMAT_VERSION);
 
       scanner.Read(rawWayCount);
 
@@ -329,7 +329,7 @@ namespace osmscout {
 
           if (!coordDataFile.Get(nodeIds,
                                  coordsMap)) {
-            std::cerr << "Cannot read coordinates!" << std::endl;
+            log.Error() << "Cannot read coordinates!";
             return false;
           }
 
@@ -354,7 +354,7 @@ namespace osmscout {
 
         if (!coordDataFile.Get(nodeIds,
                                coordsMap)) {
-          std::cerr << "Cannot read nodes!" << std::endl;
+          log.Error() << "Cannot read nodes!";
           return false;
         }
 

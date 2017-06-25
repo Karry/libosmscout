@@ -44,6 +44,10 @@ namespace osmscout {
     this->path=path;
     this->fileFormatVersion=fileFormatVersion;
 
+    if (fileFormatVersion<=13){
+      return index13.Load(path,fileFormatVersion);
+    }
+
     FileScanner scanner;
 
     try {
@@ -94,11 +98,17 @@ namespace osmscout {
 
   bool LocationIndex::IsRegionIgnoreToken(const std::string& token) const
   {
+    if (fileFormatVersion<=13){
+      return index13.IsRegionIgnoreToken(token);
+    }
     return regionIgnoreTokens.find(token)!=regionIgnoreTokens.end();
   }
 
   bool LocationIndex::IsLocationIgnoreToken(const std::string& token) const
   {
+    if (fileFormatVersion<=13){
+      return index13.IsLocationIgnoreToken(token);
+    }
     return locationIgnoreTokens.find(token)!=locationIgnoreTokens.end();
   }
 
@@ -138,6 +148,8 @@ namespace osmscout {
                                       AdminRegion& region) const
   {
     uint32_t aliasCount;
+    uint32_t postalAreasCount;
+    uint32_t childrenOffsetsCount;
 
     region.regionOffset=scanner.GetPos();
 
@@ -162,20 +174,41 @@ namespace osmscout {
       }
     }
 
+      scanner.ReadNumber(postalAreasCount);
+
+      region.postalAreas.clear();
+
+      if (postalAreasCount>0) {
+        region.postalAreas.resize(postalAreasCount);
+
+        for (size_t i=0; i<postalAreasCount; i++) {
+          scanner.Read(region.postalAreas[i].name);
+          scanner.ReadFileOffset(region.postalAreas[i].objectOffset);
+        }
+      }
+
+      scanner.ReadNumber(childrenOffsetsCount);
+
+      region.childrenOffsets.clear();
+
+      if (childrenOffsetsCount>0) {
+        region.childrenOffsets.resize(childrenOffsetsCount);
+
+        for (size_t i=0; i<childrenOffsetsCount; i++) {
+          scanner.ReadFileOffset(region.childrenOffsets[i]);
+        }
+      }
+
     return !scanner.HasError();
   }
 
-  AdminRegionVisitor::Action LocationIndex::VisitRegionEntries(FileScanner& scanner,
+  AdminRegionVisitor::Action LocationIndex::VisitRegionEntries(const AdminRegion& region,
+                                                               FileScanner& scanner,
                                                                AdminRegionVisitor& visitor) const
   {
-    AdminRegion region;
-    uint32_t    childCount;
-
-    if (!LoadAdminRegion(scanner,
-                         region)) {
-      return AdminRegionVisitor::error;
+    if (fileFormatVersion<=13){
+      //return VisitRegionEntries13(region,scanner,visitor);
     }
-
     AdminRegionVisitor::Action action=visitor.Visit(region);
 
     switch (action) {
@@ -184,21 +217,25 @@ namespace osmscout {
     case AdminRegionVisitor::error:
       return action;
     case AdminRegionVisitor::skipChildren:
-      return AdminRegionVisitor::skipChildren;
+      return AdminRegionVisitor::visitChildren;
     case AdminRegionVisitor::visitChildren:
       // just continue...
       break;
     }
 
     try {
-      scanner.ReadNumber(childCount);
+      for (auto childOffset : region.childrenOffsets) {
+        AdminRegion childRegion;
 
-      for (size_t i=0; i<childCount; i++) {
-        FileOffset nextChildOffset;
+        scanner.SetPos(childOffset);
 
-        scanner.ReadFileOffset(nextChildOffset);
+        if (!LoadAdminRegion(scanner,
+                             childRegion)) {
+          return AdminRegionVisitor::error;
+        }
 
-        action=VisitRegionEntries(scanner,
+        action=VisitRegionEntries(childRegion,
+                                  scanner,
                                   visitor);
 
         if (action==AdminRegionVisitor::stop ||
@@ -206,12 +243,7 @@ namespace osmscout {
           return action;
         }
         else if (action==AdminRegionVisitor::skipChildren) {
-          if (i+1<childCount) {
-            scanner.SetPos(nextChildOffset);
-          }
-          else {
-            return AdminRegionVisitor::skipChildren;
-          }
+          return AdminRegionVisitor::visitChildren;
         }
       }
     }
@@ -228,39 +260,21 @@ namespace osmscout {
     }
   }
 
-  bool LocationIndex::LoadRegionDataEntry(FileScanner& scanner,
-                                          const AdminRegion& adminRegion,
-                                          LocationVisitor& visitor,
-                                          bool& stopped) const
+  bool LocationIndex::VisitPostalAreaLocations(const AdminRegion& adminRegion,
+                                               const PostalArea& postalArea,
+                                               FileScanner& scanner,
+                                               LocationVisitor& visitor,
+                                               bool& stopped) const
   {
-    uint32_t poiCount;
-    uint32_t locationCount;
-
-    scanner.ReadNumber(poiCount);
-
+    uint32_t                  locationCount;
     ObjectFileRefStreamReader objectFileRefReader(scanner);
 
-    for (size_t i=0; i<poiCount; i++) {
-      POI poi;
-
-      poi.regionOffset=adminRegion.regionOffset;
-
-      scanner.Read(poi.name);
-      objectFileRefReader.Read(poi.object);
-
-      if (!visitor.Visit(adminRegion,
-                         poi)) {
-        stopped=true;
-
-        return true;
-      }
-    }
-
+    scanner.SetPos(postalArea.objectOffset);
     scanner.ReadNumber(locationCount);
 
     for (size_t i=0; i<locationCount; i++) {
       Location location;
-      uint32_t  objectCount;
+      uint32_t objectCount;
 
       location.locationOffset=scanner.GetPos();
 
@@ -294,6 +308,7 @@ namespace osmscout {
       }
 
       if (!visitor.Visit(adminRegion,
+                         postalArea,
                          location)) {
         stopped=true;
 
@@ -304,48 +319,53 @@ namespace osmscout {
     return !scanner.HasError();
   }
 
-  bool LocationIndex::VisitRegionLocationEntries(FileScanner& scanner,
-                                                 LocationVisitor& visitor,
-                                                 bool recursive,
-                                                 bool& stopped) const
+  bool LocationIndex::VisitRegionPOIs(const AdminRegion& region,
+                                      FileScanner& scanner,
+                                      POIVisitor& visitor,
+                                      bool recursive,
+                                      bool& stopped) const
   {
-    AdminRegion region;
-    FileOffset       childrenOffset;
-    uint32_t         childCount;
-
-    if (!LoadAdminRegion(scanner,
-                         region)) {
-      return false;
-    }
-
-    childrenOffset=scanner.GetPos();
-
     scanner.SetPos(region.dataOffset);
 
-    if (!LoadRegionDataEntry(scanner,
-                             region,
-                             visitor,
-                             stopped)) {
-      return false;
+    uint32_t                  poiCount;
+    ObjectFileRefStreamReader objectFileRefReader(scanner);
+
+    scanner.ReadNumber(poiCount);
+
+    for (size_t i=0; i<poiCount; i++) {
+      POI poi;
+
+      poi.regionOffset=region.regionOffset;
+
+      scanner.Read(poi.name);
+      objectFileRefReader.Read(poi.object);
+
+      if (!visitor.Visit(region,
+                         poi)) {
+        stopped=true;
+        break;
+      }
     }
 
     if (stopped || !recursive) {
       return !scanner.HasError();
     }
 
-    scanner.SetPos(childrenOffset);
+    for (const auto offset : region.childrenOffsets) {
+      AdminRegion childRegion;
 
-    scanner.ReadNumber(childCount);
+      scanner.SetPos(offset);
 
-    for (size_t i=0; i<childCount; i++) {
-      FileOffset nextChildOffset;
+      if (!LoadAdminRegion(scanner,
+                           childRegion)) {
+        return false;
+      }
 
-      scanner.ReadFileOffset(nextChildOffset);
-
-      if (!VisitRegionLocationEntries(scanner,
-                                      visitor,
-                                      recursive,
-                                      stopped)) {
+      if (!VisitRegionPOIs(childRegion,
+                           scanner,
+                           visitor,
+                           recursive,
+                           stopped)) {
         return false;
       }
 
@@ -357,11 +377,66 @@ namespace osmscout {
     return !scanner.HasError();
   }
 
-  bool LocationIndex::VisitLocationAddressEntries(FileScanner& scanner,
-                                                  const AdminRegion& region,
-                                                  const Location& location,
-                                                  AddressVisitor& visitor,
-                                                  bool& stopped) const
+  bool LocationIndex::VisitPostalArea(const AdminRegion& adminRegion,
+                                      const PostalArea& postalArea,
+                                      FileScanner& scanner,
+                                      LocationVisitor& visitor,
+                                      bool recursive,
+                                      bool& stopped) const
+  {
+    scanner.SetPos(postalArea.objectOffset);
+
+    if (!VisitPostalAreaLocations(adminRegion,
+                                  postalArea,
+                                  scanner,
+                                  visitor,
+                                  stopped)) {
+      return false;
+    }
+
+    if (stopped || !recursive) {
+      return !scanner.HasError();
+    }
+
+    for (const auto offset : adminRegion.childrenOffsets) {
+      AdminRegion childRegion;
+
+      scanner.SetPos(offset);
+
+      if (!LoadAdminRegion(scanner,
+                           childRegion)) {
+        return false;
+      }
+
+      for (const auto& childPostalArea : childRegion.postalAreas) {
+        if (!VisitPostalArea(childRegion,
+                             childPostalArea,
+                             scanner,
+                             visitor,
+                             recursive,
+                             stopped)) {
+          return false;
+        }
+
+        if (stopped) {
+          break;
+        }
+      }
+
+      if (stopped) {
+        break;
+      }
+    }
+
+    return !scanner.HasError();
+  }
+
+  bool LocationIndex::VisitLocation(FileScanner& scanner,
+                                    const AdminRegion& region,
+                                    const PostalArea& postalArea,
+                                    const Location& location,
+                                    AddressVisitor& visitor,
+                                    bool& stopped) const
   {
     if (location.addressesOffset==0) {
       // see LocationIndex::LoadRegionDataEntry
@@ -381,18 +456,15 @@ namespace osmscout {
       Address address;
 
       address.addressOffset=scanner.GetPos();
-
       address.locationOffset=location.locationOffset;
       address.regionOffset=location.regionOffset;
 
       scanner.Read(address.name);
-      if (fileFormatVersion >= 8){
-        scanner.Read(address.postalCode);
-      }
 
       objectFileRefReader.Read(address.object);
 
       if (!visitor.Visit(region,
+                         postalArea,
                          location,
                          address)) {
         stopped=true;
@@ -406,12 +478,15 @@ namespace osmscout {
 
   bool LocationIndex::VisitAdminRegions(AdminRegionVisitor& visitor) const
   {
+    if (fileFormatVersion<=13){
+      return index13.VisitAdminRegions(visitor);
+    }
     FileScanner scanner;
 
     try {
       scanner.Open(AppendFileToDir(path,
                                    FILENAME_LOCATION_IDX),
-                   FileScanner::LowMemRandom,
+                   FileScanner::LowMemRandom,                   
                    false,
                    fileFormatVersion);
 
@@ -422,12 +497,20 @@ namespace osmscout {
       scanner.ReadNumber(regionCount);
 
       for (size_t i=0; i<regionCount; i++) {
+        AdminRegion region;
+
+        if (!LoadAdminRegion(scanner,
+                             region)) {
+          scanner.Close();
+          return false;
+        }
+
         AdminRegionVisitor::Action action;
-        FileOffset nextChildOffset;
+        FileOffset                 currentPos=scanner.GetPos();
 
-        scanner.ReadFileOffset(nextChildOffset);
 
-        action=VisitRegionEntries(scanner,
+        action=VisitRegionEntries(region,
+                                  scanner,
                                   visitor);
 
         if (action==AdminRegionVisitor::error) {
@@ -438,11 +521,8 @@ namespace osmscout {
           scanner.Close();
           return true;
         }
-        else if (action==AdminRegionVisitor::skipChildren) {
-          if (i+1<regionCount) {
-            scanner.SetPos(nextChildOffset);
-          }
-        }
+
+        scanner.SetPos(currentPos);
       }
 
       scanner.Close();
@@ -456,27 +536,32 @@ namespace osmscout {
     }
   }
 
-  bool LocationIndex::VisitAdminRegionLocations(const AdminRegion& region,
-                                                LocationVisitor& visitor,
-                                                bool recursive) const
+  bool LocationIndex::VisitPOIs(const AdminRegion& region,
+                                POIVisitor& visitor,
+                                bool recursive) const
   {
+    if (fileFormatVersion<=13){
+      return true;
+    }
+
     FileScanner scanner;
-    bool        stopped=false;
 
     try {
+      bool stopped=false;
+
       scanner.Open(AppendFileToDir(path,
                                    FILENAME_LOCATION_IDX),
                    FileScanner::LowMemRandom,
                    true,
                    fileFormatVersion);
 
-      scanner.SetPos(indexOffset);
       scanner.SetPos(region.regionOffset);
 
-      if (!VisitRegionLocationEntries(scanner,
-                                      visitor,
-                                      recursive,
-                                      stopped)) {
+      if (!VisitRegionPOIs(region,
+                           scanner,
+                           visitor,
+                           recursive,
+                           stopped)) {
         scanner.Close();
         return false;
       }
@@ -492,27 +577,71 @@ namespace osmscout {
     }
   }
 
-  bool LocationIndex::VisitLocationAddresses(const AdminRegion& region,
-                                             const Location& location,
-                                             AddressVisitor& visitor) const
+  bool LocationIndex::VisitLocations(const AdminRegion& adminRegion,
+                                     const PostalArea& postalArea,
+                                     LocationVisitor& visitor,
+                                     bool recursive) const
   {
+    if (fileFormatVersion<=13){
+      return index13.VisitAdminRegionLocations(adminRegion,visitor,recursive);
+    }
     FileScanner scanner;
-    bool        stopped=false;
 
     try {
+      bool stopped=false;
+
       scanner.Open(AppendFileToDir(path,
                                    FILENAME_LOCATION_IDX),
                    FileScanner::LowMemRandom,
                    true,
                    fileFormatVersion);
 
-      scanner.SetPos(indexOffset);
+      if (!VisitPostalArea(adminRegion,
+                           postalArea,
+                           scanner,
+                           visitor,
+                           recursive,
+                           stopped)) {
+        scanner.Close();
+        return false;
+      }
 
-      if (!VisitLocationAddressEntries(scanner,
-                                       region,
-                                       location,
-                                       visitor,
-                                       stopped)) {
+      scanner.Close();
+
+      return true;
+    }
+    catch (IOException& e) {
+      log.Error() << e.GetDescription();
+      scanner.CloseFailsafe();
+      return false;
+    }
+  }
+
+  bool LocationIndex::VisitAddresses(const AdminRegion& region,
+                                     const PostalArea& postalArea,
+                                     const Location& location,
+                                     AddressVisitor& visitor) const
+  {
+    if (fileFormatVersion<=13){
+      return index13.VisitLocationAddresses(region,location,visitor);
+    }
+    FileScanner scanner;
+
+    try {
+      bool stopped=false;
+
+      scanner.Open(AppendFileToDir(path,
+                                   FILENAME_LOCATION_IDX),
+                   FileScanner::LowMemRandom,
+                   true,
+                   fileFormatVersion);
+
+      if (!VisitLocation(scanner,
+                         region,
+                         postalArea,
+                         location,
+                         visitor,
+                         stopped)) {
         scanner.Close();
         return false;
       }
@@ -531,6 +660,10 @@ namespace osmscout {
   bool LocationIndex::ResolveAdminRegionHierachie(const AdminRegionRef& adminRegion,
                                                   std::map<FileOffset,AdminRegionRef >& refs) const
   {
+    if (fileFormatVersion<=13){
+      return index13.ResolveAdminRegionHierachie(adminRegion,refs);
+    }
+
     FileScanner scanner;
 
     try  {
@@ -593,6 +726,9 @@ namespace osmscout {
 
   void LocationIndex::DumpStatistics()
   {
+    if (fileFormatVersion<=13){
+      return index13.DumpStatistics();
+    }
     size_t memory=0;
 
     log.Info() << "CityStreetIndex: Memory " << memory;

@@ -1924,7 +1924,9 @@ namespace osmscout {
   const size_t      DestinationFeature::NAME_LABEL_INDEX = 0;
 
   DestinationFeature::DestinationFeature()
-  : tagDestination(0)
+  : tagDestination(0),
+    tagDestinationRef(0),
+    tagDestinationForward(0)
   {
     RegisterLabel(NAME_LABEL,
                   NAME_LABEL_INDEX);
@@ -1933,6 +1935,8 @@ namespace osmscout {
   void DestinationFeature::Initialize(TypeConfig& typeConfig)
   {
     tagDestination=typeConfig.RegisterTag("destination");
+    tagDestinationRef=typeConfig.RegisterTag("destination:ref");
+    tagDestinationForward=typeConfig.RegisterTag("destination:forward");
   }
 
   std::string DestinationFeature::GetName() const
@@ -1958,6 +1962,14 @@ namespace osmscout {
                                  FeatureValueBuffer& buffer) const
   {
     auto destination=tags.find(tagDestination);
+
+    if (destination==tags.end()) {
+      destination=tags.find(tagDestinationForward);
+    }
+
+    if (destination==tags.end()) {
+      destination=tags.find(tagDestinationRef);
+    }
 
     if (destination==tags.end()) {
       return;

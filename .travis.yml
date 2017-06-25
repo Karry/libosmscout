@@ -35,13 +35,13 @@ matrix:
       sudo: required
       compiler: clang
       env:
-        - BUILDTOOL=autoconf
+        - BUILDTOOL=meson
         - TARGET=build
     - os: osx
       osx_image: xcode7.3
       compiler: clang
       env:
-        - BUILDTOOL=autoconf
+        - BUILDTOOL=meson
         - TARGET=build
     - os: osx
       osx_image: xcode7.3
@@ -71,7 +71,7 @@ before_install:
 
 before_script:
   - . setupAutoconf.sh
-  
+
 script:
   - $TRAVIS_BUILD_DIR/ci/travis/build.sh
 

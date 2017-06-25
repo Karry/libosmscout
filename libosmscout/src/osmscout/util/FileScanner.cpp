@@ -36,8 +36,8 @@
   #include <fcntl.h>
 #endif
 
-#if defined(__WIN32__) || defined(WIN32)
-  #include<io.h>
+#if defined(_WIN32)
+  #include <io.h>
 
   #if !defined(_fileno)
     #define _fileno(__F) ((__F)->_file)
@@ -62,7 +62,7 @@ namespace osmscout {
      offset(0),
      byteBuffer(NULL),
      byteBufferSize(0)
-#if defined(__WIN32__) || defined(WIN32)
+#if defined(_WIN32)
      ,mmfHandle((HANDLE)0)
 #endif
   {
@@ -102,7 +102,7 @@ namespace osmscout {
 
       buffer=NULL;
     }
-#elif  defined(__WIN32__) || defined(WIN32)
+#elif  defined(_WIN32)
       if (buffer!=NULL) {
         UnmapViewOfFile(buffer);
         buffer=NULL;
@@ -241,7 +241,7 @@ namespace osmscout {
         buffer=NULL;
       }
     }
-#elif  defined(__WIN32__) || defined(WIN32)
+#elif  defined(_WIN32)
     unused(mode);
     if (useMmap && this->size>0) {
       FreeBuffer();
@@ -328,7 +328,7 @@ namespace osmscout {
       return true;
     }
 
-#if defined(HAVE_MMAP) || defined(__WIN32__) || defined(WIN32)
+#if defined(HAVE_MMAP) || defined(_WIN32)
     if (buffer!=NULL) {
       return offset>=size;
     }
@@ -363,7 +363,7 @@ namespace osmscout {
       throw IOException(filename,"Cannot set position in file","File already in error state");
     }
 
-#if defined(HAVE_MMAP) || defined(__WIN32__) || defined(WIN32)
+#if defined(HAVE_MMAP) || defined(_WIN32)
     if (buffer!=NULL) {
       if (pos>=size) {
         hasError=true;
@@ -402,7 +402,7 @@ namespace osmscout {
       throw IOException(filename,"Cannot read position in file","File already in error state");
     }
 
-#if defined(HAVE_MMAP) || defined(__WIN32__) || defined(WIN32)
+#if defined(HAVE_MMAP) || defined(_WIN32)
     if (buffer!=NULL) {
       return offset;
     }
@@ -444,7 +444,7 @@ namespace osmscout {
       throw IOException(filename,"Cannot read byte array","File already in error state");
     }
 
-#if defined(HAVE_MMAP) || defined(__WIN32__) || defined(WIN32)
+#if defined(HAVE_MMAP) || defined(_WIN32)
     if (this->buffer!=NULL) {
       if (offset+(FileOffset)bytes-1>=size) {
         hasError=true;
@@ -474,7 +474,7 @@ namespace osmscout {
 
     value.clear();
 
-#if defined(HAVE_MMAP) || defined(__WIN32__) || defined(WIN32)
+#if defined(HAVE_MMAP) || defined(_WIN32)
     if (buffer!=NULL) {
       if (offset>=size) {
         hasError=true;
@@ -526,7 +526,7 @@ namespace osmscout {
       throw IOException(filename,"Cannot read bool","File already in error state");
     }
 
-#if defined(HAVE_MMAP) || defined(__WIN32__) || defined(WIN32)
+#if defined(HAVE_MMAP) || defined(_WIN32)
     if (buffer!=NULL) {
       if (offset>=size) {
         hasError=true;
@@ -560,7 +560,7 @@ namespace osmscout {
 
     number=0;
 
-#if defined(HAVE_MMAP) || defined(__WIN32__) || defined(WIN32)
+#if defined(HAVE_MMAP) || defined(_WIN32)
     if (buffer!=NULL) {
       if (offset>=size) {
         hasError=true;
@@ -590,7 +590,7 @@ namespace osmscout {
 
     number=0;
 
-#if defined(HAVE_MMAP) || defined(__WIN32__) || defined(WIN32)
+#if defined(HAVE_MMAP) || defined(_WIN32)
     if (buffer!=NULL) {
       if (offset+2-1>=size) {
         hasError=true;
@@ -644,7 +644,7 @@ namespace osmscout {
 
     number=0;
 
-#if defined(HAVE_MMAP) || defined(__WIN32__) || defined(WIN32)
+#if defined(HAVE_MMAP) || defined(_WIN32)
     if (buffer!=NULL) {
       if (offset+4-1>=size) {
         hasError=true;
@@ -718,7 +718,7 @@ namespace osmscout {
 
     number=0;
 
-#if defined(HAVE_MMAP) || defined(__WIN32__) || defined(WIN32)
+#if defined(HAVE_MMAP) || defined(_WIN32)
     if (buffer!=NULL) {
       if (offset+8-1>=size) {
         hasError=true;
@@ -832,7 +832,7 @@ namespace osmscout {
 
     number=0;
 
-#if defined(HAVE_MMAP) || defined(__WIN32__) || defined(WIN32)
+#if defined(HAVE_MMAP) || defined(_WIN32)
     if (buffer!=NULL) {
       if (offset>=size) {
         hasError=true;
@@ -862,7 +862,7 @@ namespace osmscout {
 
     number=0;
 
-#if defined(HAVE_MMAP) || defined(__WIN32__) || defined(WIN32)
+#if defined(HAVE_MMAP) || defined(_WIN32)
     if (buffer!=NULL) {
       if (offset+2-1>=size) {
         hasError=true;
@@ -916,7 +916,7 @@ namespace osmscout {
 
     number=0;
 
-#if defined(HAVE_MMAP) || defined(__WIN32__) || defined(WIN32)
+#if defined(HAVE_MMAP) || defined(_WIN32)
     if (buffer!=NULL) {
       if (offset+4-1>=size) {
         hasError=true;
@@ -990,7 +990,7 @@ namespace osmscout {
 
     number=0;
 
-#if defined(HAVE_MMAP) || defined(__WIN32__) || defined(WIN32)
+#if defined(HAVE_MMAP) || defined(_WIN32)
     if (buffer!=NULL) {
       if (offset+8-1>=size) {
         hasError=true;
@@ -1105,7 +1105,7 @@ namespace osmscout {
 
     number=0;
 
-#if defined(HAVE_MMAP) || defined(__WIN32__) || defined(WIN32)
+#if defined(HAVE_MMAP) || defined(_WIN32)
     if (buffer!=NULL) {
       if (offset+bytes-1>=size) {
         hasError=true;
@@ -1164,7 +1164,7 @@ namespace osmscout {
 
     number=0;
 
-#if defined(HAVE_MMAP) || defined(__WIN32__) || defined(WIN32)
+#if defined(HAVE_MMAP) || defined(_WIN32)
     if (buffer!=NULL) {
       if (offset+bytes-1>=size) {
         hasError=true;
@@ -1251,7 +1251,7 @@ namespace osmscout {
 
     number=0;
 
-#if defined(HAVE_MMAP) || defined(__WIN32__) || defined(WIN32)
+#if defined(HAVE_MMAP) || defined(_WIN32)
     if (buffer!=NULL) {
       if (offset+bytes-1>=size) {
         hasError=true;
@@ -1404,7 +1404,7 @@ namespace osmscout {
 
     fileOffset=0;
 
-#if defined(HAVE_MMAP) || defined(__WIN32__) || defined(WIN32)
+#if defined(HAVE_MMAP) || defined(_WIN32)
     if (buffer!=NULL) {
       if (offset+8-1>=size) {
         hasError=true;
@@ -1521,7 +1521,7 @@ namespace osmscout {
 
     fileOffset=0;
 
-#if defined(HAVE_MMAP) || defined(__WIN32__) || defined(WIN32)
+#if defined(HAVE_MMAP) || defined(_WIN32)
     if (buffer!=NULL) {
       if (offset+bytes-1>=size) {
         hasError=true;
@@ -1663,7 +1663,7 @@ namespace osmscout {
 
     number=0;
 
-#if defined(HAVE_MMAP) || defined(__WIN32__) || defined(WIN32)
+#if defined(HAVE_MMAP) || defined(_WIN32)
     if (buffer!=NULL) {
       if (offset>=size) {
         hasError=true;
@@ -1743,7 +1743,7 @@ namespace osmscout {
 
     number=0;
 
-#if defined(HAVE_MMAP) || defined(__WIN32__) || defined(WIN32)
+#if defined(HAVE_MMAP) || defined(_WIN32)
     if (buffer!=NULL) {
       if (offset>=size) {
         hasError=true;
@@ -1824,7 +1824,7 @@ namespace osmscout {
 
     number=0;
 
-#if defined(HAVE_MMAP) || defined(__WIN32__) || defined(WIN32)
+#if defined(HAVE_MMAP) || defined(_WIN32)
     if (buffer!=NULL) {
       if (offset>=size) {
         hasError=true;
@@ -1904,7 +1904,7 @@ namespace osmscout {
 
     number=0;
 
-#if defined(HAVE_MMAP) || defined(__WIN32__) || defined(WIN32)
+#if defined(HAVE_MMAP) || defined(_WIN32)
     if (buffer!=NULL) {
       unsigned int shift=0;
 
@@ -1957,7 +1957,7 @@ namespace osmscout {
 
     number=0;
 
-#if defined(HAVE_MMAP) || defined(__WIN32__) || defined(WIN32)
+#if defined(HAVE_MMAP) || defined(_WIN32)
     if (buffer!=NULL) {
       unsigned int shift=0;
 
@@ -2010,7 +2010,7 @@ namespace osmscout {
 
     number=0;
 
-#if defined(HAVE_MMAP) || defined(__WIN32__) || defined(WIN32)
+#if defined(HAVE_MMAP) || defined(_WIN32)
     if (buffer!=NULL) {
       unsigned int shift=0;
 
@@ -2064,7 +2064,7 @@ namespace osmscout {
     uint32_t latDat;
     uint32_t lonDat;
 
-#if defined(HAVE_MMAP) || defined(__WIN32__) || defined(WIN32)
+#if defined(HAVE_MMAP) || defined(_WIN32)
     if (buffer!=NULL) {
       if (offset+coordByteSize-1>=size) {
         hasError=true;
@@ -2125,7 +2125,7 @@ namespace osmscout {
     uint32_t latDat;
     uint32_t lonDat;
 
-#if defined(HAVE_MMAP) || defined(__WIN32__) || defined(WIN32)
+#if defined(HAVE_MMAP) || defined(_WIN32)
     if (buffer!=NULL) {
       if (offset+coordByteSize-1>=size) {
         hasError=true;
