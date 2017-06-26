@@ -630,6 +630,9 @@ namespace osmscout {
 
     bool ReverseLookupObjects(const std::list<ObjectFileRef>& objects,
                               std::list<ReverseLookupResult>& result) const;
+    bool ReverseLookupObjects13(const std::list<ObjectFileRef>& objects,
+                                std::list<ReverseLookupResult>& result) const;
+
     bool ReverseLookupObject(const ObjectFileRef& object,
                               std::list<ReverseLookupResult>& result) const;
 
