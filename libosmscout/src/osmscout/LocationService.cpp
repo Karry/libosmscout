@@ -1703,10 +1703,10 @@ namespace osmscout {
             searchEntry.object=object;
             area->rings[r].GetBoundingBox(searchEntry.bbox);
 
-            searchEntry.coords.resize(area->rings[r].nodes.size());
+            searchEntry.coords.resize(area->rings[r].GetNodes().size());
 
-            for (size_t i=0; i<area->rings[r].nodes.size(); i++) {
-              searchEntry.coords[i]=area->rings[r].nodes[i].GetCoord();
+            for (size_t i=0; i<area->rings[r].GetNodes().size(); i++) {
+              searchEntry.coords[i]=area->rings[r].GetNodes()[i].GetCoord();
             }
 
             adminRegionVisitor.AddSearchEntry(searchEntry);
@@ -1726,10 +1726,10 @@ namespace osmscout {
         searchEntry.object=object;
         way->GetBoundingBox(searchEntry.bbox);
 
-        searchEntry.coords.resize(way->nodes.size());
+        searchEntry.coords.resize(way->GetNodes().size());
 
-        for (size_t i=0; i<way->nodes.size(); i++) {
-          searchEntry.coords[i]=way->nodes[i].GetCoord();
+        for (size_t i=0; i<way->GetNodes().size(); i++) {
+          searchEntry.coords[i]=way->GetNodes()[i].GetCoord();
         }
 
         adminRegionVisitor.AddSearchEntry(searchEntry);
