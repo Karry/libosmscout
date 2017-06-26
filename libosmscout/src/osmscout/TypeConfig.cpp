@@ -1295,6 +1295,9 @@ namespace osmscout {
   TypeInfoRef TypeConfig::RegisterType(const TypeInfoRef& typeInfo)
   {
     assert(typeInfo);
+    if (fileFormatVersion<=13){
+      return RegisterType13(typeInfo);
+    }
 
     auto existingType=nameToTypeMap.find(typeInfo->GetName());
 
@@ -1325,10 +1328,8 @@ namespace osmscout {
       if (!typeInfo->HasFeature(TunnelFeature::NAME)) {
         typeInfo->AddFeature(featureTunnel);
       }
-      if (fileFormatVersion>=12){
-        if (!typeInfo->HasFeature(EmbankmentFeature::NAME)) {
-          typeInfo->AddFeature(featureEmbankment);
-        }
+      if (!typeInfo->HasFeature(EmbankmentFeature::NAME)) {
+        typeInfo->AddFeature(featureEmbankment);
       }
       if (!typeInfo->HasFeature(RoundaboutFeature::NAME)) {
         typeInfo->AddFeature(featureRoundabout);
@@ -1354,8 +1355,7 @@ namespace osmscout {
     if ((typeInfo->CanBeArea() ||
          typeInfo->CanBeNode()) &&
         typeInfo->GetIndexAsAddress()) {
-
-      if (fileFormatVersion>=8 && !typeInfo->HasFeature(PostalCodeFeature::NAME)) {
+      if (!typeInfo->HasFeature(PostalCodeFeature::NAME)) {
         typeInfo->AddFeature(featurePostalCode);
       }
       if (!typeInfo->HasFeature(LocationFeature::NAME)) {
@@ -1369,7 +1369,7 @@ namespace osmscout {
     // All ways with a name have a postal code and a location
     if (typeInfo->CanBeWay() &&
         typeInfo->HasFeature(NameFeature::NAME)) {
-      if (fileFormatVersion>=8 && !typeInfo->HasFeature(PostalCodeFeature::NAME)) {
+      if (!typeInfo->HasFeature(PostalCodeFeature::NAME)) {
         typeInfo->AddFeature(featurePostalCode);
       }
     }
@@ -1378,9 +1378,135 @@ namespace osmscout {
     // postal code, location, address, website and phone features, too.
     if (typeInfo->HasFeature(NameFeature::NAME) &&
         typeInfo->GetIndexAsPOI()) {
-      if (fileFormatVersion>=8 && !typeInfo->HasFeature(PostalCodeFeature::NAME)) {
+      if (!typeInfo->HasFeature(PostalCodeFeature::NAME)) {
         typeInfo->AddFeature(featurePostalCode);
       }
+      if (!typeInfo->HasFeature(LocationFeature::NAME)) {
+        typeInfo->AddFeature(featureLocation);
+      }
+      if (!typeInfo->HasFeature(AddressFeature::NAME)) {
+        typeInfo->AddFeature(featureAddress);
+      }
+      if (!typeInfo->HasFeature(WebsiteFeature::NAME)) {
+        typeInfo->AddFeature(featureWebsite);
+      }
+      if (!typeInfo->HasFeature(PhoneFeature::NAME)) {
+        typeInfo->AddFeature(featurePhone);
+      }
+    }
+
+    typeInfo->SetIndex(types.size());
+
+    types.push_back(typeInfo);
+
+    if (!typeInfo->GetIgnore() &&
+        !typeInfo->IsInternal() &&
+        (typeInfo->CanBeNode() ||
+         typeInfo->CanBeWay() ||
+         typeInfo->CanBeArea())) {
+      if (typeInfo->CanBeNode()) {
+        typeInfo->SetNodeId((TypeId)(nodeTypes.size()+1));
+        nodeTypes.push_back(typeInfo);
+
+        nodeTypeIdBytes=BytesNeededToEncodeNumber(typeInfo->GetNodeId());
+      }
+
+      if (typeInfo->CanBeWay()) {
+        typeInfo->SetWayId((TypeId)(wayTypes.size()+1));
+        wayTypes.push_back(typeInfo);
+
+        wayTypeIdBytes=BytesNeededToEncodeNumber(typeInfo->GetWayId());
+      }
+
+      if (typeInfo->CanBeArea()) {
+        typeInfo->SetAreaId((TypeId)(areaTypes.size()+1));
+        areaTypes.push_back(typeInfo);
+
+        areaTypeIdBytes=BytesNeededToEncodeNumber(typeInfo->GetAreaId());
+        areaTypeIdBits=BitsNeededToEncodeNumber(typeInfo->GetAreaId());
+      }
+    }
+
+    nameToTypeMap[typeInfo->GetName()]=typeInfo;
+
+    return typeInfo;
+  }
+
+  TypeInfoRef TypeConfig::RegisterType13(const TypeInfoRef& typeInfo)
+  {
+    assert(typeInfo);
+
+    auto existingType=nameToTypeMap.find(typeInfo->GetName());
+
+    if (existingType!=nameToTypeMap.end()) {
+      return existingType->second;
+    }
+
+    if ((typeInfo->CanBeArea() ||
+         typeInfo->CanBeNode()) &&
+         typeInfo->GetIndexAsAddress()) {
+      if (!typeInfo->HasFeature(LocationFeature::NAME)) {
+        typeInfo->AddFeature(featureLocation);
+      }
+      if (!typeInfo->HasFeature(AddressFeature::NAME)) {
+        typeInfo->AddFeature(featureAddress);
+      }
+      if (fileFormatVersion>=8){
+        if (!typeInfo->HasFeature(PostalCodeFeature::NAME)) {
+          typeInfo->AddFeature(featurePostalCode);
+        }
+      }
+    }
+
+    // All ways have a layer
+    if (typeInfo->CanBeWay()) {
+      if (!typeInfo->HasFeature(LayerFeature::NAME)) {
+        typeInfo->AddFeature(featureLayer);
+      }
+    }
+
+    // All that is PATH-like automatically has a number of features,
+    // even if it is not routable
+    if (typeInfo->IsPath()) {
+      if (!typeInfo->HasFeature(WidthFeature::NAME)) {
+        typeInfo->AddFeature(featureWidth);
+      }
+      if (!typeInfo->HasFeature(GradeFeature::NAME)) {
+        typeInfo->AddFeature(featureGrade);
+      }
+      if (!typeInfo->HasFeature(BridgeFeature::NAME)) {
+        typeInfo->AddFeature(featureBridge);
+      }
+      if (!typeInfo->HasFeature(TunnelFeature::NAME)) {
+        typeInfo->AddFeature(featureTunnel);
+      }
+      if (fileFormatVersion>=12){
+        if (!typeInfo->HasFeature(EmbankmentFeature::NAME)) {
+          typeInfo->AddFeature(featureEmbankment);
+        }
+      }
+      if (!typeInfo->HasFeature(RoundaboutFeature::NAME)) {
+        typeInfo->AddFeature(featureRoundabout);
+      }
+    }
+
+    // Everything routable should have access information and max speed information
+    if (typeInfo->CanRoute()) {
+      if (!typeInfo->HasFeature(AccessFeature::NAME)) {
+        typeInfo->AddFeature(featureAccess);
+      }
+      if (!typeInfo->HasFeature(AccessRestrictedFeature::NAME)) {
+        typeInfo->AddFeature(featureAccessRestricted);
+      }
+      if (!typeInfo->HasFeature(MaxSpeedFeature::NAME)) {
+        typeInfo->AddFeature(featureMaxSpeed);
+      }
+    }
+
+    // Something that has a name and is a POI automatically get the
+    // location, address website and phone features, too.
+    if (typeInfo->HasFeature(NameFeature::NAME) &&
+        typeInfo->GetIndexAsPOI()) {
       if (!typeInfo->HasFeature(LocationFeature::NAME)) {
         typeInfo->AddFeature(featureLocation);
       }
@@ -1433,6 +1559,7 @@ namespace osmscout {
 
     return typeInfo;
   }
+
 
   TypeId TypeConfig::GetMaxTypeId() const
   {

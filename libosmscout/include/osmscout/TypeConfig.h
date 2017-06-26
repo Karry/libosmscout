@@ -1247,6 +1247,8 @@ namespace osmscout {
      */
     //@{
     TypeInfoRef RegisterType(const TypeInfoRef& typeInfo);
+    // file format version <=13
+    TypeInfoRef RegisterType13(const TypeInfoRef& typeInfo);
 
     /**
      * Return an array of the types available
