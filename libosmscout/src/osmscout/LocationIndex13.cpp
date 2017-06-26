@@ -233,9 +233,6 @@ namespace osmscout {
                                           LocationVisitor& visitor,
                                           bool& stopped) const
   {
-    stopped=true;
-    return true;
-    /*
     uint32_t poiCount;
     uint32_t locationCount;
     PostalArea postalArea;
@@ -252,6 +249,7 @@ namespace osmscout {
       scanner.Read(poi.name);
       objectFileRefReader.Read(poi.object);
 
+      /*
       if (!visitor.Visit(adminRegion,
                          postalArea,
                          poi)) {
@@ -259,6 +257,7 @@ namespace osmscout {
 
         return true;
       }
+      */
     }
 
     scanner.ReadNumber(locationCount);
@@ -308,7 +307,6 @@ namespace osmscout {
     }
 
     return !scanner.HasError();
-     */
   }
 
   bool LocationIndex13::VisitRegionLocationEntries(FileScanner& scanner,

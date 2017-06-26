@@ -1520,6 +1520,10 @@ namespace osmscout {
   bool LocationService::ReverseLookupObjects(const std::list<ObjectFileRef>& objects,
                                              std::list<ReverseLookupResult>& result) const
   {
+    if (database->GetTypeConfig()->GetFileFormatVersion() <= 13){
+      return ReverseLookupObjects13(objects,result);
+    }
+
     result.clear();
 
     LocationIndexRef locationIndex=database->GetLocationIndex();
@@ -1654,6 +1658,130 @@ namespace osmscout {
 
     return true;
   }
+
+  bool LocationService::ReverseLookupObjects13(const std::list<ObjectFileRef>& objects,
+                                             std::list<ReverseLookupResult>& result) const
+  {
+    result.clear();
+
+    LocationIndexRef locationIndex=database->GetLocationIndex();
+
+    if (!locationIndex) {
+      return false;
+    }
+
+    AdminRegionReverseLookupVisitor adminRegionVisitor(*database,
+                                                       result);
+
+    for (const auto& object : objects) {
+      if (object.GetType()==refNode) {
+        NodeRef node;
+
+        if (!database->GetNodeByOffset(object.GetFileOffset(),
+                                       node)) {
+          return false;
+        }
+
+        AdminRegionReverseLookupVisitor::SearchEntry searchEntry;
+
+        searchEntry.object=object;
+        searchEntry.coords.push_back(node->GetCoords());
+
+        adminRegionVisitor.AddSearchEntry(searchEntry);
+      }
+      else if (object.GetType()==refArea) {
+        AreaRef area;
+
+        if (!database->GetAreaByOffset(object.GetFileOffset(),
+                                       area)) {
+          return false;
+        }
+
+        for (size_t r=0; r<area->rings.size(); r++) {
+          if (area->rings[r].IsOuterRing()) {
+            AdminRegionReverseLookupVisitor::SearchEntry searchEntry;
+
+            searchEntry.object=object;
+            area->rings[r].GetBoundingBox(searchEntry.bbox);
+
+            searchEntry.coords.resize(area->rings[r].nodes.size());
+
+            for (size_t i=0; i<area->rings[r].nodes.size(); i++) {
+              searchEntry.coords[i]=area->rings[r].nodes[i].GetCoord();
+            }
+
+            adminRegionVisitor.AddSearchEntry(searchEntry);
+          }
+        }
+      }
+      else if (object.GetType()==refWay) {
+        WayRef way;
+
+        if (!database->GetWayByOffset(object.GetFileOffset(),
+                                      way)) {
+          return false;
+        }
+
+        AdminRegionReverseLookupVisitor::SearchEntry searchEntry;
+
+        searchEntry.object=object;
+        way->GetBoundingBox(searchEntry.bbox);
+
+        searchEntry.coords.resize(way->nodes.size());
+
+        for (size_t i=0; i<way->nodes.size(); i++) {
+          searchEntry.coords[i]=way->nodes[i].GetCoord();
+        }
+
+        adminRegionVisitor.AddSearchEntry(searchEntry);
+      }
+      else {
+        return false;
+      }
+    }
+
+    if (!VisitAdminRegions(adminRegionVisitor)) {
+      return false;
+    }
+
+    if (adminRegionVisitor.adminRegions.empty()) {
+      return true;
+    }
+
+    LocationReverseLookupVisitor locationVisitor(result);
+
+    for (const auto& object : objects) {
+      locationVisitor.AddObject(object);
+    }
+
+    PostalArea postalArea;
+    for (const auto& regionEntry : adminRegionVisitor.adminRegions) {
+      if (!locationIndex->VisitLocations(*regionEntry.second,
+                                         postalArea,
+                                         locationVisitor,
+                                         false)) {
+        return false;
+      }
+    }
+
+    AddressReverseLookupVisitor addressVisitor(result);
+
+    for (const auto& object : objects) {
+      addressVisitor.AddObject(object);
+    }
+
+    for (const auto& location : locationVisitor.result) {
+      if (!locationIndex->VisitAddresses(*location.adminRegion,
+                                         postalArea,
+                                         *location.location,
+                                         addressVisitor)) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
 
   /**
    * Lookup one object
