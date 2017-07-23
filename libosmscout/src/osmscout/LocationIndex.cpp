@@ -83,10 +83,12 @@ namespace osmscout {
         locationIgnoreTokens.insert(token);
       }
 
-      scanner.ReadNumber(maxRegionWords);
-      scanner.ReadNumber(maxPOIWords);
-      scanner.ReadNumber(maxLocationWords);
-      scanner.ReadNumber(maxAddressWords);
+      if (fileFormatVersion>=15){
+        scanner.ReadNumber(maxRegionWords);
+        scanner.ReadNumber(maxPOIWords);
+        scanner.ReadNumber(maxLocationWords);
+        scanner.ReadNumber(maxAddressWords);
+      }
 
       indexOffset=scanner.GetPos();
 
