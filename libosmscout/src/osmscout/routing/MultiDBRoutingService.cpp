@@ -265,7 +265,7 @@ namespace osmscout {
 
       scanner.Open(fullFilename,
                    osmscout::FileScanner::Sequential,
-                   /*mmap*/false,
+                   /*mmap*/ false,
                    database.GetTypeConfig()->GetFileFormatVersion());
 
       scanner.Read(count);
@@ -309,7 +309,7 @@ namespace osmscout {
 
       scanner.Open(fullFilename,
                    osmscout::FileScanner::Sequential,
-                   /*mmap*/false,
+                   /*mmap*/ false,
                    database.GetTypeConfig()->GetFileFormatVersion());
 
       scanner.Read(count);

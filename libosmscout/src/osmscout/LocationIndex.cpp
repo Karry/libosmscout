@@ -501,16 +501,20 @@ namespace osmscout {
       std::vector<FileOffset> rootRegionOffsets;
 
       scanner.ReadNumber(regionCount);
-      rootRegionOffsets.resize(regionCount);
+      if (fileFormatVersion>=15){
+        rootRegionOffsets.resize(regionCount);
 
-      for (size_t i=0; i<regionCount; i++) {
-        scanner.ReadFileOffset(rootRegionOffsets[i]);
+        for (size_t i=0; i<regionCount; i++) {
+          scanner.ReadFileOffset(rootRegionOffsets[i]);
+        }
       }
 
       for (size_t i=0; i<regionCount; i++) {
         AdminRegion region;
 
-        scanner.SetPos(rootRegionOffsets[i]);
+        if (fileFormatVersion>=15){
+          scanner.SetPos(rootRegionOffsets[i]);
+        }
 
         if (!LoadAdminRegion(scanner,
                              region)) {
