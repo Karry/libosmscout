@@ -40,6 +40,17 @@ libosmscout_la_SOURCES= osmscout/util/Breaker.cpp \
                         osmscout/util/Transformation.cpp \
                         osmscout/util/WorkQueue.cpp \
                         osmscout/util/TagErrorReporter.cpp \
+			osmscout/routing/Route.cpp \
+			osmscout/routing/RouteData.cpp \
+			osmscout/routing/RouteNode.cpp \
+			osmscout/routing/RoutePostprocessor.cpp \
+			osmscout/routing/RoutingProfile.cpp \
+			osmscout/routing/RoutingService.cpp \
+			osmscout/routing/AbstractRoutingService.cpp \
+			osmscout/routing/SimpleRoutingService.cpp \
+			osmscout/routing/MultiDBRoutingService.cpp \
+			osmscout/routing/TurnRestriction.cpp \
+			osmscout/routing/MultiDBRoutingState.cpp \
                         osmscout/Types.cpp \
                         osmscout/TypeConfig.cpp \
                         osmscout/TypeFeatures.cpp \
@@ -59,7 +70,6 @@ libosmscout_la_SOURCES= osmscout/util/Breaker.cpp \
                         osmscout/Path.cpp \
                         osmscout/Point.cpp \
                         osmscout/Tag.cpp \
-                        osmscout/TurnRestriction.cpp \
                         osmscout/Way.cpp \
                         osmscout/WayDataFile.cpp \
                         osmscout/ObjectRef.cpp \
@@ -74,11 +84,6 @@ libosmscout_la_SOURCES= osmscout/util/Breaker.cpp \
                         osmscout/WaterIndex6.cpp \
                         osmscout/WaterIndex9.cpp \
                         osmscout/ObjectVariantDataFile.cpp \
-                        osmscout/Route.cpp \
-                        osmscout/RouteData.cpp \
-                        osmscout/RouteNode.cpp \
-                        osmscout/RoutePostprocessor.cpp \
-                        osmscout/RoutingProfile.cpp \
                         osmscout/BoundingBoxDataFile.cpp \
                         osmscout/TypeDistributionDataFile.cpp \
                         osmscout/Database.cpp \
@@ -86,8 +91,7 @@ libosmscout_la_SOURCES= osmscout/util/Breaker.cpp \
                         osmscout/BasemapDatabase.cpp \
                         osmscout/SRTM.cpp \
                         osmscout/LocationService.cpp \
-                        osmscout/POIService.cpp \
-                        osmscout/RoutingService.cpp
+                        osmscout/POIService.cpp
 
 if OSMSCOUT_HAVE_SSE2
 libosmscout_la_SOURCES+=osmscout/system/SSEMath.cpp

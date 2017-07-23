@@ -53,7 +53,7 @@
 #include <osmscout/WaterIndex6.h>
 #include <osmscout/WaterIndex9.h>
 
-#include <osmscout/Route.h>
+#include <osmscout/routing/Route.h>
 
 #include <osmscout/util/GeoBox.h>
 
