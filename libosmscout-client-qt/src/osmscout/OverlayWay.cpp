@@ -57,7 +57,7 @@ bool OverlayWay::toWay(osmscout::WayRef &way,
   }
   way->SetType(type);
   way->SetLayerToMax();
-  way->nodes=nodes;
+  way->SetNodes(nodes);
   return true;
 }
 

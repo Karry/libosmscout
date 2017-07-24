@@ -118,7 +118,7 @@ public:
 
   inline OverlayWay* getRouteWay()
   {
-    return new OverlayWay(route.routeWay.nodes);
+    return new OverlayWay(route.routeWay.GetNodes().asVector());
   }
 };
 
