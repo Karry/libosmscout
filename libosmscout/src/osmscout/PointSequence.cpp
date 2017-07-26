@@ -347,7 +347,8 @@ namespace osmscout {
   PointSequenceContainer::PointSequenceContainer(const PointSequenceContainer& that):
     nodes(NULL)
   {
-    assert(CopyNodes(that.nodes));      
+    bool b=CopyNodes(that.nodes);
+    assert(b);
   }
   
   PointSequenceContainer::PointSequenceContainer(PointSequenceContainer&& that)
@@ -391,9 +392,10 @@ namespace osmscout {
   
   PointSequenceContainer& PointSequenceContainer::operator=(const PointSequenceContainer& that)
   {
-      assert(CopyNodes(that.nodes)); 
+    bool b=CopyNodes(that.nodes);
+    assert(b);
       
-      return *this;
+    return *this;
   }
   
   PointSequenceContainer& PointSequenceContainer::operator=(PointSequenceContainer&& that)
