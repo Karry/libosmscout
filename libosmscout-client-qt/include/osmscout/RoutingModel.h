@@ -42,11 +42,11 @@
 class OSMSCOUT_CLIENT_QT_API RoutingListModel : public QAbstractListModel
 {
   Q_OBJECT
-  Q_PROPERTY(int count            READ rowCount)
-  Q_PROPERTY(bool ready           READ isReady NOTIFY computingChanged)
-  Q_PROPERTY(QObject *routeWay    READ getRouteWay)
-  Q_PROPERTY(double length        READ getRouteLength)
-  Q_PROPERTY(double duration      READ getRouteDuration)
+  Q_PROPERTY(int count            READ rowCount         NOTIFY computingChanged)
+  Q_PROPERTY(bool ready           READ isReady          NOTIFY computingChanged)
+  Q_PROPERTY(QObject *routeWay    READ getRouteWay      NOTIFY computingChanged)
+  Q_PROPERTY(double length        READ getRouteLength   NOTIFY computingChanged)
+  Q_PROPERTY(double duration      READ getRouteDuration NOTIFY computingChanged)
 
 signals:
   void routeRequest(LocationEntryRef start,
