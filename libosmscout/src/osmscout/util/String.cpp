@@ -505,6 +505,64 @@ namespace osmscout {
 #endif
 
 #if defined(HAVE_ICONV)
+  std::u32string UTF8StringToU32String(const std::string& text)
+  {
+    std::u32string res;
+    iconv_t        handle;
+
+    handle=iconv_open("UTF32","UTF-8");
+    if (handle==(iconv_t)-1) {
+      log.Error() << "Error in UTF8StringToU32String()" << strerror(errno);
+      return std::u32string();
+    }
+
+    // length+1+1 to handle a potential BOM and to convert of \0
+    size_t inCount=text.length()+1;
+    size_t outCount=(text.length()+2)*sizeof(char32_t);
+
+    char     *in=const_cast<char*>(text.data());
+    char32_t *out=new char32_t[text.length()+2];
+
+    char *tmpOut=(char*)out;
+    size_t tmpOutCount=outCount;
+    if (iconv(handle,(ICONV_CONST char**)&in,&inCount,&tmpOut,&tmpOutCount)==(size_t)-1) {
+      iconv_close(handle);
+      delete [] out;
+      log.Error() << "Error in UTF8StringToU32String()" << strerror(errno);
+      return std::u32string();
+    }
+
+    iconv_close(handle);
+
+    // remove potential byte order marks
+    if (out[0]==0xfeff) {
+      res=std::u32string(out+1,(outCount-tmpOutCount)/sizeof(char32_t)-2);
+    }
+    else {
+      res=std::u32string(out,(outCount-tmpOutCount)/sizeof(char32_t)-1);
+    }
+
+    delete [] out;
+
+    return res;
+  }
+#elif defined(HAVE_CODECVT)
+  std::u32string UTF8StringToU32String(const std::string& text)
+  {
+#if defined(_MSC_VER) && _MSC_VER >= 1900
+    // See https://stackoverflow.com/questions/30765256/linker-error-using-vs-2015-rc-cant-find-symbol-related-to-stdcodecvt
+    std::wstring_convert<std::codecvt_utf8<__int32>, __int32> conv;
+#else
+    std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> conv;
+#endif
+
+    return conv.from_bytes(text);
+  }
+#else
+  #error "Missing implementation for std::wstring UTF8StringToU32String(const std::string& text)"
+#endif
+
+#if defined(HAVE_ICONV)
   std::string WStringToUTF8String(const std::wstring& text)
   {
     iconv_t handle;

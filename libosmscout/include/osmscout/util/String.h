@@ -176,16 +176,6 @@ namespace osmscout {
       ::f(number);
   }
 
-  /**
-   * \ingroup Util
-   */
-  extern OSMSCOUT_API bool StringToNumber(const char* string, double& value);
-
-  /**
-   * \ingroup Util
-   */
-  extern OSMSCOUT_API bool StringToNumber(const std::string& string, double& value);
-
   template<typename N>
   bool StringToNumberSigned(const std::string& string,
                             N& number,
@@ -367,8 +357,14 @@ namespace osmscout {
       ::f(string,number,base);
   }
 
-
+  /**
+   * \ingroup Util
+   */
   extern OSMSCOUT_API bool StringToNumber(const char* string, double& value);
+
+  /**
+   * \ingroup Util
+   */
   extern OSMSCOUT_API bool StringToNumber(const std::string& string, double& value);
 
   /**
@@ -471,6 +467,18 @@ namespace osmscout {
    *    corresponding std::wstring
    */
   extern OSMSCOUT_API std::wstring UTF8StringToWString(const std::string& text);
+
+  /**
+   * \ingroup Util
+   *
+   * Convert the given std::string containign a UTF8 character sequence to a std::u32string
+   *
+   * @param text
+   *    String to get converted
+   * @return
+   *    corresponding std::wstring
+   */
+  extern OSMSCOUT_API std::u32string UTF8StringToU32String(const std::string& text);
 
   /**
    * \ingroup Util
