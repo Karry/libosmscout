@@ -24,25 +24,35 @@
 
 namespace osmscout {
 
-  TextLoader::TextLoader(std::string path) {
-    sumwidth = 0;
-    if(path.empty())
+  TextLoader::TextLoader(std::string path, long defaultSize) {
+    if (FT_Init_FreeType(&ft))
+      std::cout << "ERROR::FREETYPE: Could not init FreeType Library" << std::endl;
+
+    sumWidth = 0;
+    maxHeight = 0;
+    defaultFontSize = defaultSize;
+    if (path.empty())
       LoadFace();
     else
       LoadFace(path);
   }
 
-  std::vector<int> TextLoader::AddCharactersToTextureAtlas(std::string text) {
+  std::vector<int> TextLoader::AddCharactersToTextureAtlas(std::string text, double size) {
     std::vector<int> indices;
 
-    std::u32string utf32=UTF8StringToU32String(text);
+    std::u32string utf32 = UTF8StringToU32String(text);
 
     for (char32_t &i : utf32) {
 
-      if (!(characterIndices.find(i) == characterIndices.end())) {
-        indices.push_back(characterIndices[i]);
+      int size_i = (int) size * defaultFontSize;
+      std::pair<char32_t, int> p = std::pair<char32_t, int>(i, size_i);
+      if (!(characterIndices.find(p) == characterIndices.end())) {
+        int in = characterIndices.at(p);
+        indices.push_back(in);
         continue;
       }
+
+      FT_Set_Char_Size(face, (size_i) << 6, (size_i) << 6, 96, 96);
 
       FT_UInt glyph_index = FT_Get_Char_Index(face, i);
       if (FT_Load_Glyph(face, glyph_index, FT_LOAD_RENDER)) {
@@ -56,59 +66,74 @@ namespace osmscout {
       FT_BitmapGlyph bitg = (FT_BitmapGlyph) gl;
       FT_Bitmap &bit = bitg->bitmap;
 
-      OpenGLTexture *texture = new osmscout::OpenGLTexture;
+      long h = abs(face->size->metrics.descender / 64) + (face->size->metrics.ascender / 64) + 1;
+      OpenGLTextureRef texture(new osmscout::OpenGLTexture);
       //space or not space?
-      if(i == 32) {
-        unsigned char* spaceBitmap = new unsigned char[height*2];
-        for(int i = 0; i < height*2; i++)
-          spaceBitmap[i] = 0;
+      if (i == 32) {
+        unsigned char *spaceBitmap = new unsigned char[h * 4];
+        for (int j = 0; j < h * 4; j++)
+          spaceBitmap[j] = 0;
         texture->data = spaceBitmap;
         texture->width = 2;
-        texture->height = height;
+        texture->height = h;
         texture->fromOriginY = 0;
-        sumwidth += 2;
-      }
-      else{
-        texture->data = bit.buffer;
+        sumWidth += 2;
+      } else {
+        texture->data = new unsigned char[bit.width*bit.rows];
+        for(int t = 0; t < bit.rows*bit.width; t++)
+          texture->data[t] = bit.buffer[t];
         texture->width = bit.width;
         texture->height = bit.rows;
         texture->fromOriginY = face->glyph->bitmap_top;
-        sumwidth += bit.width;
+        sumWidth += bit.width;
       }
 
-      this->characters.push_back(texture);
-      characterIndices.emplace(i, characters.size() - 1);
+      maxHeight = maxHeight < h ? h : maxHeight;
+
+      CharacterTextureRef character(new osmscout::CharacterTexture());
+      character->SetCharacter(i);
+      character->SetTexture(texture);
+      character->SetBaselineY(abs(face->size->metrics.descender / 64));
+      character->SetHeight(h);
+      characters.push_back(character);
+      characterIndices.emplace(p, characters.size() - 1);
       indices.push_back(characters.size() - 1);
+
+      FT_Done_Glyph(gl);
     }
 
     return indices;
   }
 
-  OpenGLTexture *TextLoader::CreateTexture() {
-    unsigned char *image = new unsigned char[sumwidth * this->height];
+  OpenGLTextureRef TextLoader::CreateTexture() {
+
+    unsigned char *image = new unsigned char[maxHeight * sumWidth];
+    for (int i = 0; i < maxHeight * sumWidth; i++) {
+      image[i] = 0;
+    }
 
     int index = 0;
-    for (int i = 0; i < this->height; i++) {
+    for (int i = 0; i < maxHeight; i++) {
       for (unsigned int j = 0; j < characters.size(); j++) {
-        int start = i * characters[j]->width;
-        for (unsigned int k = start; k < start + (characters[j]->width); k++) {
-          size_t start2 = this->height - (baseLineY + characters[j]->fromOriginY);
-          size_t end = start2 + characters[j]->height;
+        OpenGLTextureRef tx = characters[j]->GetTexture();
+        int start = i * tx->width;
+        for (unsigned int k = start; k < start + (tx->width); k++) {
+          size_t start2 = maxHeight - (characters[j]->GetBaselineY() + tx->fromOriginY);
+          size_t end = start2 + tx->height;
           if (i >= start2 && i < end) {
-            int ind = k - (start2 * characters[j]->width);
-            image[index] = (characters[j]->data[ind]);
+            int ind = k - (start2 * tx->width);
+            image[index] = (tx->data[ind]);
             index++;
           } else {
-            image[index] = 0;
             index++;
           }
         }
       }
     }
 
-    OpenGLTexture *result = new OpenGLTexture;
-    result->width = sumwidth;
-    result->height = height;
+    OpenGLTextureRef result(new osmscout::OpenGLTexture());
+    result->width = sumWidth;
+    result->height = maxHeight;
     result->data = image;
 
     return result;
@@ -127,59 +152,67 @@ namespace osmscout {
     std::string dirPath = filePath.substr(0, filePath.rfind("/src"));
 #endif
 
-    //std::string fontPath = dirPath + "/data/fonts/arial.ttf";
-    std::string fontPath = "";
+    //Liberation Sans is licensed under SIL Open Font License (OFL)
+    std::string fontPath = dirPath + "/data/fonts/LiberationSans-Regular.ttf";
     const char *path = fontPath.c_str();
 
     if (FT_New_Face(ft, path, 0, &face))
       std::cout << "ERROR::FREETYPE: Failed to load font" << std::endl;
 
-    FT_Set_Char_Size(face, 10 << 6, 10 << 6, 96, 96);
+    FT_Set_Char_Size(face, defaultFontSize << 6, defaultFontSize << 6, 96, 96);
 
     FT_Select_Charmap(
         face,
         FT_ENCODING_UNICODE);
 
-    height =  abs(face->size->metrics.descender / 64) + ( face->size->metrics.ascender  / 64);
-    baseLineY = abs(face->size->metrics.descender / 64);
   }
 
   void TextLoader::LoadFace(std::string path) {
-    FT_Library ft;
-    if (FT_Init_FreeType(&ft))
-      std::cout << "ERROR::FREETYPE: Could not init FreeType Library" << std::endl;
-
     std::string fontPath = path;
     const char *pathCstr = fontPath.c_str();
 
-    if (FT_New_Face(ft, pathCstr, 0, &face))
-      std::cout << "ERROR::FREETYPE: Failed to load font from path" << std::endl;
+    if (FT_New_Face(ft, pathCstr, 0, &face)) {
+      std::cout << "ERROR::FREETYPE: Failed to load font from path. Loading default font." << std::endl;
+      LoadFace();
+      return;
+    }
 
-    FT_Set_Char_Size(face, 10 << 6, 10 << 6, 96, 96);
+    FT_Set_Char_Size(face, defaultFontSize << 6, defaultFontSize << 6, 96, 96);
 
     FT_Select_Charmap(
         face,
         FT_ENCODING_UNICODE);
 
-    height =  abs(face->size->metrics.descender / 64) + ( face->size->metrics.ascender  / 64) + 1;
-    baseLineY = abs(face->size->metrics.descender / 64);
   }
 
   int TextLoader::GetStartWidth(int index) {
     int width = 0;
     for (int i = 0; i < index; i++) {
-      width += characters[i]->width;
+      width += characters[i]->GetTexture()->width;
     }
 
     return width;
   }
 
   size_t TextLoader::GetWidth(int index) {
-    return characters[index]->width;
+    return characters[index]->GetTexture()->width;
   }
 
-  long TextLoader::GetHeight(){
-    return this->height;
+  long TextLoader::GetHeight() {
+    return this->maxHeight;
+  }
+
+  long TextLoader::GetDefaultFontSize() const {
+    return defaultFontSize;
+  }
+
+  void TextLoader::SetDefaultFontSize(long defaultFontSize) {
+    this->defaultFontSize = defaultFontSize;
+  }
+
+  TextLoader::~TextLoader() {
+    FT_Done_Face    ( face );
+    FT_Done_FreeType( ft );
   }
 
 }

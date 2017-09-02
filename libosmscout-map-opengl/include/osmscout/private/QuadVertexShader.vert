@@ -1,9 +1,9 @@
 #version 150 core
 
-in vec2 position;
-in float index;
-in float textureStart;
-in float textureWidth;
+in vec2 position;        // Geographic coordinates of vertex
+in float index;          // Type of the vertex. Necessary for creating the quad out of the coordinates.
+in float textureStart;   // Where does its texture start in the texture atlas
+in float textureWidth;   // Width of the texture of the quad
 out vec2 Texcoord;
 uniform mat4 Model;
 uniform mat4 View;
@@ -21,9 +21,13 @@ uniform float textureWidthSum;
 
 uniform float magnification;
 uniform float dpi = 96.0;
+uniform float z;
 
 uniform float PI = 3.1415926535897;
 
+/**
+*  Converts a screen pixel to geographic coordinates
+*/
 vec2 PixelToGeo(in float x, in float y, in float latOffset)
 {
     float tileDPI=96.0;
@@ -49,6 +53,9 @@ vec2 PixelToGeo(in float x, in float y, in float latOffset)
     return (result);
 }
 
+/**
+*  Converts a geographic coordinate to screen pixel
+*/
 vec2 GeoToPixel(in float posx, in float posy){
     float tileDPI=96.0;
     float gradtorad=2*PI/360;
@@ -88,6 +95,7 @@ vec2 GeoToPixel(in float posx, in float posy){
     float windowPosX=(posx-centerLon)*scaledLatDeriv;
     float windowPosY=(atanh(sin(posy*gradtorad))-latOffset)*scale;
 
+    // Window position in pixel
     windowPosY=windowHeight/2-windowPosY;
     windowPosX += windowWidth/2;
 
@@ -99,6 +107,7 @@ vec2 GeoToPixel(in float posx, in float posy){
     float newWidth = windowWidth/windowHeight;
     float newHeight = 1;
 
+    // OpenGL position
     float screenX = ((2*newWidth)*(windowPosX - (MinX))/((MaxX)-(MinX)))-newWidth;
     float screenY = ((2*newHeight)*(windowPosY - (MinY))/((MaxY)-(MinY)))-newHeight;
 
@@ -110,7 +119,7 @@ void main() {
     float width_norm = (ceil(quadWidth)/windowWidth);
     float height_norm = (ceil(quadWidth)/windowHeight);
     vec2 c = GeoToPixel(position.x, position.y);
-    vec4 pos = Projection * View * Model * vec4(c.x, c.y, 0, 1);
+    vec4 pos = Projection * View * Model * vec4(c.x, c.y, z, 1);
 
     float unit = 1/textureWidthSum;
     float i = (unit*textureStart) + (unit*textureWidth);

@@ -73,6 +73,10 @@
 #if TARGET_OS_IPHONE
         UIGraphicsBeginImageContextWithOptions(CGSizeMake(kOSMScoutDefaultTileSize, kOSMScoutDefaultTileSize),YES,0);
         CGContextRef cg = UIGraphicsGetCurrentContext();
+        CGFloat contentScale = [UIScreen mainScreen].scale;
+        if(contentScale!=1.0){
+          CGContextScaleCTM(cg, 1/contentScale, 1/contentScale);
+        }
         [_osmScout drawMapTo:cg x:_x y:_y zoom:1<<_zoom width:kOSMScoutDefaultTileSize height:kOSMScoutDefaultTileSize];
         UIImage* img = UIGraphicsGetImageFromCurrentImageContext();
         NSData *imgData = UIImagePNGRepresentation(img);

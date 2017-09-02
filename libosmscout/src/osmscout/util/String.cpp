@@ -189,7 +189,7 @@ namespace osmscout {
         }
       }
       else {
-        if (!std::isspace(text[nextPos])!=0) {
+        if (std::isspace(text[nextPos])==0) {
           inWord=true;
           wordCount++;
         }
@@ -255,7 +255,7 @@ namespace osmscout {
       wordEnd=wordBegin;
 
       while (wordEnd+1<input.length() &&
-             !std::isspace((unsigned char)input[wordEnd + 1])!=0) {
+             std::isspace((unsigned char)input[wordEnd + 1])==0) {
         wordEnd++;
       }
 
@@ -302,7 +302,7 @@ namespace osmscout {
       wordEnd=wordBegin;
 
       while (wordEnd+1<input.length() &&
-             (!std::isspace(input[wordEnd+1])!=0 &&
+             (std::isspace(input[wordEnd+1])==0 &&
               input[wordEnd+1]!=',')) {
         wordEnd++;
       }
@@ -510,9 +510,9 @@ namespace osmscout {
     std::u32string res;
     iconv_t        handle;
 
-    handle=iconv_open("UTF32","UTF-8");
+    handle=iconv_open("UTF-32","UTF-8");
     if (handle==(iconv_t)-1) {
-      log.Error() << "Error in UTF8StringToU32String()" << strerror(errno);
+      log.Error() << "Error returned by iconv_open() in UTF8StringToU32String(): " << strerror(errno);
       return std::u32string();
     }
 
@@ -528,7 +528,7 @@ namespace osmscout {
     if (iconv(handle,(ICONV_CONST char**)&in,&inCount,&tmpOut,&tmpOutCount)==(size_t)-1) {
       iconv_close(handle);
       delete [] out;
-      log.Error() << "Error in UTF8StringToU32String()" << strerror(errno);
+      log.Error() << "Error returned by iconv() in UTF8StringToU32String():" << strerror(errno);
       return std::u32string();
     }
 
@@ -551,12 +551,13 @@ namespace osmscout {
   {
 #if defined(_MSC_VER) && _MSC_VER >= 1900
     // See https://stackoverflow.com/questions/30765256/linker-error-using-vs-2015-rc-cant-find-symbol-related-to-stdcodecvt
-    std::wstring_convert<std::codecvt_utf8<__int32>, __int32> conv;
+    std::wstring_convert<std::codecvt_utf8<int32_t>, int32_t> conv;
+    return reinterpret_cast<const char32_t*>(conv.from_bytes(text).c_str());
 #else
     std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> conv;
+    return conv.from_bytes(text);
 #endif
 
-    return conv.from_bytes(text);
   }
 #else
   #error "Missing implementation for std::wstring UTF8StringToU32String(const std::string& text)"
@@ -569,7 +570,7 @@ namespace osmscout {
 
     handle=iconv_open("UTF-8","WCHAR_T");
     if (handle==(iconv_t)-1) {
-      log.Error() << "Error iconv_open in WStringToUTF8String() " << strerror(errno);
+      log.Error() << "Error iconv_open in WStringToUTF8String(): " << strerror(errno);
       return "";
     }
 
