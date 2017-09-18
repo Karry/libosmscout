@@ -104,6 +104,7 @@ namespace osmscout {
    * Convert the given color string to a color value
    *
    * The string must either be of the format
+   * - #HHH
    * - #HHHHHH
    * - #HHHHHHHH
    *
@@ -114,19 +115,27 @@ namespace osmscout {
    */
   Color Color::FromHexString(const std::string& hexString)
   {
-    double r=(16*GetHexValue(hexString[1])+GetHexValue(hexString[2]))/255.0;
-    double g=(16*GetHexValue(hexString[3])+GetHexValue(hexString[4]))/255.0;
-    double b=(16*GetHexValue(hexString[5])+GetHexValue(hexString[6]))/255.0;
-    double a;
+    if (hexString.length()==4) {
+      double r=GetHexValue(hexString[1])/16.0;
+      double g=GetHexValue(hexString[2])/16.0;
+      double b=GetHexValue(hexString[3])/16.0;
+      double a=1.0;
+      return Color(r,g,b,a);
+    } else {
+      double r=(16*GetHexValue(hexString[1])+GetHexValue(hexString[2]))/255.0;
+      double g=(16*GetHexValue(hexString[3])+GetHexValue(hexString[4]))/255.0;
+      double b=(16*GetHexValue(hexString[5])+GetHexValue(hexString[6]))/255.0;
+      double a;
 
-    if (hexString.length()==9) {
-      a=(16*GetHexValue(hexString[7])+GetHexValue(hexString[8]))/255.0;
-    }
-    else {
-      a=1.0;
-    }
+      if (hexString.length()==9) {
+        a=(16*GetHexValue(hexString[7])+GetHexValue(hexString[8]))/255.0;
+      }
+      else {
+        a=1.0;
+      }
 
-    return Color(r,g,b,a);
+      return Color(r,g,b,a);
+    }
   }
 }
 
