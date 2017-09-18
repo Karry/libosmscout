@@ -1656,6 +1656,146 @@ namespace osmscout {
     }
   }
 
+  void ColorFeatureValue::Read(FileScanner& scanner)
+  {
+    uint32_t colorBytes;
+    scanner.Read(colorBytes);
+    color=Color(((colorBytes & 0xff000000) >> 24)/255.0,
+                ((colorBytes & 0x00ff0000) >> 16)/255.0,
+                ((colorBytes & 0x0000ff00) >>  8)/255.0,
+                ((colorBytes & 0x000000ff) >>  0)/255.0);
+  }
+
+  void ColorFeatureValue::Write(FileWriter& writer)
+  {
+    uint32_t colorBytes=((uint32_t)(color.GetR() * 255) << 24) +
+                        ((uint32_t)(color.GetG() * 255) << 16) +
+                        ((uint32_t)(color.GetB() * 255) << 8) +
+                        ((uint32_t)(color.GetA() * 255) << 0);
+    writer.Write(colorBytes);
+  }
+
+  FeatureValue& ColorFeatureValue::operator=(const FeatureValue& other)
+  {
+    if (this!=&other) {
+      const ColorFeatureValue& otherValue=static_cast<const ColorFeatureValue&>(other);
+
+      color=otherValue.color;
+    }
+
+    return *this;
+  }
+
+  bool ColorFeatureValue::operator==(const FeatureValue& other) const
+  {
+    const ColorFeatureValue& otherValue=static_cast<const ColorFeatureValue&>(other);
+
+    return color==otherValue.color;
+  }
+
+  const char* const ColorFeature::NAME = "Color";
+
+  ColorFeature::ColorFeature()
+  {
+  }
+
+  void ColorFeature::Initialize(TypeConfig& typeConfig)
+  {
+    // British english is preferred in OSM, colour is used instead of color
+    tagColor=typeConfig.RegisterTag("colour");
+  }
+
+  std::string ColorFeature::GetName() const
+  {
+    return NAME;
+  }
+
+  size_t ColorFeature::GetValueSize() const
+  {
+    return sizeof(PhoneFeatureValue);
+  }
+
+  FeatureValue* ColorFeature::AllocateValue(void* buffer)
+  {
+    return new (buffer) ColorFeatureValue();
+  }
+
+  void ColorFeature::Parse(TagErrorReporter& errorReporter,
+                           const TypeConfig& /*typeConfig*/,
+                           const FeatureInstance& feature,
+                           const ObjectOSMRef& object,
+                           const TagMap& tags,
+                           FeatureValueBuffer& buffer) const
+  {
+    // ignore ways for now
+    if (object.GetType() == OSMRefType::osmRefWay)
+      return;
+
+    auto colorTag=tags.find(tagColor);
+
+    std::string strValue;
+
+    if (colorTag!=tags.end()) {
+      strValue = UTF8StringToLower(colorTag->second);
+    }
+
+    try {
+      if (!strValue.empty()) {
+
+        size_t idx = feature.GetIndex();
+        FeatureValue* fv = buffer.AllocateValue(idx);
+        ColorFeatureValue* value=static_cast<ColorFeatureValue*>(fv);
+
+        Color colorValue;
+        if (strValue.at(0)=='#' && (strValue.length()==7 || strValue.length()==9)) {
+          colorValue=Color::FromHexString(strValue);
+        } else {
+          // map of 16 basic colors
+          // https://wiki.openstreetmap.org/wiki/Key:colour
+          if (strValue=="black") {
+            colorValue=Color(0,0,0);
+          } else if (strValue=="gray" || strValue=="grey") {
+            colorValue=Color(0.502,0.502,0.502);
+          } else if (strValue=="maroon") {
+            colorValue=Color(0.502,0,0);
+          } else if (strValue=="olive") {
+            colorValue=Color(0.502,0.502,0);
+          } else if (strValue=="green") {
+            colorValue=Color(0,0.502,0);
+          } else if (strValue=="teal") {
+            colorValue=Color(0,1,1);
+          } else if (strValue=="navy") {
+            colorValue=Color(0,0,1);
+          } else if (strValue=="purple") {
+            colorValue=Color(1,0,1);
+          } else if (strValue=="white") {
+            colorValue=Color(1,1,1);
+          } else if (strValue=="silver") {
+            colorValue=Color(0.753,0.753,0.753);
+          } else if (strValue=="red") {
+            colorValue=Color(1,0,0);
+          } else if (strValue=="yellow") {
+            colorValue=Color(1,1,0);
+          } else if (strValue=="lime") {
+            colorValue=Color(0,1,0);
+          } else if (strValue=="aqua") {
+            colorValue=Color(0,1,1);
+          } else if (strValue=="blue") {
+            colorValue=Color(0,0,1);
+          } else if (strValue=="fuchsia" || strValue=="magenta") {
+            colorValue=Color(1,0,1);
+          } else {
+            throw std::invalid_argument(strValue);
+          }
+        }
+        value->SetColor(colorValue);
+      }
+    }
+    catch (const std::exception &e) {
+      errorReporter.ReportTag(object,tags,std::string("Color parse exception: ")+e.what());
+    }
+  }
+
   const char* const BridgeFeature::NAME = "Bridge";
 
   void BridgeFeature::Initialize(TypeConfig& typeConfig)

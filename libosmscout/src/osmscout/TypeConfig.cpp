@@ -1116,6 +1116,9 @@ namespace osmscout {
     featurePhone = std::make_shared<PhoneFeature>();
     RegisterFeature(featurePhone);
 
+    featureColor = std::make_shared<ColorFeature>();
+    RegisterFeature(featureColor);
+
     featureBridge=std::make_shared<BridgeFeature>();
     RegisterFeature(featureBridge);
 

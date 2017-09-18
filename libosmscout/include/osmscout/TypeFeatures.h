@@ -25,6 +25,7 @@
 #include <osmscout/TypeConfig.h>
 
 #include <osmscout/util/String.h>
+#include <osmscout/util/Color.h>
 
 namespace osmscout {
 
@@ -1583,6 +1584,66 @@ namespace osmscout {
     static const char* const NAME;
 
   public:
+    void Initialize(TypeConfig& typeConfig);
+
+    std::string GetName() const;
+
+    size_t GetValueSize() const;
+    FeatureValue* AllocateValue(void* buffer);
+
+    void Parse(TagErrorReporter& reporter,
+               const TypeConfig& typeConfig,
+               const FeatureInstance& feature,
+               const ObjectOSMRef& object,
+               const TagMap& tags,
+               FeatureValueBuffer& buffer) const;
+  };
+
+  class OSMSCOUT_API ColorFeatureValue : public FeatureValue
+  {
+  private:
+    Color color;
+
+  public:
+    inline ColorFeatureValue()
+    {
+      // no code
+    }
+
+    inline ColorFeatureValue(const Color& color)
+        : color(color)
+    {
+      // no code
+    }
+
+    inline void SetColor(const Color& color)
+    {
+      this->color=color;
+    }
+
+    inline Color GetColor() const
+    {
+      return color;
+    }
+
+    void Read(FileScanner& scanner);
+    void Write(FileWriter& writer);
+
+    FeatureValue& operator=(const FeatureValue& other);
+    bool operator==(const FeatureValue& other) const;
+  };
+
+  class OSMSCOUT_API ColorFeature : public Feature
+  {
+  private:
+    TagId tagColor;
+
+  public:
+    /** Name of this feature */
+    static const char* const NAME;
+
+  public:
+    ColorFeature();
     void Initialize(TypeConfig& typeConfig);
 
     std::string GetName() const;

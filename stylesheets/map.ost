@@ -512,7 +512,7 @@ TYPES
 
   TYPE railway_subway
     = WAY ("railway"=="subway")
-      {Bridge, Tunnel, Width}
+      {Name, Bridge, Tunnel, Width, Color}
 
   TYPE railway_preserved
     = WAY ("railway"=="preserved")
