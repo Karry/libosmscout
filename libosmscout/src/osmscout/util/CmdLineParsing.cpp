@@ -104,11 +104,6 @@ namespace osmscout {
     return errorDescription;
   }
 
-  CmdLineArgParser::~CmdLineArgParser()
-  {
-    // no code
-  }
-
   void CmdLineArgParser::SetArgumentName(const std::string& argumentName)
   {
     this->argumentName=argumentName;
@@ -424,6 +419,10 @@ namespace osmscout {
       auto option=options.find(currentArg);
 
       if (option==options.end()) {
+        if (currentArg.length()>=1 && currentArg[0]=='-') {
+          return CmdLineParseResult("Unknown command line parameter '"+currentArg+"'");
+        }
+
         // Quit option parsing and continue with parsing of positionals
         break;
       }

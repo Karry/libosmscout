@@ -207,6 +207,8 @@ static std::string CrossingWaysDescriptionToString(const osmscout::RouteDescript
 static bool HasRelevantDescriptions(const osmscout::RouteDescription::Node& node)
 {
 #if defined(ROUTE_DEBUG)
+  unused(node);
+
   return true;
 #else
   if (node.HasDescription(osmscout::RouteDescription::NODE_START_DESC)) {
@@ -644,9 +646,10 @@ int main(int argc, char* argv[])
     break;
   }
 
+  double radius = 1000.0;
   osmscout::RoutePosition start=router->GetClosestRoutableNode(osmscout::GeoCoord(startLat,startLon),
                                                                *routingProfile,
-                                                               1000);
+                                                               radius);
 
   if (!start.IsValid()) {
     std::cerr << "Error while searching for routing node near start location!" << std::endl;
@@ -657,9 +660,10 @@ int main(int argc, char* argv[])
     std::cerr << "Cannot find start node for start location!" << std::endl;
   }
 
+  radius = 1000.0;
   osmscout::RoutePosition target=router->GetClosestRoutableNode(osmscout::GeoCoord(targetLat,targetLon),
                                                                *routingProfile,
-                                                               1000);
+                                                               radius);
 
   if (!target.IsValid()) {
     std::cerr << "Error while searching for routing node near target location!" << std::endl;
@@ -682,6 +686,7 @@ int main(int argc, char* argv[])
   }
 
 #ifdef DATA_DEBUG
+  std::cout << "Route raw data:" << std::endl;
   for (const auto &entry : result.GetRoute().Entries()) {
     std::cout << entry.GetPathObject().GetName() << "[" << entry.GetCurrentNodeIndex() << "]" << " = " << entry.GetCurrentNodeId() << " => " << entry.GetTargetNodeIndex() << std::endl;
   }
@@ -763,7 +768,7 @@ int main(int argc, char* argv[])
 
   profiles[0]=routingProfile;
   databases[0]=database;
-  
+
   if (!postprocessor.PostprocessRouteDescription(description,
                                                  profiles,
                                                  databases,

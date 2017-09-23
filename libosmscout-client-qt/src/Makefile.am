@@ -59,12 +59,16 @@ libosmscoutclientqt_la_SOURCES = osmscout/DBThread.cpp \
                                  osmscout/moc_DBJob.cpp \
                                  osmscout/LookupModule.cpp \
                                  osmscout/moc_LookupModule.cpp \
+                                 osmscout/SearchModule.cpp \
+                                 osmscout/moc_SearchModule.cpp \
                                  osmscout/MapRenderer.cpp \
                                  osmscout/moc_MapRenderer.cpp \
                                  osmscout/PlaneMapRenderer.cpp \
                                  osmscout/moc_PlaneMapRenderer.cpp \
                                  osmscout/TiledMapRenderer.cpp \
-                                 osmscout/moc_TiledMapRenderer.cpp
+                                 osmscout/moc_TiledMapRenderer.cpp \
+                                 osmscout/OverlayWay.cpp \
+                                 osmscout/moc_OverlayWay.cpp
 
 osmscout/moc_%.cpp: $(top_srcdir)/include/osmscout/%.h
 	@MOC@ -o$@ $<
@@ -94,6 +98,8 @@ MOSTLYCLEANFILES = osmscout/moc_DBThread.cpp \
                    osmscout/moc_OSMScoutQt.cpp \
                    osmscout/moc_DBJob.cpp \
                    osmscout/moc_LookupModule.cpp \
+                   osmscout/moc_SearchModule.cpp \
                    osmscout/moc_MapRenderer.cpp \
                    osmscout/moc_PlaneMapRenderer.cpp \
-                   osmscout/moc_TiledMapRenderer.cpp
+                   osmscout/moc_TiledMapRenderer.cpp \
+                   osmscout/moc_OverlayWay.cpp

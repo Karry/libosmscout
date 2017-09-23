@@ -23,17 +23,31 @@
 #include <GL/glew.h>
 #include <iostream>
 #include <osmscout/MapPainter.h>
+#include <glm/vec3.hpp>
 
-namespace osmscout {
+namespace osmscout{
+
   class Triangulate {
   public:
 
+    /**
+     * Triangulate a polygon without hole.
+     */
     static std::vector<GLfloat> TriangulatePolygon(std::vector<osmscout::Point> points);
 
+    /**
+     * Triangulate a polygon without hole.
+     */
     static std::vector<GLfloat> TriangulatePolygon(std::vector<osmscout::Vertex2D> points);
 
+    /**
+     * Triangulate a polygon without hole.
+     */
     static std::vector<GLfloat> TriangulatePolygon(std::vector<osmscout::GeoCoord> points);
 
+    /**
+     * Triangulate a polygon with hole.
+     */
     static std::vector<GLfloat> TriangulateWithHoles(std::vector<std::vector<osmscout::Point>> points);
 
   };

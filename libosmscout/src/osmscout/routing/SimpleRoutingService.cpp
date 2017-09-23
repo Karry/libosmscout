@@ -416,14 +416,18 @@ namespace osmscout {
   }
 
   /**
-   * Calculate a route
+   * Calculate a route going through all the via points
    *
    * @param profile
    *    Profile to use
-   * @param route
-   *    The route object holding the resulting route on success
+   * @param via
+   *    A vector of via points
+   * @param radius
+   *    The maximum radius to search in from the search center in meter
+   * @param parameter
+   *    A RoutingParamater object
    * @return
-   *    True, if the engine was able to find a route, else false
+   *    A RoutingResult object
    */
 
   RoutingResult SimpleRoutingService::CalculateRoute(RoutingProfile& profile,
@@ -470,7 +474,7 @@ namespace osmscout {
       /* In intermediary via points the end of the previous part is the start of the */
       /* next part, we need to remove the duplicate point in the calculated route */
       if (index<nodeIndexes.size()-2) {
-        result.GetRoute().PopEntry();
+        partialResult.GetRoute().PopEntry();
       }
 
       result.GetRoute().Append(partialResult.GetRoute());
@@ -501,12 +505,13 @@ namespace osmscout {
    * @param profile
    *    Routing profile to use. It defines Vehicle to use
    * @param radius
-   *    The maximum radius to search in from the search center in meter
+   *    The maximum radius to search in from the search center in meter, at
+   *    return is set to the minimum distance found
    * @return
    */
   RoutePosition SimpleRoutingService::GetClosestRoutableNode(const GeoCoord& coord,
                                                              const RoutingProfile& profile,
-                                                             double radius) const
+                                                             double& radius) const
   {
     TypeConfigRef    typeConfig=database->GetTypeConfig();
     AreaAreaIndexRef areaAreaIndex=database->GetAreaAreaIndex();
@@ -615,17 +620,23 @@ namespace osmscout {
         continue;
       }
 
-      for (size_t i=0;  i<way->nodes.size(); i++) {
-        double distance=sqrt((way->nodes[i].GetLat()-coord.GetLat())*(way->nodes[i].GetLat()-coord.GetLat())+
-                             (way->nodes[i].GetLon()-coord.GetLon())*(way->nodes[i].GetLon()-coord.GetLon()));
+
+      for (size_t i=0;  i<way->nodes.size()-1; i++) {
+        double r, intersectLon, intersectLat;
+        double distance=DistanceToSegment(coord.GetLon(),coord.GetLat(),way->nodes[i].GetLon(),way->nodes[i].GetLat(),
+                                          way->nodes[i+1].GetLon(),way->nodes[i+1].GetLat(), r, intersectLon, intersectLat);
         if (distance<minDistance) {
           minDistance=distance;
-
-          position=RoutePosition(way->GetObjectFileRef(),i,/*database*/0);
+          if(r<0.5){
+            position=RoutePosition(way->GetObjectFileRef(),i,/*database*/0);
+          } else {
+            position=RoutePosition(way->GetObjectFileRef(),i+1,/*database*/0);
+          }
         }
       }
     }
-
+      
+    radius = minDistance;
     return position;
   }
 }

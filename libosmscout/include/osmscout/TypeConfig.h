@@ -67,7 +67,7 @@ namespace osmscout {
   {
   public:
     FeatureValue();
-    virtual ~FeatureValue();
+    virtual ~FeatureValue() = default;
 
     inline virtual std::string GetLabel() const
     {
@@ -107,7 +107,7 @@ namespace osmscout {
 
   public:
     Feature();
-    virtual ~Feature();
+    virtual ~Feature() = default;
 
     /**
      * Does further initialization based on the current TypeConfig. For example
@@ -321,7 +321,6 @@ namespace osmscout {
 
   public:
     TypeInfo(const std::string& name);
-    virtual ~TypeInfo();
 
     /**
      * Set the id of this type
@@ -998,7 +997,7 @@ namespace osmscout {
   public:
     FeatureValueBuffer();
     FeatureValueBuffer(const FeatureValueBuffer& other);
-    virtual ~FeatureValueBuffer();
+    ~FeatureValueBuffer();
 
     /**
      * Deletes the current feature values and assign the type and values
@@ -1122,7 +1121,7 @@ namespace osmscout {
 
   typedef std::shared_ptr<FeatureValueBuffer> FeatureValueBufferRef;
 
-  static const uint32_t FILE_FORMAT_VERSION = 15;
+  static const uint32_t FILE_FORMAT_VERSION = 16;
   static const uint32_t FILE_FORMAT_MIN_VERSION = 6;
 
   /**

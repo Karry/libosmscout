@@ -22,6 +22,7 @@
 
 #include <limits>
 #include <list>
+#include <memory>
 #include <string>
 
 #include <osmscout/CoreFeatures.h>
@@ -175,16 +176,6 @@ namespace osmscout {
     return NumberToStringTemplated<std::numeric_limits<N>::is_signed, N>
       ::f(number);
   }
-
-  /**
-   * \ingroup Util
-   */
-  extern OSMSCOUT_API bool StringToNumber(const char* string, double& value);
-
-  /**
-   * \ingroup Util
-   */
-  extern OSMSCOUT_API bool StringToNumber(const std::string& string, double& value);
 
   template<typename N>
   bool StringToNumberSigned(const std::string& string,
@@ -367,8 +358,14 @@ namespace osmscout {
       ::f(string,number,base);
   }
 
-
+  /**
+   * \ingroup Util
+   */
   extern OSMSCOUT_API bool StringToNumber(const char* string, double& value);
+
+  /**
+   * \ingroup Util
+   */
   extern OSMSCOUT_API bool StringToNumber(const std::string& string, double& value);
 
   /**
@@ -384,8 +381,7 @@ namespace osmscout {
    * \ingroup Util
    * Converts the given string into a list of whitespace separated (std::isspace()) strings.
    */
-  extern OSMSCOUT_API void SplitStringAtSpace(const std::string& input,
-                                              std::list<std::string>& tokens);
+  extern OSMSCOUT_API std::list<std::string> SplitStringAtSpace(const std::string& input);
 
   /**
    * \ingroup Util
@@ -414,6 +410,12 @@ namespace osmscout {
    * case letter.
    */
   extern OSMSCOUT_API void SimplifyTokenList(std::list<std::string>& tokens);
+
+  extern OSMSCOUT_API std::string GetTokensFromStart(const std::list<std::string>& tokens,
+                                                    size_t count);
+
+  extern OSMSCOUT_API std::string GetTokensFromEnd(const std::list<std::string>& tokens,
+                                                   size_t count);
 
   /**
    * \ingroup Util
@@ -471,6 +473,18 @@ namespace osmscout {
    *    corresponding std::wstring
    */
   extern OSMSCOUT_API std::wstring UTF8StringToWString(const std::string& text);
+
+  /**
+   * \ingroup Util
+   *
+   * Convert the given std::string containign a UTF8 character sequence to a std::u32string
+   *
+   * @param text
+   *    String to get converted
+   * @return
+   *    corresponding std::wstring
+   */
+  extern OSMSCOUT_API std::u32string UTF8StringToU32String(const std::string& text);
 
   /**
    * \ingroup Util
@@ -535,6 +549,21 @@ namespace osmscout {
    * @note that a global C++ locale must be set for more than simple ASCII conversions to work.
    */
   extern OSMSCOUT_API std::string UTF8StringToLower(const std::string& text);
+
+  /**
+   * Normalise the given std::string containing a UTF8 character sequence
+   * for tolerant comparison. It may be used for string lookup typed by human,
+   * for example street name, where string are not binary equals,
+   * but are "same" for human - for example "Baker Street" and "Baker  street"
+   *
+   * @param text
+   *    Text to get converted
+   * @return
+   *    Converted text
+   *
+   * @note that a global C++ locale must be set for more than simple ASCII conversions to work.
+   */
+  extern OSMSCOUT_API std::string UTF8NormForLookup(const std::string& text);
 }
 
 #endif

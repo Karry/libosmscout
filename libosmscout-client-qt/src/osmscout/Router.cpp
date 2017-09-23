@@ -466,11 +466,20 @@ osmscout::MultiDBRoutingServiceRef Router::MakeRoutingService(const std::list<DB
 bool Router::CalculateRoute(osmscout::MultiDBRoutingServiceRef &routingService,
                             const osmscout::RoutePosition& start,
                             const osmscout::RoutePosition& target,
-                            osmscout::RouteData& route)
+                            osmscout::RouteData& route,
+                            int requestId,
+                            const osmscout::BreakerRef &breaker)
 {
   osmscout::RoutingResult    result;
-  // TODO: report progress
   osmscout::RoutingParameter parameter;
+
+  parameter.SetProgress(std::make_shared<QtRoutingProgress>(
+    [this,requestId](size_t percent){
+      emit routingProgress(percent,requestId);
+    }
+  ));
+
+  parameter.SetBreaker(breaker);
 
   result=routingService->CalculateRoute(start,
                                         target,
@@ -700,15 +709,15 @@ std::string vehicleStr(osmscout::Vehicle vehicle){
 }
 
 void Router::ProcessRouteRequest(osmscout::MultiDBRoutingServiceRef &routingService,
-                                 LocationEntry* start,
-                                 LocationEntry* target,
+                                 const LocationEntryRef &start,
+                                 const LocationEntryRef &target,
                                  osmscout::Vehicle /*vehicle*/,
-                                 int requestId)
+                                 int requestId,
+                                 const osmscout::BreakerRef &breaker)
 {
   osmscout::RoutePosition startNode=routingService->GetClosestRoutableNode(
                                 start->getCoord(),
-                                /*radius*/1000,
-                                start->getDatabase().toStdString());
+                                /*radius*/1000);
   if (!startNode.IsValid()){
     osmscout::log.Warn() << "Can't found route node near start coord " << start->getCoord().GetDisplayText();
     emit routeFailed(QString("Can't found route node near start coord %1").arg(QString::fromStdString(start->getCoord().GetDisplayText())),
@@ -718,8 +727,7 @@ void Router::ProcessRouteRequest(osmscout::MultiDBRoutingServiceRef &routingServ
 
   osmscout::RoutePosition targetNode=routingService->GetClosestRoutableNode(
                                 target->getCoord(),
-                                /*radius*/1000,
-                                target->getDatabase().toStdString());
+                                /*radius*/1000);
   if (!targetNode.IsValid()){
     osmscout::log.Warn() << "Can't found route node near target coord " << target->getCoord().GetDisplayText();
     emit routeFailed(QString("Can't found route node near target coord %1").arg(QString::fromStdString(target->getCoord().GetDisplayText())),
@@ -727,28 +735,36 @@ void Router::ProcessRouteRequest(osmscout::MultiDBRoutingServiceRef &routingServ
     return;
   }
 
-  RouteSelection route;
+  RouteSelectionRef route=std::make_shared<RouteSelection>();
   if (!CalculateRoute(routingService,
                       startNode,
                       targetNode,
-                      route.routeData)) {
-    emit routeFailed("There was an error while routing!",requestId);
+                      route->routeData,
+                      requestId,
+                      breaker)) {
+
+    if (breaker->IsAborted()){
+      osmscout::log.Debug() << "Routing was canceled by user";
+      emit routeCanceled(requestId);
+    }else{
+      emit routeFailed("There was an error while routing!",requestId);
+    }
     return;
   }
 
   osmscout::log.Debug() << "Route calculated";
 
   TransformRouteDataToRouteDescription(routingService,
-                                       route.routeData,
-                                       route.routeDescription,
+                                       route->routeData,
+                                       route->routeDescription,
                                        start->getLabel().toUtf8().constData(),
                                        target->getLabel().toUtf8().constData());
 
   osmscout::log.Debug() << "Route transformed";
 
-  GenerateRouteSteps(route);
+  GenerateRouteSteps(*route);
 
-  if (!routingService->TransformRouteDataToWay(route.routeData,route.routeWay)) {
+  if (!routingService->TransformRouteDataToWay(route->routeData,route->routeWay)) {
     emit routeFailed("Error while transforming route",requestId);
     return;
   }
@@ -756,24 +772,25 @@ void Router::ProcessRouteRequest(osmscout::MultiDBRoutingServiceRef &routingServ
   emit routeComputed(route,requestId);
 }
 
-void Router::onRouteRequest(LocationEntry* start,
-                            LocationEntry* target,
+void Router::onRouteRequest(LocationEntryRef start,
+                            LocationEntryRef target,
                             osmscout::Vehicle vehicle,
-                            int requestId)
+                            int requestId,
+                            osmscout::BreakerRef breaker)
 {
   osmscout::log.Debug() << "Routing from '" << start->getLabel().toLocal8Bit().data() << 
     "' to '" << target->getLabel().toLocal8Bit().data() << "'" <<
     " by '" << vehicleStr(vehicle) << "'";
 
   dbThread->RunSynchronousJob(
-    [this,vehicle,requestId,start,target](const std::list<DBInstanceRef>& databases) {
+    [this,vehicle,requestId,start,target,breaker](const std::list<DBInstanceRef>& databases) {
       osmscout::MultiDBRoutingServiceRef routingService=MakeRoutingService(databases,vehicle);
       if (!routingService){
         osmscout::log.Warn() << "Can't open routing service";
         emit routeFailed("Can't open routing service",requestId);
         return;
       }
-      ProcessRouteRequest(routingService,start,target,vehicle,requestId);
+      ProcessRouteRequest(routingService,start,target,vehicle,requestId,breaker);
       routingService->Close();
     }
   );

@@ -301,7 +301,7 @@ namespace osmscout {
       // We only analyze junctions, that means nodes that cross other objects
       if (node->GetObjects().empty()) {
         lastNode=node;
-        node++;
+        ++node;
 
         continue;
       }
@@ -310,7 +310,7 @@ namespace osmscout {
       if (lastNode==description.Nodes().end() ||
           !node->HasPathObject()) {
         lastNode=node;
-        node++;
+        ++node;
 
         continue;
       }
@@ -324,21 +324,19 @@ namespace osmscout {
       size_t currentNodeIndexOnLastPath=postprocessor.GetNodeIndex(*lastNode,
                                                                    nodeId);
 
-      for (std::vector<ObjectFileRef>::const_iterator object=node->GetObjects().begin();
-          object!=node->GetObjects().end();
-          ++object) {
+      for (const auto& object : node->GetObjects()) {
         bool canUseForward=postprocessor.CanUseForward(node->GetDatabaseId(),
                                                        nodeId,
-                                                       *object);
+                                                       object);
         bool canUseBackward=postprocessor.CanUseBackward(node->GetDatabaseId(),
                                                          nodeId,
-                                                         *object);
+                                                         object);
 
         // We can travel this way in the forward direction
         if (canUseForward) {
           // And it is not the way back to the last routing node
-          if (lastNode->GetPathObject()!=*object ||
-              postprocessor.IsRoundabout(*node) ||
+          if (lastNode->GetPathObject()!=object ||
+              postprocessor.IsRoundabout(*lastNode) ||
               !postprocessor.IsForwardPath(lastNode->GetPathObject(),
                                            currentNodeIndexOnLastPath,
                                            lastNode->GetCurrentNodeIndex())) {
@@ -349,7 +347,7 @@ namespace osmscout {
         // We can travel this way in the backward direction
         if (canUseBackward) {
           // And it is not the way to back the last routing node
-          if (lastNode->GetPathObject()!=*object ||
+          if (lastNode->GetPathObject()!=object ||
               !postprocessor.IsBackwardPath(lastNode->GetPathObject(),
                                             currentNodeIndexOnLastPath,
                                             lastNode->GetCurrentNodeIndex())) {
@@ -493,10 +491,10 @@ namespace osmscout {
                                                                   RouteDescription& description)
   {
      ObjectFileRef           prevObject;
-     DatabaseId              prevDatabase;
+     DatabaseId              prevDatabase=0;
      ObjectFileRef           curObject;
      DatabaseId              curDatabase;
-     
+
      WayRef                  way;
      std::string             junctionRef;
      std::string             junctionName;
@@ -567,7 +565,7 @@ namespace osmscout {
   {
     std::list<RouteDescription::Node>::iterator lastJunction=description.Nodes().end();
     ObjectFileRef                               prevObject;
-    DatabaseId                                  prevDb;
+    DatabaseId                                  prevDb=0;
     ObjectFileRef                               curObject;
     DatabaseId                                  curDb;
 
@@ -606,7 +604,7 @@ namespace osmscout {
                                                           RouteDescription& description)
   {
     ObjectFileRef              prevObject;
-    DatabaseId                 prevDb;
+    DatabaseId                 prevDb=0;
     ObjectFileRef              curObject;
     DatabaseId                 curDb;
 
@@ -670,6 +668,7 @@ namespace osmscout {
   {
     if (node.HasDescription(RouteDescription::CROSSING_WAYS_DESC)) {
       RouteDescription::CrossingWaysDescriptionRef crossing=std::dynamic_pointer_cast<RouteDescription::CrossingWaysDescription>(node.GetDescription(RouteDescription::CROSSING_WAYS_DESC));
+
       if (crossing->GetExitCount()>1) {
         roundaboutCrossingCounter+=crossing->GetExitCount()-1;
       }
@@ -1206,7 +1205,7 @@ namespace osmscout {
     double                  delta=1E-7;
     std::vector<FileOffset> nodeOffsets;
     std::vector<NodeRef>    nodes;
-    
+
     auto nameReaderIt=nameReaders.find(dbId);
     assert(nameReaderIt!=nameReaders.end());
     NameFeatureValueReader* nameReader=nameReaderIt->second;
@@ -1617,14 +1616,19 @@ namespace osmscout {
       maxSpeedReaders[dbId]=new MaxSpeedFeatureValueReader(*typeConfig);
 
       // init types
+      motorwayTypes[dbId]; // insert empty TypeInfoSet
       for (const std::string &typeName:motorwayTypeNames){
         TypeInfoRef type=typeConfig->GetTypeInfo(typeName);
         motorwayTypes[dbId].Set(type);
       }
+
+      motorwayLinkTypes[dbId]; // insert empty TypeInfoSet
       for (const std::string &typeName:motorwayLinkTypeNames){
         TypeInfoRef type=typeConfig->GetTypeInfo(typeName);
         motorwayLinkTypes[dbId].Set(type);
       }
+      
+      junctionTypes[dbId]; // insert empty TypeInfoSet
       for (const std::string &typeName:junctionTypeNames){
         TypeInfoRef type=typeConfig->GetTypeInfo(typeName);
         junctionTypes[dbId].Set(type);

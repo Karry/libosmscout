@@ -28,9 +28,11 @@ osmscoutclientqtHeader = [
             'osmscout/OSMScoutQt.h',
             'osmscout/DBJob.h',
             'osmscout/LookupModule.h',
+            'osmscout/SearchModule.h',
             'osmscout/MapRenderer.h',
             'osmscout/PlaneMapRenderer.h',
-            'osmscout/TiledMapRenderer.h'
+            'osmscout/TiledMapRenderer.h',
+            'osmscout/OverlayWay.h'
           ]
 
 install_headers(osmscoutclientqtHeader)
