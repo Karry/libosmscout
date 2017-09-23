@@ -184,6 +184,10 @@ FEATURES
     en: "width"
     de: "Breite"
 
+  FEATURE Color
+  DESC
+    en: "color"
+
 TYPES
 
   //

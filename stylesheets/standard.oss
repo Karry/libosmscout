@@ -1170,6 +1170,14 @@ STYLE
        }
        [SIZE 5m <0.25mm:3px] WAY {color: #777777; dash: 3,3; joinCap: butt; endCap: butt; gapColor: #ffffff; displayWidth: 0.25mm;}
      }
+     [TYPE railway_subway] {
+       WAY { color: #b3b3b3; dash: 1.5,1.5; displayWidth: 0.4mm; joinCap: butt; endCap: butt; }
+     }
+     [FEATURE Color] {
+       [TYPE railway_subway] {
+         WAY { color: Color.color; dash: 1.5,1.5; displayWidth: 0.4mm; joinCap: butt; endCap: butt; }
+       }
+     }
    }
 
    [MAG close-] {
@@ -1181,7 +1189,12 @@ STYLE
      [TYPE railway_funicular] WAY {color: #b3b3b3; displayWidth: 0.20mm; width: 4m;}
 
      [TYPE railway_subway] {
-       WAY {color: #b3b3b3; dash: 1.5,1.5; displayWidth: 0.4mm; joinCap: butt; endCap: butt; }
+       WAY { color: #b3b3b3; dash: 1.5,1.5; displayWidth: 0.4mm; joinCap: butt; endCap: butt; }
+     }
+     [FEATURE Color] {
+       [TYPE railway_subway] {
+         WAY { color: Color.color; dash: 1.5,1.5; displayWidth: 0.4mm; joinCap: butt; endCap: butt; }
+       }
      }
    }
 
