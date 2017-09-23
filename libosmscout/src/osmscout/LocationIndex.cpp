@@ -87,13 +87,6 @@ namespace osmscout {
         poiIgnoreTokenSet.insert(token);
       }
 
-      if (fileFormatVersion>=15){
-        scanner.ReadNumber(maxRegionWords);
-        scanner.ReadNumber(maxPOIWords);
-        scanner.ReadNumber(maxLocationWords);
-        scanner.ReadNumber(maxAddressWords);
-      }
-
       if (fileFormatVersion>=16) {
         scanner.ReadNumber(ignoreTokenCount);
         locationIgnoreTokens.reserve(ignoreTokenCount);
@@ -119,8 +112,14 @@ namespace osmscout {
         maxRegionChars=128;
         minRegionWords=1;
       }
-      scanner.ReadNumber(maxRegionWords);
-      scanner.ReadNumber(maxPOIWords);
+
+      if (fileFormatVersion>=15) {
+        scanner.ReadNumber(maxRegionWords);
+        scanner.ReadNumber(maxPOIWords);
+      }else{
+        maxRegionWords=20;
+        maxPOIWords=20;
+      }
       if (fileFormatVersion>=16) {
         scanner.ReadNumber(minLocationChars);
         scanner.ReadNumber(maxLocationChars);
@@ -130,8 +129,13 @@ namespace osmscout {
         maxLocationChars=128;
         minLocationWords=1;
       }
-      scanner.ReadNumber(maxLocationWords);
-      scanner.ReadNumber(maxAddressWords);
+      if (fileFormatVersion>=15){
+        scanner.ReadNumber(maxLocationWords);
+        scanner.ReadNumber(maxAddressWords);
+      }else{
+        maxLocationWords=20;
+        maxAddressWords=20;
+      }
 
       indexOffset=scanner.GetPos();
 
