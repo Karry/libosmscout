@@ -555,8 +555,8 @@ namespace osmscout {
   template<typename N,typename M>
   inline bool IsAreaAtLeastPartlyInArea(const std::vector<N>& a,
                                         const std::vector<M>& b,
-                                        const GeoBox aBox,
-                                        const GeoBox bBox)
+                                        const GeoBox& aBox,
+                                        const GeoBox& bBox)
    {
     if (!aBox.Intersects(bBox)){
       return false;
@@ -1156,27 +1156,11 @@ namespace osmscout {
 
   /**
    * \ingroup Geometry
-   *Calculates the initial bearing for a line from one coordinate two the other coordinate
-   *on a sphere.
-   */
-  extern OSMSCOUT_API double GetSphericalBearingInitial(double aLon, double aLat,
-                                                        double bLon, double bLat);
-
-  /**
-   * \ingroup Geometry
    *Calculates the initial bearing for a line from one coordinate to the other coordinate
    *on a sphere.
    */
   extern OSMSCOUT_API double GetSphericalBearingInitial(const GeoCoord& a,
                                                         const GeoCoord& b);
-
-  /**
-   * \ingroup Geometry
-   *Calculates the final bearing for a line from one coordinate two the other coordinate
-   *on a sphere.
-   */
-  extern OSMSCOUT_API double GetSphericalBearingFinal(double aLon, double aLat,
-                                                      double bLon, double bLat);
 
   /**
    * \ingroup Geometry

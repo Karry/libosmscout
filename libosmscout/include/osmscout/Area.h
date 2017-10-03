@@ -67,11 +67,6 @@ namespace osmscout {
         return featureValueBuffer.GetType();
       }
 
-      inline void ClearFeatureValues()
-      {
-        featureValueBuffer.ClearFeatureValues();
-      }
-
       inline size_t GetFeatureCount() const
       {
         return featureValueBuffer.GetType()->GetFeatureCount();
@@ -87,11 +82,6 @@ namespace osmscout {
       inline const FeatureInstance& GetFeature(size_t idx) const
       {
         return featureValueBuffer.GetType()->GetFeature(idx);
-      }
-
-      inline FeatureValue* GetFeatureValue(size_t idx) const
-      {
-        return featureValueBuffer.GetValue(idx);
       }
 
       inline void UnsetFeature(size_t idx)
