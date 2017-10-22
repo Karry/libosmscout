@@ -482,7 +482,7 @@ namespace osmscout
 
       copiedWay->SetNodes(newNodes);
 
-      if (!IsValidToWrite(copiedWay->nodes)) {
+      if (!IsValidToWrite(copiedWay->GetNodes())) {
         progress.Error("Way coordinates are not dense enough to be written for way "+
                        NumberToString(way->GetFileOffset()));
         continue;

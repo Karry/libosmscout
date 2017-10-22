@@ -270,7 +270,7 @@ namespace osmscout
       bool skip=false;
 
       for (const auto& ring : copiedArea->rings) {
-        if (!IsValidToWrite(ring.nodes)) {
+        if (!IsValidToWrite(ring.GetNodes())) {
           progress.Error("Area coordinates are not dense enough to be written for area "+
                          NumberToString(area->GetFileOffset()));
           skip=true;
