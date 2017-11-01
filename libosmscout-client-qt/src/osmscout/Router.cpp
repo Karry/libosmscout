@@ -27,31 +27,45 @@
 #include <osmscout/OSMScoutQt.h>
 #include <osmscout/Router.h>
 
-RouteStep::RouteStep()
+RouteStep::RouteStep(QString type):
+  type(type),
+  informative(informative),
+  distance(-1),
+  distanceDelta(-1),
+  time(-1),
+  timeDelta(-1)
 {
-
 }
 
 RouteStep::RouteStep(const RouteStep& other)
     : QObject(other.parent()),
+      type(other.type),
       distance(other.distance),
       distanceDelta(other.distanceDelta),
       time(other.time),
       timeDelta(other.timeDelta),
       description(other.description)
 {
-    // no code
+  copyDynamicProperties(other);
+}
+
+void RouteStep::copyDynamicProperties(const RouteStep &other){
+  for (auto const &propertyName:other.dynamicPropertyNames()){
+    setProperty(propertyName,other.property(propertyName));
+  }
 }
 
 RouteStep& RouteStep::operator=(const RouteStep& other)
 {
   if (this!=&other) {
     setParent(other.parent());
+    type=other.type;
     distance=other.distance;
     distanceDelta=other.distanceDelta;
     time=other.time;
     timeDelta=other.timeDelta;
     description=other.description;
+    copyDynamicProperties(other);
   }
 
   return *this;
@@ -84,6 +98,7 @@ void Router::Initialize()
 
 }
 
+/*
 static QString DistanceToString(double distance)
 {
   std::ostringstream stream;
@@ -109,6 +124,7 @@ static QString TimeToString(double time)
 
   return QString::fromStdString(stream.str());
 }
+*/
 
 static QString MoveToTurnCommand(osmscout::RouteDescription::DirectionDescription::Move move)
 {
@@ -173,7 +189,7 @@ static std::string CrossingWaysDescriptionToString(const osmscout::RouteDescript
     for (std::set<std::string>::const_iterator name=names.begin();
         name!=names.end();
         ++name) {
-        /*
+      /*
       if (name!=names.begin()) {
         stream << ", ";
       }*/
@@ -215,14 +231,15 @@ void Router::DumpStartDescription(RouteSelection &route,
                                   const osmscout::RouteDescription::StartDescriptionRef& startDescription,
                                   const osmscout::RouteDescription::NameDescriptionRef& nameDescription)
 {
-  RouteStep startAt;
+  RouteStep startAt("start");
 
   startAt.description="Start at '"+QString::fromUtf8(startDescription->GetDescription().c_str())+"'";
+  startAt.setProperty("startDescription", QString::fromUtf8(startDescription->GetDescription().c_str()));
   route.routeSteps.push_back(startAt);
 
   if (nameDescription &&
       nameDescription->HasName()) {
-    RouteStep driveAlong;
+    RouteStep driveAlong("drive-along");
 
     driveAlong.description="Drive along '"+QString::fromUtf8(nameDescription->GetDescription().c_str())+"'";
     route.routeSteps.push_back(driveAlong);
@@ -679,17 +696,17 @@ void Router::GenerateRouteSteps(RouteSelection &route)
     }
 
     if (currentStepIndex>=0) {
-      route.routeSteps[currentStepIndex].distance=DistanceToString(node->GetDistance());
-      route.routeSteps[currentStepIndex].time=TimeToString(node->GetTime());
+      route.routeSteps[currentStepIndex].distance=node->GetDistance() * 1000;
+      route.routeSteps[currentStepIndex].time=node->GetTime() * 3600;
 
       if (prevNode!=route.routeDescription.Nodes().end() &&
           node->GetDistance()-prevNode->GetDistance()!=0.0) {
-        route.routeSteps[currentStepIndex].distanceDelta=DistanceToString(node->GetDistance()-prevNode->GetDistance());
+        route.routeSteps[currentStepIndex].distanceDelta=(node->GetDistance()-prevNode->GetDistance()) * 1000;
       }
 
       if (prevNode!=route.routeDescription.Nodes().end() &&
           node->GetTime()-prevNode->GetTime()!=0.0) {
-        route.routeSteps[currentStepIndex].timeDelta=TimeToString(node->GetTime()-prevNode->GetTime());
+        route.routeSteps[currentStepIndex].timeDelta=(node->GetTime()-prevNode->GetTime()) * 3600;
       }
     }
 

@@ -42,42 +42,50 @@ Q_DECLARE_METATYPE(osmscout::Vehicle)
  */
 class OSMSCOUT_CLIENT_QT_API RouteStep : public QObject
 {
-    Q_OBJECT
-    Q_PROPERTY(QString distance READ getDistance)
-    Q_PROPERTY(QString distanceDelta READ getDistanceDelta)
-    Q_PROPERTY(QString time READ getTime)
-    Q_PROPERTY(QString timeDelta READ getTimeDelta)
-    Q_PROPERTY(QString description READ getDescription)
+  Q_OBJECT
+  Q_PROPERTY(QString type READ getType)
+  Q_PROPERTY(double distance READ getDistance)
+  Q_PROPERTY(double distanceDelta READ getDistanceDelta)
+  Q_PROPERTY(double time READ getTime)
+  Q_PROPERTY(double timeDelta READ getTimeDelta)
+  Q_PROPERTY(QString description READ getDescription)
 
 public:
-  QString distance;
-  QString distanceDelta;
-  QString time;
-  QString timeDelta;
+  QString type;
+  bool informative;
+  double distance;
+  double distanceDelta;
+  double time;
+  double timeDelta;
   QString description;
 
 public:
-  RouteStep();
+  RouteStep(QString type);
   RouteStep(const RouteStep& other);
 
   RouteStep& operator=(const RouteStep& other);
 
-  QString getDistance() const
+  QString getType() const
+  {
+    return type;
+  };
+
+  double getDistance() const
   {
       return distance;
   }
 
-  QString getDistanceDelta() const
+  double getDistanceDelta() const
   {
       return distanceDelta;
   }
 
-  QString getTime() const
+  double getTime() const
   {
       return time;
   }
 
-  QString getTimeDelta() const
+  double getTimeDelta() const
   {
       return timeDelta;
   }
@@ -86,6 +94,9 @@ public:
   {
       return description;
   }
+
+private:
+  void copyDynamicProperties(const RouteStep &other);
 };
 
 /**
