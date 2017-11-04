@@ -116,7 +116,7 @@ namespace osmscout {
   public:
       inline VectorPointSequence(): 
         MutablePointSequence(), nodes(){};
-      inline VectorPointSequence(std::vector<Point> nodes): 
+      inline VectorPointSequence(const std::vector<Point> &nodes):
         MutablePointSequence(), nodes(nodes){};
       inline VectorPointSequence(const VectorPointSequence &that): 
         MutablePointSequence(), nodes(that.nodes){};

@@ -98,7 +98,7 @@ bool OverlayWay::toWay(osmscout::WayRef &way,
   }
   way->SetType(type);
   way->SetLayerToMax();
-  way->nodes=nodes;
+  way->SetNodes(nodes);
   return true;
 }
 
@@ -125,7 +125,7 @@ bool OverlayArea::toArea(osmscout::AreaRef &area,
   osmscout::Area::Ring outerRing;
   outerRing.SetType(type);
   outerRing.MarkAsOuterRing();
-  outerRing.nodes=nodes;
+  outerRing.SetNodes(nodes);
 
   area->rings.push_back(outerRing);
 

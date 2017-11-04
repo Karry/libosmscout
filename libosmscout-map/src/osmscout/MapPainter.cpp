@@ -1886,13 +1886,13 @@ namespace osmscout {
 
     for (size_t i=0; i<area->rings.size(); i++) {
       // The master ring does not have any nodes, skipping...
-      if (area->rings[i].IsMasterRing() || area->rings[i].nodes.size() < 2) {
+      if (area->rings[i].IsMasterRing() || area->rings[i].GetNodes().size() < 2) {
         continue;
       }
 
       transBuffer.TransformArea(projection,
                                 parameter.GetOptimizeAreaNodes(),
-                                area->rings[i].nodes,
+                                area->rings[i].GetNodes(),
                                 td[i].transStart,td[i].transEnd,
                                 errorTolerancePixel);
     }

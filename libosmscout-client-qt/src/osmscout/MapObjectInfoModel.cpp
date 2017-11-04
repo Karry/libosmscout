@@ -263,7 +263,7 @@ void MapObjectInfoModel::update()
       if (rectangle.intersects(QRectF(QPointF(x,y),QPointF(x2,y2)))){
         addObjectInfo("way",
                       w->GetObjectFileRef().GetFileOffset(),
-                      w->nodes,
+                      w->GetNodes().asVector(),
                       w);
       }
     }
@@ -280,7 +280,7 @@ void MapObjectInfoModel::update()
           if (!ring.GetType()->GetIgnore()) {
             addObjectInfo("area",
                           a->GetObjectFileRef().GetFileOffset(),
-                          ring.nodes,
+                          ring.GetNodes().asVector(),
                           &ring);
           }
         }
