@@ -39,6 +39,8 @@ TiledMapRenderer::TiledMapRenderer(QThread *thread,
   loadJob(NULL),
   unknownColor(QColor::fromRgbF(1.0,1.0,1.0)) // white
 {
+  lastWarning.start();
+
   QScreen *srn=QGuiApplication::primaryScreen();
   screenWidth=srn->availableSize().width();
   screenHeight=srn->availableSize().height();
@@ -471,6 +473,10 @@ void TiledMapRenderer::offlineTileRequest(uint32_t zoomLevel, uint32_t xtile, ui
     QMutexLocker locker(&lock);
     if (loadJob!=NULL){
         // wait until previous loading is not finished
+        if (lastWarning.elapsed() > 1000){
+          qDebug() << this << "wait until previous loading is not finished:" << loadJob;
+          lastWarning.restart();
+        }
         return;
     }
     {
@@ -525,6 +531,7 @@ void TiledMapRenderer::offlineTileRequest(uint32_t zoomLevel, uint32_t xtile, ui
                               /* lowZoomOptimization */ true,
                               /* closeOnFinish */ false);
 
+        qDebug() << this << "create load job"<< loadJob;
         connect(loadJob, SIGNAL(finished(QMap<QString,QMap<osmscout::TileId,osmscout::TileRef>>)),
                 this, SLOT(onLoadJobFinished(QMap<QString,QMap<osmscout::TileId,osmscout::TileRef>>)));
 
@@ -708,6 +715,7 @@ void TiledMapRenderer::onLoadJobFinished(QMap<QString,QMap<osmscout::TileId,osms
 
     // this slot is called from DBLoadJob, we can't delete it now
     loadJob->deleteLater();
+    qDebug() << this << "delete(later) load job"<< loadJob;
     loadJob=NULL;
 
     if (!success)  {

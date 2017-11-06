@@ -69,6 +69,8 @@ private:
 
   QColor                        unknownColor;
 
+  QTime lastWarning;
+
 public slots:
   virtual void Initialize();
   virtual void InvalidateVisualCache();
