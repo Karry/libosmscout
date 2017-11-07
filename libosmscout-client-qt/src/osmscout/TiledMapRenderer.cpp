@@ -475,6 +475,7 @@ void TiledMapRenderer::offlineTileRequest(uint32_t zoomLevel, uint32_t xtile, ui
         // wait until previous loading is not finished
         if (lastWarning.elapsed() > 1000){
           qDebug() << this << "wait until previous loading is not finished:" << loadJob;
+          loadJob->debugStat();
           lastWarning.restart();
         }
         return;
@@ -697,7 +698,7 @@ void TiledMapRenderer::onLoadJobFinished(QMap<QString,QMap<osmscout::TileId,osms
     std::vector<OverlayObjectRef> overlayObjects;
     osmscout::GeoBox renderBox;
     projection.GetDimensions(renderBox);
-  getOverlayObjects(overlayObjects, renderBox);
+    getOverlayObjects(overlayObjects, renderBox);
 
     //DrawMap(p, tileVisualCenter, loadZ, canvas.width(), canvas.height());
     bool success;

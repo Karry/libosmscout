@@ -145,8 +145,10 @@ void DBLoadJob::Run(const osmscout::BasemapDatabaseRef& basemapDatabase,
         emit tileStateChanged(path,tile);
       }
     }
-
   }
+
+  qDebug() << "run" << this << "with" << relevantDatabases.size() << "databases";
+  debugStat();
   if (relevantDatabases.empty()){
     emit finished(loadedTiles);
     //qDebug() << "Loaded completely (no relevant databases):" << this << "in" << QThread::currentThread();
@@ -218,6 +220,32 @@ bool DBLoadJob::IsFinished() const
 QMap<QString,QMap<osmscout::TileId,osmscout::TileRef>> DBLoadJob::GetAllTiles() const
 {
   return allTiles;
+}
+
+void DBLoadJob::debugStat()
+{
+  size_t allTilesCnt=0;
+  for (const auto &tileMap:allTiles.values()){
+    allTilesCnt+=tileMap.size();
+  }
+
+  size_t loadingTilesCnt=0;
+  size_t loadingCompleteTilesCnt=0;
+  for (const auto &tileMap:loadingTiles.values()){
+    loadingTilesCnt+=tileMap.size();
+    for (const auto &tile:tileMap.values()){
+      if (tile->IsComplete()){
+        loadingCompleteTilesCnt++;
+      }
+    }
+  }
+
+  size_t finishedCnt=0;
+  for (const auto &tileMap:loadedTiles.values()){
+    finishedCnt+=tileMap.size();
+  }
+
+  qDebug() << this << "remaining" << loadingTilesCnt << "("<<loadingCompleteTilesCnt<<"completed)" << "from" << allTilesCnt << "(finished" << finishedCnt << ")";
 }
 
 bool DBLoadJob::AddTileDataToMapData(QString dbPath,

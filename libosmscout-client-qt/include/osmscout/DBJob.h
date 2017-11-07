@@ -94,6 +94,8 @@ public:
   bool IsFinished() const;
   QMap<QString,QMap<osmscout::TileId,osmscout::TileRef>> GetAllTiles() const;
 
+  void debugStat();
+
   /**
    * Add tile data to map data.
    *
