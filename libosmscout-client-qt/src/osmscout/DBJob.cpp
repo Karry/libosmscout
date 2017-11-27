@@ -142,7 +142,10 @@ void DBLoadJob::Run(const osmscout::BasemapDatabaseRef& basemapDatabase,
     // process already completed tiles (state callback is not called in such case)
     for (auto &tile:tiles){
       if (tile->IsComplete()){
+        qDebug() << this << "complete already:" << path << QString::fromStdString(tile->GetId().DisplayText());
         emit tileStateChanged(path,tile);
+      }else{
+        qDebug() << this << "waiting for:" << path << QString::fromStdString(tile->GetId().DisplayText());
       }
     }
   }
@@ -161,6 +164,7 @@ void DBLoadJob::Run(const osmscout::BasemapDatabaseRef& basemapDatabase,
 void DBLoadJob::onTileStateChanged(QString dbPath,const osmscout::TileRef tile)
 {
   if (!tile->IsComplete()){
+    qDebug() << this << "ignore incomplete:" << dbPath << QString::fromStdString(tile->GetId().DisplayText());
     return; // ignore incomplete
   }
   // qDebug() << "Callback:" << this << "in" << QThread::currentThread();
@@ -168,14 +172,18 @@ void DBLoadJob::onTileStateChanged(QString dbPath,const osmscout::TileRef tile)
     qWarning() << "Tile callback" << this << "from non Job thread" << thread << " in " << QThread::currentThread();
   }
   if (!loadingTiles.contains(dbPath)){
+    qDebug() << this << "loaded already:" << dbPath << QString::fromStdString(tile->GetId().DisplayText());
     return; // loaded already
   }
 
   QMap<osmscout::TileId,osmscout::TileRef> &loadingTileMap=loadingTiles[dbPath];
   auto tileIt=loadingTileMap.find(tile->GetId());
   if (tileIt==loadingTileMap.end()){
+    qDebug() << this << "not our request, ignore:" << dbPath << QString::fromStdString(tile->GetId().DisplayText());
     return; // not our request, ignore
   }
+
+  qDebug() << this << "finished:" << dbPath << QString::fromStdString(tile->GetId().DisplayText());
 
   // mark as complete
   QMap<osmscout::TileId,osmscout::TileRef> &loadedTileMap=loadedTiles[dbPath];
@@ -231,10 +239,12 @@ void DBLoadJob::debugStat()
 
   size_t loadingTilesCnt=0;
   size_t loadingCompleteTilesCnt=0;
-  for (const auto &tileMap:loadingTiles.values()){
+  for (const auto &path:loadingTiles.keys()){
+    const auto tileMap=loadingTiles[path];
     loadingTilesCnt+=tileMap.size();
     for (const auto &tile:tileMap.values()){
       if (tile->IsComplete()){
+        qDebug() << this << "waiting for callback:" << path << QString::fromStdString(tile->GetId().DisplayText());
         loadingCompleteTilesCnt++;
       }
     }
