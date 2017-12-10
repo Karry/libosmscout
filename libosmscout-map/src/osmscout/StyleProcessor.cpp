@@ -1,9 +1,6 @@
-#ifndef OSMSCOUT_IMPORT_PREPROCESS_OSM_H
-#define OSMSCOUT_IMPORT_PREPROCESS_OSM_H
-
 /*
-  This source is part of the libosmscout library
-  Copyright (C) 2009  Tim Teulings
+  This source is part of the libosmscout-map library
+  Copyright (C) 2017  Tim Teulings
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,25 +17,12 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307  USA
 */
 
-#include <osmscout/import/Preprocessor.h>
-
-#include <osmscout/system/Compiler.h>
+#include <osmscout/StyleProcessor.h>
 
 namespace osmscout {
 
-  class PreprocessOSM CLASS_FINAL : public Preprocessor
+  FillStyleProcessor::~FillStyleProcessor()
   {
-  private:
-    PreprocessorCallback& callback;
-
-  public:
-    explicit PreprocessOSM(PreprocessorCallback& callback);
-
-    bool Import(const TypeConfigRef& typeConfig,
-                const ImportParameter& parameter,
-                Progress& progress,
-                const std::string& filename);
-  };
+    // no code
+  }
 }
-
-#endif
