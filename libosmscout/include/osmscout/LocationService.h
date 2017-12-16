@@ -27,6 +27,7 @@
 #include <osmscout/Location.h>
 
 #include <osmscout/util/StringMatcher.h>
+#include <osmscout/util/Breaker.h>
 
 namespace osmscout {
 
@@ -48,6 +49,7 @@ namespace osmscout {
 
     size_t                  limit;                   //!< The maximum number of results over all sub searches requested
 
+    BreakerRef              breaker;                 //!< Breaker for search
   public:
     explicit POIFormSearchParameter();
 
@@ -70,6 +72,10 @@ namespace osmscout {
     void SetPOIOnlyMatch(bool poiOnlyMatch);
 
     void SetLimit(size_t limit);
+
+    void SetBreaker(BreakerRef &breaker);
+    BreakerRef GetBreaker() const;
+    bool IsAborted() const;
   };
 
   /**
@@ -95,6 +101,7 @@ namespace osmscout {
     StringMatcherFactoryRef stringMatcherFactory;    //!< String matcher factory to use
     size_t                  limit;                   //!< The maximum number of results over all sub searches requested
 
+    BreakerRef              breaker;                 //!< Breaker for search
   public:
     explicit LocationFormSearchParameter();
 
@@ -129,6 +136,10 @@ namespace osmscout {
     void SetPartialMatch(bool partialMatch);
 
     void SetLimit(size_t limit);
+
+    void SetBreaker(BreakerRef &breaker);
+    BreakerRef GetBreaker() const;
+    bool IsAborted() const;
   };
 
   /**
@@ -155,6 +166,8 @@ namespace osmscout {
     StringMatcherFactoryRef stringMatcherFactory; //!< String matcher factory to use
 
     size_t                  limit;                //!< The maximum number of results over all sub searches requested
+
+    BreakerRef              breaker;              //!< Breaker for search
 
   public:
     explicit LocationStringSearchParameter(const std::string& searchString);
@@ -192,6 +205,10 @@ namespace osmscout {
     void SetStringMatcherFactory(const StringMatcherFactoryRef& stringMatcherFactory);
 
     void SetLimit(size_t limit);
+
+    void SetBreaker(BreakerRef &breaker);
+    BreakerRef GetBreaker() const;
+    bool IsAborted() const;
   };
 
   /**
