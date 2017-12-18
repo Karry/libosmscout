@@ -84,15 +84,19 @@ void LookupModule::requestObjects(const LocationEntry &entry)
           std::set<osmscout::FileOffset>         wayOffsets;
           std::set<osmscout::FileOffset>         nodeOffsets;
 
+          qDebug() << "Request objects: (" << entry.getDatabase() << ")";
           for (const osmscout::ObjectFileRef &ref: entry.getReferences()){
             switch (ref.type){
               case osmscout::RefType::refArea:
+                qDebug() << "area" << ref.offset;
                 areaOffsets.insert(ref.offset);
                 break;
               case osmscout::RefType::refWay:
+                qDebug() << "way" << ref.offset;
                 wayOffsets.insert(ref.offset);
                 break;
               case osmscout::RefType::refNode:
+                qDebug() << "node" << ref.offset;
                 nodeOffsets.insert(ref.offset);
                 break;
               default:

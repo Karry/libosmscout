@@ -114,7 +114,10 @@ void LocationListModel::onSearchResult(const QString searchPattern,
           QJSValue result = equalsFn.call(args);
           if (result.isBool() && result.toBool()){
 
-            // qDebug() << "Merge " << location.getLabel() << " to location " << secondLocation->getLabel();
+            qDebug() << "Merge " << location.getLabel()
+                      << "(" << location.getReferences().first().GetTypeName() << "/" << location.getReferences().first().GetFileOffset() << QString::fromStdString(location.getCoord().GetDisplayText()) << ") "
+                      << "to location " << secondLocation->getLabel()
+                      << "(" << secondLocation->getReferences().first().GetTypeName() << "/" << secondLocation->getReferences().first().GetFileOffset() << QString::fromStdString(secondLocation->getCoord().GetDisplayText()) << ") ";
             secondLocation->mergeWith(location);
 
             // emit data change
