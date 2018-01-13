@@ -56,6 +56,13 @@ ColorParse = executable('ColorParse',
              link_with: [osmscout],
              install: false)
 
+CoordinateCalculations = executable('CoordinateCalculations',
+             'src/CoordinateCalculations.cpp',
+             include_directories: [osmscoutIncDir],
+             dependencies: [mathDep],
+             link_with: [osmscout],
+             install: false)
+
 CoordinateEncoding = executable('CoordinateEncoding',
              'src/CoordinateEncoding.cpp',
              include_directories: [osmscoutIncDir],
@@ -108,6 +115,17 @@ Geometry = executable('Geometry',
              include_directories: [osmscoutIncDir],
              dependencies: [mathDep],
              link_with: [osmscout],
+             install: false)
+
+LocationServiceTest = executable('LocationServiceTest',
+             [
+               'src/LocationServiceTest.cpp',
+               'src/SearchForLocationByStringTest.cpp',
+               'src/SearchForLocationByFormTest.cpp'
+             ],
+             include_directories: [testIncDir, osmscouttestIncDir, osmscoutimportIncDir, osmscoutIncDir],
+             dependencies: [mathDep],
+             link_with: [osmscouttest, osmscoutimport, osmscout],
              install: false)
 
 MapRotate = executable('MapRotate',
@@ -203,6 +221,7 @@ test('Check File access implementation', FileScannerWriter)
 test('Check parsing of geo box intersection', GeoBox)
 test('Check parsing of geo coordinates', GeoCoordParse)
 test('Check impl. of geometric functions', Geometry)
+test('Check LocationService', LocationServiceTest, env: ostandossEnv)
 test('Check rotation of maps', MapRotate)
 test('Check correctness of NumberSet class', NumberSet)
 test('Check standard OST and OSS files', OSTAndOSSCheck, env: ostandossEnv)

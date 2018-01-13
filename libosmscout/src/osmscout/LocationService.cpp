@@ -278,8 +278,8 @@ namespace osmscout {
       adminRegionOnlyMatch(false),
       poiOnlyMatch(false),
       locationOnlyMatch(false),
-      addressOnlyMatch(false),
-      partialMatch(true),
+      addressOnlyMatch(true),
+      partialMatch(false),
       searchString(searchString),
       stringMatcherFactory(std::make_shared<osmscout::StringMatcherCIFactory>()),
       limit(100)
@@ -752,7 +752,7 @@ namespace osmscout {
 
             if (matchResult==StringMatcher::match) {
               //std::cout << "Match of pattern " << pattern.tokenString->text << " against region alias '" << region.name << "' '" << alias.name << "'" << std::endl;
-              partialMatches.emplace_back(pattern.tokenString,
+              matches.emplace_back(pattern.tokenString,
                                           std::make_shared<AdminRegion>(region),
                                           alias.name);
               break;
@@ -855,9 +855,10 @@ namespace osmscout {
         }
       }
 
-      if (breaker && breaker->IsAborted()){
+      if (breaker && breaker->IsAborted()) {
         return stop;
       }
+
       return visitChildren;
     }
   };
@@ -886,10 +887,13 @@ namespace osmscout {
     std::list<TokenSearch> patterns;
     std::list<Result>      matches;
     std::list<Result>      partialMatches;
+    BreakerRef             breaker;
 
   public:
     POISearchVisitor(const StringMatcherFactoryRef& matcherFactory,
-                     const std::list<TokenStringRef>& patterns)
+                     const std::list<TokenStringRef>& patterns,
+                     BreakerRef &breaker):
+        breaker(breaker)
     {
       for (const auto& pattern : patterns) {
         this->patterns.emplace_back(pattern,
@@ -915,7 +919,7 @@ namespace osmscout {
         }
       }
 
-      return true;
+      return !(breaker && breaker->IsAborted());
     }
   };
 
@@ -1724,7 +1728,8 @@ namespace osmscout {
     // Search for locations
 
     POISearchVisitor poiVisitor(parameter.stringMatcherFactory,
-                                poiSearchPatterns);
+                                poiSearchPatterns,
+                                breaker);
 
     if (!locationIndex->VisitPOIs(*regionMatch.adminRegion,
                                   poiVisitor)) {
@@ -1790,7 +1795,8 @@ namespace osmscout {
     // Search for locations
 
     POISearchVisitor poiVisitor(parameter.stringMatcherFactory,
-                                poiSearchPatterns);
+                                poiSearchPatterns,
+                                breaker);
 
     if (!locationIndex->VisitPOIs(*regionMatch.adminRegion,
                                   poiVisitor)) {

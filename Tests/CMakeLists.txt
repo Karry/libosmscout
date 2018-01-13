@@ -61,7 +61,6 @@ if(APPLE)
 else()
   target_link_libraries(CalculateResolution osmscout)
 endif()
-add_test(NAME CalculateResolution COMMAND CalculateResolution)
 
 #---- CmdLineParsing
 add_executable(CmdLineParsing src/CmdLineParsing.cpp)
@@ -94,7 +93,7 @@ if(APPLE)
 else()
   target_link_libraries(CoordinateCalculations osmscout)
 endif()
-add_test(NAME CoordinateCalculations COMMAND CoordinateCalculations)
+#add_test(NAME CoordinateCalculations COMMAND CoordinateCalculations)
 
 #---- CoordinateEncoding
 add_executable(CoordinateEncoding src/CoordinateEncoding.cpp)
@@ -107,6 +106,18 @@ else()
 endif()
 # TODO: add sample data and arguments to test
 #add_test(NAME CoordinateEncoding COMMAND CoordinateEncoding)
+
+#---- LocationLookup
+add_executable(LocationLookupTest src/SearchForLocationByStringTest.cpp src/SearchForLocationByFormTest.cpp src/LocationServiceTest.cpp)
+set_property(TARGET LocationLookupTest PROPERTY CXX_STANDARD 11)
+target_include_directories(LocationLookupTest PRIVATE include ${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout-test/include ${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout-import/include ${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout/include)
+if(APPLE)
+  target_link_libraries(LocationLookupTest OSMScoutTest OSMScoutImport OSMScout)
+else()
+  target_link_libraries(LocationLookupTest osmscout_test osmscout_import osmscout)
+endif()
+add_test(NAME LocationLookupTest COMMAND LocationLookupTest)
+set_tests_properties(LocationLookupTest PROPERTIES ENVIRONMENT TESTS_TOP_DIR=${CMAKE_CURRENT_SOURCE_DIR})
 
 #---- NumberSetPerformance
 add_executable(NumberSetPerformance src/NumberSetPerformance.cpp)
