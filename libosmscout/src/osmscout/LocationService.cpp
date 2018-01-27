@@ -191,6 +191,7 @@ namespace osmscout {
   POIFormSearchParameter::POIFormSearchParameter()
     : adminRegionOnlyMatch(false),
       poiOnlyMatch(false),
+      partialMatch(false),
       stringMatcherFactory(std::make_shared<osmscout::StringMatcherCIFactory>()),
       limit(100)
   {
@@ -215,6 +216,11 @@ namespace osmscout {
   std::string POIFormSearchParameter::GetPOISearchString() const
   {
     return poiSearchString;
+  }
+
+  bool POIFormSearchParameter::GetPartialMatch() const
+  {
+    return partialMatch;
   }
 
   void POIFormSearchParameter::SetStringMatcherFactory(const StringMatcherFactoryRef& stringMatcherFactory)
@@ -250,6 +256,11 @@ namespace osmscout {
   bool POIFormSearchParameter::GetPOIOnlyMatch() const
   {
     return poiOnlyMatch;
+  }
+
+  void POIFormSearchParameter::SetPartialMatch(bool partialMatch)
+  {
+    this->partialMatch=partialMatch;
   }
 
   void POIFormSearchParameter::SetLimit(size_t limit)
@@ -905,14 +916,17 @@ namespace osmscout {
                const POI& poi) override
     {
       for (const auto& pattern : patterns) {
+        std::cout << pattern.tokenString->text << " vs. " << poi.name << std::endl;
         StringMatcher::Result matchResult=pattern.matcher->Match(poi.name);
 
         if (matchResult==StringMatcher::match) {
+          std::cout << " => match" << std::endl;
           matches.emplace_back(pattern.tokenString,
                                std::make_shared<AdminRegion>(adminRegion),
                                std::make_shared<POI>(poi));
         }
         else if (matchResult==StringMatcher::partialMatch) {
+          std::cout << " => partial match" << std::endl;
           partialMatches.emplace_back(pattern.tokenString,
                                       std::make_shared<AdminRegion>(adminRegion),
                                       std::make_shared<POI>(poi));
@@ -1246,6 +1260,7 @@ namespace osmscout {
 
   static void AddAddressResult(const SearchParameter& parameter,
                                LocationSearchResult::MatchQuality regionMatchQuality,
+                               LocationSearchResult::MatchQuality postalAreaMatchQuality,
                                LocationSearchResult::MatchQuality locationMatchQuality,
                                const AddressSearchVisitor::Result& addressMatch,
                                LocationSearchResult::MatchQuality addressMatchQuality,
@@ -1261,7 +1276,7 @@ namespace osmscout {
       entry.adminRegionMatchQuality=regionMatchQuality;
       entry.poiMatchQuality=LocationSearchResult::none;
       entry.postalArea=addressMatch.postalArea;
-      entry.postalAreaMatchQuality=LocationSearchResult::none;
+      entry.postalAreaMatchQuality=postalAreaMatchQuality;
       entry.location=addressMatch.location;
       entry.locationMatchQuality=locationMatchQuality;
       entry.address=addressMatch.address;
@@ -1278,6 +1293,7 @@ namespace osmscout {
                                           const std::list<std::string>& addressTokens,
                                           const LocationSearchVisitor::Result& locationMatch,
                                           LocationSearchResult::MatchQuality regionMatchQuality,
+                                          LocationSearchResult::MatchQuality postalAreaMatchQuality,
                                           LocationSearchResult::MatchQuality locationMatchQuality,
                                           LocationSearchResult& result)
   {
@@ -1315,6 +1331,7 @@ namespace osmscout {
       if (restTokens.empty()) {
         AddAddressResult(parameter,
                          regionMatchQuality,
+                         postalAreaMatchQuality,
                          locationMatchQuality,
                          addressMatch,
                          LocationSearchResult::match,
@@ -1331,6 +1348,7 @@ namespace osmscout {
         if (restTokens.empty()) {
           AddAddressResult(parameter,
                            regionMatchQuality,
+                           postalAreaMatchQuality,
                            locationMatchQuality,
                            addressMatch,
                            LocationSearchResult::candidate,
@@ -1405,6 +1423,7 @@ namespace osmscout {
                                     addressTokens,
                                     locationMatch,
                                     regionMatchQuality,
+                                    LocationSearchResult::none,
                                     LocationSearchResult::match,
                                     result);
 
@@ -1443,6 +1462,7 @@ namespace osmscout {
                                       addressTokens,
                                       locationMatch,
                                       regionMatchQuality,
+                                      LocationSearchResult::none,
                                       LocationSearchResult::candidate,
                                       result);
 
@@ -1521,6 +1541,7 @@ namespace osmscout {
                                     addressTokens,
                                     locationMatch,
                                     regionMatchQuality,
+                                    postalAreaMatchQuality,
                                     LocationSearchResult::match,
                                     result);
 
@@ -1560,6 +1581,7 @@ namespace osmscout {
                                       addressTokens,
                                       locationMatch,
                                       regionMatchQuality,
+                                      postalAreaMatchQuality,
                                       LocationSearchResult::candidate,
                                       result);
 
@@ -1811,7 +1833,7 @@ namespace osmscout {
                    result);
     }
 
-    if (!parameter.locationOnlyMatch) {
+    if (!parameter.poiOnlyMatch) {
       for (const auto& poiMatch : poiVisitor.partialMatches) {
         AddPOIResult(parameter,
                      regionMatchQuality,
@@ -2253,7 +2275,8 @@ namespace osmscout {
                               result,
                               breaker);
 
-        if (result.results.size()==currentResultSize) {
+        if (result.results.size()==currentResultSize &&
+            searchParameter.GetPartialMatch()) {
           // If we have not found any result for the given search entry, we create one for the "upper" object
           // so that partial results are not lost
           AddRegionResult(parameter,
@@ -2284,7 +2307,8 @@ namespace osmscout {
                               result,
                               breaker);
 
-        if (result.results.size()==currentResultSize) {
+        if (result.results.size()==currentResultSize &&
+            searchParameter.GetPartialMatch()) {
           // If we have not found any result for the given search entry, we create one for the "upper" object
           // so that partial results are not lost
           AddRegionResult(parameter,

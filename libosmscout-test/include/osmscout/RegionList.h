@@ -37,10 +37,35 @@ namespace osmscout {
       unknown
     };
 
+    class OSMSCOUT_TEST_API Tag
+    {
+    private:
+      std::string key;
+      std::string value;
+
+    public:
+      Tag(const std::string& key,
+          const std::string& value)
+        : key(key),
+          value(value)
+      {
+
+      }
+      inline std::string GetKey() const
+      {
+        return key;
+      }
+      inline std::string GetValue() const
+      {
+        return value;
+      }
+    };
+
     class OSMSCOUT_TEST_API Address
     {
     private:
-      std::string            name;
+      std::string    name;
+      std::list<Tag> tags;
 
     public:
       inline void SetName(const std::string& name)
@@ -51,6 +76,17 @@ namespace osmscout {
       inline std::string GetName() const
       {
         return name;
+      }
+
+      inline void AddTag(const std::string& key,
+                         const std::string& value)
+      {
+        tags.emplace_back(key,value);
+      }
+
+      inline const std::list<Tag>& GetTags() const
+      {
+        return tags;
       }
     };
 

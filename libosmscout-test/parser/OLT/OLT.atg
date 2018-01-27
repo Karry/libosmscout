@@ -121,6 +121,15 @@ PRODUCTIONS
                  .)
                 SYNC
                 "ADDRESS" STRING<name> (. address.SetName(name); .)
+                [
+                  "["
+                  {
+                    (. std::string tagKey,tagValue; .)
+                    STRING<tagKey> "=" STRING<tagValue>
+                    (. address.AddTag(tagKey,tagValue); .)
+                  }
+                  "]"
+                ]
                 .
 
   STRING<std::string& value>

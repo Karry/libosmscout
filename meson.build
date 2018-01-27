@@ -25,9 +25,16 @@ else
   haveVisibility=false
 endif
 
-if compiler.has_argument('-fopenmp')
-  add_global_arguments('-fopenmp', language: 'cpp')
-  add_global_link_arguments('-fopenmp', language: 'cpp')
+openmpOpt = get_option('openmp')
+
+if openmpOpt and compiler.has_argument('-fopenmp')
+  if (compiler.get_id()=='gcc')
+    add_global_arguments('-fopenmp', language: 'cpp')
+    add_global_link_arguments('-fopenmp', language: 'cpp')
+  elif (compiler.get_id()=='clang')
+    add_global_arguments('-fopenmp', language: 'cpp')
+    add_global_link_arguments('-fopenmp=libomp', language: 'cpp')
+  endif
 endif
 
 if compiler.get_id()=='msvc'
@@ -229,6 +236,7 @@ endif
 buildOSMScout2=buildMapQt and buildClientQt and qt5SvgDep.found()
 buildStyleEditor=buildMapQt and buildClientQt and qt5SvgDep.found()
 
+message('option \'openmp\':         @0@'.format(openmpOpt))
 message('libosmscout:             @0@'.format(true))
 message('libosmscout-gpx:         @0@'.format(true))
 message('libosmscout-import:      @0@'.format(true))
