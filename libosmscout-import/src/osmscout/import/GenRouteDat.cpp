@@ -226,7 +226,7 @@ namespace osmscout {
     const auto entry=routeDataMap.find(routeData);
 
     if (entry==routeDataMap.end()) {
-      objectVariantIndex=routeDataMap.size();
+      objectVariantIndex=(uint16_t)routeDataMap.size();
       routeDataMap.insert(std::make_pair(routeData,objectVariantIndex));
     }
     else {
@@ -1594,13 +1594,6 @@ namespace osmscout {
     FileScanner                areaScanner;
     FileWriter                 writer;
 
-    uint32_t                   handledRouteNodeCount=0;
-    uint32_t                   writtenRouteNodeCount=0;
-    uint32_t                   objectCount=0;
-    uint32_t                   pathCount=0;
-    uint32_t                   excludeCount=0;
-    uint32_t                   simpleNodesCount=0;
-
     NodeIdOffsetMap            routeNodeIdOffsetMap;
     PendingRouteNodeOffsetsMap pendingOffsetsMap;
 
@@ -1612,6 +1605,13 @@ namespace osmscout {
 
 
     try {
+      uint32_t handledRouteNodeCount=0;
+      uint32_t writtenRouteNodeCount=0;
+      size_t   objectCount=0;
+      size_t   pathCount=0;
+      size_t   excludeCount=0;
+      size_t   simpleNodesCount=0;
+
       writer.Open(dataFilename);
 
       writer.Write(writtenRouteNodeCount);

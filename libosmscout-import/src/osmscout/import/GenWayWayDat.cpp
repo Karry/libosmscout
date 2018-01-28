@@ -700,7 +700,7 @@ namespace osmscout {
     uint32_t                                rawWayCount=0;
 
     uint32_t                                writtenWayCount=0;
-    uint32_t                                mergeCount=0;
+    size_t                                  mergeCount=0;
 
     progress.SetAction("Reading type distribution");
 

@@ -327,12 +327,12 @@ namespace osmscout {
     return areaAreaIndexMaxMag;
   }
 
-  size_t ImportParameter::GetWaterIndexMinMag() const
+  uint32_t ImportParameter::GetWaterIndexMinMag() const
   {
     return waterIndexMinMag;
   }
 
-  size_t ImportParameter::GetWaterIndexMaxMag() const
+  uint32_t ImportParameter::GetWaterIndexMaxMag() const
   {
     return waterIndexMaxMag;
   }
@@ -342,12 +342,12 @@ namespace osmscout {
     return optimizationMaxWayCount;
   }
 
-  size_t ImportParameter::GetOptimizationMaxMag() const
+  uint32_t ImportParameter::GetOptimizationMaxMag() const
   {
     return optimizationMaxMag;
   }
 
-  size_t ImportParameter::GetOptimizationMinMag() const
+  uint32_t ImportParameter::GetOptimizationMinMag() const
   {
     return optimizationMinMag;
   }
@@ -579,12 +579,12 @@ namespace osmscout {
     this->areaWayIndexMaxLevel=areaWayIndexMaxLevel;
   }
 
-  void ImportParameter::SetWaterIndexMinMag(size_t waterIndexMinMag)
+  void ImportParameter::SetWaterIndexMinMag(uint32_t waterIndexMinMag)
   {
     this->waterIndexMinMag=waterIndexMinMag;
   }
 
-  void ImportParameter::SetWaterIndexMaxMag(size_t waterIndexMaxMag)
+  void ImportParameter::SetWaterIndexMaxMag(uint32_t waterIndexMaxMag)
   {
     this->waterIndexMaxMag=waterIndexMaxMag;
   }
@@ -594,12 +594,12 @@ namespace osmscout {
     this->optimizationMaxWayCount=optimizationMaxWayCount;
   }
 
-  void ImportParameter::SetOptimizationMaxMag(size_t optimizationMaxMag)
+  void ImportParameter::SetOptimizationMaxMag(uint32_t optimizationMaxMag)
   {
     this->optimizationMaxMag=optimizationMaxMag;
   }
 
-  void ImportParameter::SetOptimizationMinMag(size_t optimizationMinMag)
+  void ImportParameter::SetOptimizationMinMag(uint32_t optimizationMinMag)
   {
     this->optimizationMinMag=optimizationMinMag;
   }
