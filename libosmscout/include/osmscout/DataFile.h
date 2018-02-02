@@ -110,7 +110,7 @@ namespace osmscout {
     virtual bool IsOpen() const;
     virtual bool Close();
 
-    bool GetByOffset(const FileOffset& offset,
+    bool GetByOffset(FileOffset offset,
                      ValueType& entry) const;
 
     bool GetByBlockSpan(const DataBlockSpan& span,
@@ -285,9 +285,14 @@ namespace osmscout {
    */
   template <class N>
   template <typename IteratorIn>
-  bool DataFile<N>::GetByOffset(IteratorIn begin, IteratorIn end, size_t size,
+  bool DataFile<N>::GetByOffset(IteratorIn begin, IteratorIn end,
+                                size_t size,
                                 std::vector<ValueType>& data) const
   {
+    if (size==0) {
+      return true;
+    }
+
     data.reserve(data.size()+size);
     std::lock_guard<std::mutex> lock(accessMutex);
 
@@ -323,10 +328,15 @@ namespace osmscout {
    */
   template <class N>
   template<typename IteratorIn>
-  bool DataFile<N>::GetByOffset(IteratorIn begin, IteratorIn end, size_t size,
+  bool DataFile<N>::GetByOffset(IteratorIn begin, IteratorIn end,
+                                size_t size,
                                 const GeoBox& boundingBox,
                                 std::vector<ValueType>& data) const
   {
+    if (size==0) {
+      return true;
+    }
+
     data.reserve(data.size()+size);
     std::lock_guard<std::mutex> lock(accessMutex);
 
@@ -365,9 +375,14 @@ namespace osmscout {
    */
   template <class N>
   template<typename IteratorIn>
-  bool DataFile<N>::GetByOffset(IteratorIn begin, IteratorIn end, size_t size,
+  bool DataFile<N>::GetByOffset(IteratorIn begin, IteratorIn end,
+                                size_t size,
                                 std::unordered_map<FileOffset,ValueType>& dataMap) const
   {
+    if (size==0) {
+      return true;
+    }
+
     std::vector<ValueType> data;
 
     if (!GetByOffset(begin,
@@ -390,7 +405,7 @@ namespace osmscout {
    * Method is thread-safe.
    */
   template <class N>
-  bool DataFile<N>::GetByOffset(const FileOffset& offset,
+  bool DataFile<N>::GetByOffset(FileOffset offset,
                                 ValueType& entry) const
   {
     std::lock_guard<std::mutex> lock(accessMutex);
@@ -572,10 +587,10 @@ namespace osmscout {
 
     bool IsOpen() const;
 
-    bool GetOffset(const I& id,
+    bool GetOffset(I id,
                    FileOffset& offset) const;
 
-    bool Get(const I& id,
+    bool Get(I id,
              ValueType& entry) const;
 
     template<typename IteratorIn>
@@ -657,7 +672,7 @@ namespace osmscout {
   }
 
   template <class I, class N>
-  bool IndexedDataFile<I,N>::GetOffset(const I& id,
+  bool IndexedDataFile<I,N>::GetOffset(I id,
                                        FileOffset& offset) const
   {
     return index.GetOffset(id,offset);
@@ -749,7 +764,7 @@ namespace osmscout {
   }
 
   template <class I, class N>
-  bool IndexedDataFile<I,N>::Get(const I& id,
+  bool IndexedDataFile<I,N>::Get(I id,
                                  ValueType& entry) const
   {
     FileOffset offset;

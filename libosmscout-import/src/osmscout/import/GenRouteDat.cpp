@@ -73,7 +73,7 @@ namespace osmscout {
   {
     AccessFeatureValue *accessValue=accessReader->GetValue(buffer);
 
-    if (accessValue!=NULL) {
+    if (accessValue!=nullptr) {
       return *accessValue;
     }
     else {
@@ -85,7 +85,7 @@ namespace osmscout {
   {
     MaxSpeedFeatureValue *maxSpeedValue=maxSpeedReader->GetValue(way.GetFeatureValueBuffer());
 
-    if (maxSpeedValue!=NULL) {
+    if (maxSpeedValue!=nullptr) {
       return maxSpeedValue->GetMaxSpeed();
     }
     else {
@@ -97,7 +97,7 @@ namespace osmscout {
   {
     GradeFeatureValue *gradeValue=gradeReader->GetValue(way.GetFeatureValueBuffer());
 
-    if (gradeValue!=NULL) {
+    if (gradeValue!=nullptr) {
       return gradeValue->GetGrade();
     }
     else {
@@ -112,7 +112,7 @@ namespace osmscout {
     AccessRestrictedFeatureValue *accessRestrictedValue=accessRestrictedReader->GetValue(ring.GetFeatureValueBuffer());
 
 
-    if (accessRestrictedValue!=NULL) {
+    if (accessRestrictedValue!=nullptr) {
       if (!accessRestrictedValue->CanAccessFoot()) {
         flags|=RouteNode::restrictedForFoot;
       }
@@ -147,7 +147,7 @@ namespace osmscout {
     AccessFeatureValue           access=GetAccess(way.GetFeatureValueBuffer());
     AccessRestrictedFeatureValue *accessRestrictedValue=accessRestrictedReader->GetValue(way.GetFeatureValueBuffer());
 
-    if (accessRestrictedValue!=NULL) {
+    if (accessRestrictedValue!=nullptr) {
       if (!accessRestrictedValue->CanAccessFoot()) {
         flags|=RouteNode::restrictedForFoot;
       }
@@ -182,7 +182,7 @@ namespace osmscout {
     AccessFeatureValue access=GetAccess(way.GetFeatureValueBuffer());
     AccessRestrictedFeatureValue *accessRestrictedValue=accessRestrictedReader->GetValue(way.GetFeatureValueBuffer());
 
-    if (accessRestrictedValue!=NULL) {
+    if (accessRestrictedValue!=nullptr) {
       if (!accessRestrictedValue->CanAccessFoot()) {
         flags|=RouteNode::restrictedForFoot;
       }
@@ -324,12 +324,13 @@ namespace osmscout {
                                          std::map<OSMId,FileOffset>& wayIdOffsetMap)
   {
     FileScanner scanner;
-    uint32_t    wayCount=0;
-    uint32_t    resolveCount=0;
 
     progress.Info("Resolving turn restriction way ids to way file offsets");
 
     try {
+      uint32_t wayCount=0;
+      uint32_t resolveCount=0;
+
       scanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                    WayDataFile::WAYS_IDMAP),
                    FileScanner::Sequential,
@@ -434,11 +435,12 @@ namespace osmscout {
                                                    ViaTurnRestrictionMap& restrictions)
   {
     FileScanner scanner;
-    uint32_t    restrictionCount=0;
 
     progress.Info("Creating turn restriction data structures");
 
     try {
+      uint32_t restrictionCount=0;
+
       scanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                    WayWayDataGenerator::TURNRESTR_DAT),
                    FileScanner::Sequential,
@@ -555,15 +557,11 @@ namespace osmscout {
     // Finally read restrictions again and replace way ids with way offsets
     //
 
-    if (!ReadTurnRestrictionData(parameter,
-                                 progress,
-                                 nodeIdMap,
-                                 wayIdOffsetMap,
-                                 restrictions)) {
-      return false;
-    }
-
-    return true;
+    return ReadTurnRestrictionData(parameter,
+                                   progress,
+                                   nodeIdMap,
+                                   wayIdOffsetMap,
+                                   restrictions);
   }
 
   bool RouteDataGenerator::CanTurn(const std::vector<TurnRestrictionData>& restrictions,
@@ -607,11 +605,12 @@ namespace osmscout {
                                              NodeUseMap& nodeUseMap)
   {
     FileScanner scanner;
-    uint32_t    dataCount=0;
 
     progress.Info("Scanning ways");
 
     try {
+      uint32_t dataCount=0;
+
       scanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                    WayDataFile::WAYS_DAT),
                    FileScanner::Sequential,
@@ -636,7 +635,7 @@ namespace osmscout {
           continue;
         }
 
-        std::set<Id> nodeIds;
+        std::unordered_set<Id> nodeIds;
 
         for (const auto& node : way.GetNodes()) {
           if (!node.IsRelevant()) {
@@ -685,7 +684,7 @@ namespace osmscout {
           continue;
         }
 
-        std::set<Id> nodeIds;
+        std::unordered_set<Id> nodeIds;
 
         for (const auto& node : area.rings.front().GetNodes()) {
           if (!node.IsRelevant()) {
@@ -722,13 +721,14 @@ namespace osmscout {
                                                       NodeIdObjectsMap& nodeObjectsMap)
   {
     FileScanner scanner;
-    uint32_t    dataCount=0;
-    uint32_t    junctionWayCount=0;
-    uint32_t    junctionAreaCount=0;
 
     progress.Info("Scanning ways");
 
     try {
+      uint32_t dataCount=0;
+      uint32_t junctionWayCount=0;
+      uint32_t junctionAreaCount=0;
+
       scanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                    WayDataFile::WAYS_DAT),
                    FileScanner::Sequential,
@@ -756,7 +756,7 @@ namespace osmscout {
           continue;
         }
 
-        std::set<Id> nodeIds;
+        std::unordered_set<Id> nodeIds;
 
         for (auto& node : way.GetNodes()) {
           if (!node.IsRelevant()) {
@@ -767,7 +767,7 @@ namespace osmscout {
 
           if (nodeIds.find(id)==nodeIds.end()) {
             if (nodeUseMap.IsNodeUsedAtLeastTwice(id)) {
-              nodeObjectsMap[id].push_back(ObjectFileRef(fileOffset,refWay));
+              nodeObjectsMap[id].emplace_back(fileOffset,refWay);
               junctionWayCount++;
             }
 
@@ -812,7 +812,7 @@ namespace osmscout {
           continue;
         }
 
-        std::set<Id> nodeIds;
+        std::unordered_set<Id> nodeIds;
 
         for (auto& node : area.rings.front().GetNodes()) {
           if (!node.IsRelevant()) {
@@ -823,7 +823,7 @@ namespace osmscout {
 
           if (nodeIds.find(id)==nodeIds.end()) {
             if (nodeUseMap.IsNodeUsedAtLeastTwice(id)) {
-              nodeObjectsMap[id].push_back(ObjectFileRef(fileOffset,refArea));
+              nodeObjectsMap[id].emplace_back(fileOffset,refArea);
               junctionAreaCount++;
             }
 
@@ -971,10 +971,10 @@ namespace osmscout {
           continue;
         }
 
-        int currentNode=0;
+        size_t currentNode=0;
 
         // Find current route node in area
-        while (currentNode<(int)way->GetNodes().size() &&
+        while (currentNode<way->GetNodes().size() &&
               way->GetId(currentNode)!=id) {
           currentNode++;
         }
@@ -996,17 +996,17 @@ namespace osmscout {
           continue;
         }
 
-        int               currentNode=0;
+        size_t            currentNode=0;
         const Area::Ring& ring=area->rings.front();
 
         // Find current route node in area
-        while (currentNode<(int)ring.GetNodes().size() &&
+        while (currentNode<ring.GetNodes().size() &&
               ring.GetId(currentNode)!=id) {
           currentNode++;
         }
 
         // Make sure we found it
-        assert(currentNode<(int)ring.GetNodes().size());
+        assert(currentNode<ring.GetNodes().size());
 
         point=ring.GetNodes()[currentNode];
 
@@ -1063,24 +1063,24 @@ namespace osmscout {
                                               const NodeIdOffsetMap& nodeIdOffsetMap,
                                               PendingRouteNodeOffsetsMap& pendingOffsetsMap)
   {
-    int               currentNode=0;
+    size_t            currentNode=0;
     double            distance;
     const Area::Ring& ring=area.rings.front();
 
     // Find current route node in area
-    while (currentNode<(int)ring.GetNodes().size() &&
+    while (currentNode<ring.GetNodes().size() &&
           ring.GetId(currentNode)!=routeNode.GetId()) {
       currentNode++;
     }
 
     // Make sure we found it
-    assert(currentNode<(int)ring.GetNodes().size());
+    assert(currentNode<ring.GetNodes().size());
 
     // Find next routing node in order
 
-    int nextNode=currentNode+1;
+    size_t nextNode=currentNode+1;
 
-    if (nextNode>=(int)ring.GetNodes().size()) {
+    if (nextNode>=ring.GetNodes().size()) {
       nextNode=0;
     }
 
@@ -1089,10 +1089,11 @@ namespace osmscout {
 
     while (nextNode!=currentNode &&
            nodeObjectsMap.find(ring.GetId(nextNode))==nodeObjectsMap.end()) {
-      int lastNode=nextNode;
+      size_t lastNode=nextNode;
+
       nextNode++;
 
-      if (nextNode>=(int)ring.GetNodes().size()) {
+      if (nextNode>=ring.GetNodes().size()) {
         nextNode=0;
       }
 
@@ -1105,19 +1106,16 @@ namespace osmscout {
     // Found next routing node in order
     if (nextNode!=currentNode &&
         ring.GetId(nextNode)!=routeNode.GetId()) {
-      RouteNode::Path                 path;
-      NodeIdOffsetMap::const_iterator pathNodeOffset=nodeIdOffsetMap.find(ring.GetId(nextNode));
+      RouteNode::Path path;
+      auto            pathNodeOffset=nodeIdOffsetMap.find(ring.GetId(nextNode));
 
       if (pathNodeOffset!=nodeIdOffsetMap.end()) {
         path.offset=pathNodeOffset->second;
       }
       else {
-        PendingOffset pendingOffset;
+        pendingOffsetsMap[ring.GetId(nextNode)].emplace_back(routeNodeOffset,routeNode.paths.size());
 
-        pendingOffset.routeNodeOffset=routeNodeOffset;
-        pendingOffset.index=routeNode.paths.size();
-
-        pendingOffsetsMap[ring.GetId(nextNode)].push_back(pendingOffset);
+        path.offset=0;
       }
 
       path.objectIndex=routeNode.AddObject(ObjectFileRef(area.GetFileOffset(),refArea),
@@ -1131,10 +1129,13 @@ namespace osmscout {
 
     // Find next routing node against order
 
-    int prevNode=currentNode-1;
+    size_t prevNode;
 
-    if (prevNode<0) {
+    if (currentNode==0) {
       prevNode=(int)(ring.GetNodes().size()-1);
+    }
+    else {
+      prevNode=currentNode-1;
     }
 
     distance=GetSphericalDistance(ring.GetNodes()[currentNode].GetCoord(),
@@ -1142,11 +1143,13 @@ namespace osmscout {
 
     while (prevNode!=currentNode &&
         nodeObjectsMap.find(ring.GetId(prevNode))==nodeObjectsMap.end()) {
-      int lastNode=prevNode;
-      prevNode--;
+      size_t lastNode=prevNode;
 
-      if (prevNode<0) {
+      if (prevNode==0) {
         prevNode=(int)(ring.GetNodes().size()-1);
+      }
+      else {
+        --prevNode;
       }
 
       if (prevNode!=currentNode) {
@@ -1160,19 +1163,16 @@ namespace osmscout {
     if (prevNode!=currentNode &&
         prevNode!=nextNode &&
         ring.GetId(prevNode)!=routeNode.GetId()) {
-      RouteNode::Path                 path;
-      NodeIdOffsetMap::const_iterator pathNodeOffset=nodeIdOffsetMap.find(ring.GetId(prevNode));
+      RouteNode::Path path;
+      auto            pathNodeOffset=nodeIdOffsetMap.find(ring.GetId(prevNode));
 
       if (pathNodeOffset!=nodeIdOffsetMap.end()) {
         path.offset=pathNodeOffset->second;
       }
       else {
-        PendingOffset pendingOffset;
+        pendingOffsetsMap[ring.GetId(prevNode)].emplace_back(routeNodeOffset,routeNode.paths.size());
 
-        pendingOffset.routeNodeOffset=routeNodeOffset;
-        pendingOffset.index=routeNode.paths.size();
-
-        pendingOffsetsMap[ring.GetId(prevNode)].push_back(pendingOffset);
+        path.offset=0;
       }
 
       path.objectIndex=routeNode.AddObject(ObjectFileRef(area.GetFileOffset(),refArea),
@@ -1193,24 +1193,24 @@ namespace osmscout {
                                                      const NodeIdOffsetMap& nodeIdOffsetMap,
                                                      PendingRouteNodeOffsetsMap& pendingOffsetsMap)
   {
-    int    currentNode=0;
+    size_t currentNode=0;
     double distance;
 
     // Search for current route node
 
-    while (currentNode<(int)way.GetNodes().size() &&
+    while (currentNode<way.GetNodes().size() &&
           way.GetId(currentNode)!=routeNode.GetId()) {
       currentNode++;
     }
 
-    assert(currentNode<(int)way.GetNodes().size());
+    assert(currentNode<way.GetNodes().size());
 
     // In path direction
 
-    int nextNode=currentNode+1;
+    size_t nextNode=currentNode+1;
     if (GetAccess(way).CanRouteForward()) {
 
-      if (nextNode>=(int)way.GetNodes().size()) {
+      if (nextNode>=way.GetNodes().size()) {
         nextNode=0;
       }
 
@@ -1218,11 +1218,12 @@ namespace osmscout {
                                     way.GetCoord(nextNode));
 
       while (nextNode!=currentNode &&
-          nodeObjectsMap.find(way.GetId(nextNode))==nodeObjectsMap.end()) {
-        int lastNode=nextNode;
+             nodeObjectsMap.find(way.GetId(nextNode))==nodeObjectsMap.end()) {
+        size_t lastNode=nextNode;
+
         nextNode++;
 
-        if (nextNode>=(int)way.GetNodes().size()) {
+        if (nextNode>=way.GetNodes().size()) {
           nextNode=0;
         }
 
@@ -1234,19 +1235,16 @@ namespace osmscout {
 
       if (nextNode!=currentNode &&
           way.GetId(nextNode)!=routeNode.GetId()) {
-        RouteNode::Path                 path;
-        NodeIdOffsetMap::const_iterator pathNodeOffset=nodeIdOffsetMap.find(way.GetId(nextNode));
+        RouteNode::Path path;
+        auto            pathNodeOffset=nodeIdOffsetMap.find(way.GetId(nextNode));
 
         if (pathNodeOffset!=nodeIdOffsetMap.end()) {
           path.offset=pathNodeOffset->second;
         }
         else {
-          PendingOffset pendingOffset;
+          pendingOffsetsMap[way.GetId(nextNode)].emplace_back(routeNodeOffset,routeNode.paths.size());
 
-          pendingOffset.routeNodeOffset=routeNodeOffset;
-          pendingOffset.index=routeNode.paths.size();
-
-          pendingOffsetsMap[way.GetId(nextNode)].push_back(pendingOffset);
+          path.offset=0;
         }
 
         path.objectIndex=routeNode.AddObject(ObjectFileRef(way.GetFileOffset(),refWay),
@@ -1262,10 +1260,13 @@ namespace osmscout {
     // Against path direction
 
     if (GetAccess(way).CanRouteBackward()) {
-      int prevNode=currentNode-1;
+      size_t prevNode;
 
-      if (prevNode<0) {
+      if (currentNode==0) {
         prevNode=(int)(way.GetNodes().size()-1);
+      }
+      else {
+        prevNode=currentNode-1;
       }
 
       distance=GetSphericalDistance(way.GetNodes()[currentNode].GetCoord(),
@@ -1273,11 +1274,13 @@ namespace osmscout {
 
       while (prevNode!=currentNode &&
           nodeObjectsMap.find(way.GetId(prevNode))==nodeObjectsMap.end()) {
-        int lastNode=prevNode;
-        prevNode--;
+        size_t lastNode=prevNode;
 
-        if (prevNode<0) {
+        if (prevNode==0) {
           prevNode=(int)(way.GetNodes().size()-1);
+        }
+        else {
+          --prevNode;
         }
 
         if (prevNode!=currentNode) {
@@ -1289,19 +1292,16 @@ namespace osmscout {
       if (prevNode!=currentNode &&
           prevNode!=nextNode &&
           way.GetId(prevNode)!=routeNode.GetId()) {
-        RouteNode::Path                 path;
-        NodeIdOffsetMap::const_iterator pathNodeOffset=nodeIdOffsetMap.find(way.GetId(prevNode));
+        RouteNode::Path path;
+        auto            pathNodeOffset=nodeIdOffsetMap.find(way.GetId(prevNode));
 
         if (pathNodeOffset!=nodeIdOffsetMap.end()) {
           path.offset=pathNodeOffset->second;
         }
         else {
-          PendingOffset pendingOffset;
+          pendingOffsetsMap[way.GetId(prevNode)].emplace_back(routeNodeOffset,routeNode.paths.size());
 
-          pendingOffset.routeNodeOffset=routeNodeOffset;
-          pendingOffset.index=routeNode.paths.size();
-
-          pendingOffsetsMap[way.GetId(prevNode)].push_back(pendingOffset);
+          path.offset=0;
         }
 
         path.objectIndex=routeNode.AddObject(ObjectFileRef(way.GetFileOffset(),refWay),
@@ -1341,19 +1341,14 @@ namespace osmscout {
 
           if (j>=0 &&
               way.GetId(j)!=routeNode.GetId()) {
-            RouteNode::Path                 path;
-            NodeIdOffsetMap::const_iterator pathNodeOffset=nodeIdOffsetMap.find(way.GetId(j));
+            RouteNode::Path path;
+            auto            pathNodeOffset=nodeIdOffsetMap.find(way.GetId(j));
 
             if (pathNodeOffset!=nodeIdOffsetMap.end()) {
               path.offset=pathNodeOffset->second;
             }
             else {
-              PendingOffset pendingOffset;
-
-              pendingOffset.routeNodeOffset=routeNodeOffset;
-              pendingOffset.index=routeNode.paths.size();
-
-              pendingOffsetsMap[way.GetId(j)].push_back(pendingOffset);
+              pendingOffsetsMap[way.GetId(j)].emplace_back(routeNodeOffset,routeNode.paths.size());
 
               path.offset=0;
             }
@@ -1389,20 +1384,15 @@ namespace osmscout {
 
           if (j<way.GetNodes().size() &&
               way.GetId(j)!=routeNode.GetId()) {
-            RouteNode::Path                 path;
-            NodeIdOffsetMap::const_iterator pathNodeOffset=nodeIdOffsetMap.find(way.GetId(j));
+            RouteNode::Path path;
+            auto            pathNodeOffset=nodeIdOffsetMap.find(way.GetId(j));
 
             if (pathNodeOffset!=nodeIdOffsetMap.end()) {
               path.offset=pathNodeOffset->second;
             }
             else {
 
-              PendingOffset pendingOffset;
-
-              pendingOffset.routeNodeOffset=routeNodeOffset;
-              pendingOffset.index=routeNode.paths.size();
-
-              pendingOffsetsMap[way.GetId(j)].push_back(pendingOffset);
+              pendingOffsetsMap[way.GetId(j)].emplace_back(routeNodeOffset,routeNode.paths.size());
 
               path.offset=0;
             }
@@ -1429,7 +1419,7 @@ namespace osmscout {
                                                  const std::list<ObjectFileRef>& objects,
                                                  const ViaTurnRestrictionMap& restrictions)
   {
-    ViaTurnRestrictionMap::const_iterator turnConstraints=restrictions.find(routeNode.GetId());
+    auto turnConstraints=restrictions.find(routeNode.GetId());
 
     if (turnConstraints==restrictions.end()) {
       return;
@@ -1493,13 +1483,13 @@ namespace osmscout {
                        osmscout::FILE_FORMAT_VERSION);
 
       for (size_t b=0; b<blockCount; b++) {
-        PendingRouteNodeOffsetsMap::iterator pendingRouteNodeEntry=pendingOffsetsMap.find(block[b]->first);
+        auto pendingRouteNodeEntry=pendingOffsetsMap.find(block[b]->first);
 
         if (pendingRouteNodeEntry==pendingOffsetsMap.end()) {
           continue;
         }
 
-        NodeIdOffsetMap::const_iterator pathNodeOffset=routeNodeIdOffsetMap.find(pendingRouteNodeEntry->first);
+        auto pathNodeOffset=routeNodeIdOffsetMap.find(pendingRouteNodeEntry->first);
 
         assert(pathNodeOffset!=routeNodeIdOffsetMap.end());
 
@@ -1603,7 +1593,6 @@ namespace osmscout {
     // Writing route nodes
     //
 
-
     try {
       uint32_t handledRouteNodeCount=0;
       uint32_t writtenRouteNodeCount=0;
@@ -1630,7 +1619,7 @@ namespace osmscout {
 
       std::vector<NodeIdObjectsMap::const_iterator> block(parameter.GetRouteNodeBlockSize());
 
-      NodeIdObjectsMap::const_iterator node=nodeObjectsMap.begin();
+      auto node=nodeObjectsMap.begin();
       while (node!=nodeObjectsMap.end()) {
 
         // Fill the current block of nodes to be processed
@@ -1699,8 +1688,8 @@ namespace osmscout {
         progress.Info("Storing route nodes");
 
         for (size_t b=0; b<blockCount; b++) {
-          NodeIdObjectsMap::const_iterator node=block[b];
-          FileOffset                       routeNodeOffset;
+          auto       nodeEntry=block[b];
+          FileOffset routeNodeOffset;
 
           routeNodeOffset=writer.GetPos();
 
@@ -1717,24 +1706,25 @@ namespace osmscout {
           //
 
           if (!IsAnyRoutable(progress,
-                             node->second,
+                             nodeEntry->second,
                              waysMap,
                              areasMap,
                              vehicles)) {
             continue;
           }
 
-          RouteNode routeNode;
-          Point     point;
+          Point point;
 
           if (!GetRouteNodePoint(progress,
-                                 node->first,
-                                 node->second,
+                                 nodeEntry->first,
+                                 nodeEntry->second,
                                  waysMap,
                                  areasMap,
                                  point)) {
             continue;
           }
+
+          RouteNode routeNode;
 
           routeNode.SetPoint(point);
 
@@ -1742,7 +1732,7 @@ namespace osmscout {
           // Calculate all outgoing paths
           //
 
-          for (const auto& ref : node->second) {
+          for (const auto& ref : nodeEntry->second) {
             if (ref.GetType()==refWay) {
               const WayRef& way=waysMap[ref.GetFileOffset()];
 
@@ -1816,10 +1806,10 @@ namespace osmscout {
           }
 
           FillRoutePathExcludes(routeNode,
-                                node->second,
+                                nodeEntry->second,
                                 restrictions);
 
-          routeNodeIdOffsetMap.insert(std::make_pair(node->first,routeNodeOffset));
+          routeNodeIdOffsetMap.insert(std::make_pair(nodeEntry->first,routeNodeOffset));
 
           if (routeNode.paths.size()==1) {
             simpleNodesCount++;
@@ -1876,13 +1866,9 @@ namespace osmscout {
       return false;
     }
 
-    if (!WriteObjectVariantData(progress,
-                                variantFilename,
-                                routeDataMap)) {
-      return false;
-    }
-
-    return true;
+    return WriteObjectVariantData(progress,
+                                  variantFilename,
+                                  routeDataMap);
   }
 
   bool RouteDataGenerator::Import(const TypeConfigRef& typeConfig,
@@ -2003,4 +1989,3 @@ namespace osmscout {
     return true;
   }
 }
-

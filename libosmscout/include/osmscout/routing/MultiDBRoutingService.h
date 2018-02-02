@@ -26,29 +26,9 @@
 #include <osmscout/routing/SimpleRoutingService.h>
 #include <osmscout/routing/DBFileOffset.h>
 #include <osmscout/routing/RoutePostprocessor.h>
+#include <osmscout/routing/RoutingDB.h>
 
 namespace osmscout {
-
-  /**
-   * \ingroup Routing
-   *
-   * Helper container for MultiDBRoutingService
-   */
-  class RouterDBFiles CLASS_FINAL
-  {
-  public:
-    IndexedDataFile<Id,RouteNode>    routeNodeDataFile;     //!< Cached access to the 'route.dat' file
-    IndexedDataFile<Id,Intersection> junctionDataFile;      //!< Cached access to the 'junctions.dat' file
-    ObjectVariantDataFile            objectVariantDataFile;
-
-  public:
-    RouterDBFiles();
-
-    bool Open(DatabaseRef database);
-    void Close();
-  };
-
-  typedef std::shared_ptr<RouterDBFiles> RouterDBFilesRef;
 
   /**
    * \ingroup Routing
@@ -68,13 +48,11 @@ namespace osmscout {
     static const double LON_CELL_FACTOR;
 
   private:
-    std::map<std::string,DatabaseId>              databaseMap;
+    std::vector<DatabaseRef>             databases;
+    std::vector<SimpleRoutingServiceRef> services;
+    std::vector<RoutingProfileRef>       profiles;
 
-    std::map<DatabaseId,DatabaseRef>              databases;
-    std::map<DatabaseId,SimpleRoutingServiceRef>  services;
-    std::map<DatabaseId,RoutingProfileRef>        profiles;
-
-    std::map<DatabaseId,RouterDBFilesRef>         routerFiles;
+    std::vector<RoutingDatabaseRef>      routerFiles;
 
     bool  isOpen;
 
@@ -128,10 +106,6 @@ namespace osmscout {
 
     bool GetRouteNodeByOffset(const DBFileOffset &offset,
                               RouteNodeRef &node) override;
-
-    bool GetRouteNodeOffset(const DatabaseId &database,
-                            const Id &id,
-                            FileOffset &offset) override;
 
     bool GetWayByOffset(const DBFileOffset &offset,
                         WayRef &way) override;
