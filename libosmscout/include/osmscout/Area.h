@@ -109,6 +109,29 @@ namespace osmscout {
         return ring;
       }
 
+      inline Id GetSerial(size_t index) const
+      {
+        return GetPoint(index).GetSerial();
+      }
+
+      inline Id GetId(size_t index) const
+      {
+        return GetPoint(index).GetId();
+      }
+
+      inline Id GetFrontId() const
+      {
+        return GetFrontId();
+      }
+
+      inline Id GetBackId() const
+      {
+        return GetBackId();
+      }
+
+      bool GetNodeIndexByNodeId(Id id,
+                                size_t& index) const;
+
       bool GetCenter(GeoCoord& center) const;
 
       inline void SetType(const TypeInfoRef& type)

@@ -226,12 +226,16 @@ namespace osmscout {
   }
 
   bool AreaAreaIndex::Open(const std::string& path,
+                           bool memoryMappedData,
                            uint32_t fileFormatVersion)
   {
     datafilename=AppendFileToDir(path,AREA_AREA_IDX);
 
     try {
-      scanner.Open(datafilename,FileScanner::FastRandom,true,fileFormatVersion);
+      scanner.Open(datafilename,
+                   FileScanner::FastRandom,
+                   memoryMappedData,
+                   fileFormatVersion);
 
       scanner.ReadNumber(maxLevel);
       scanner.ReadFileOffset(topLevelOffset);

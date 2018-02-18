@@ -9,17 +9,6 @@ else()
 endif()
 add_test(NAME AccessParse COMMAND AccessParse)
 
-#---- TimeParse
-add_executable(TimeParse src/TimeParse.cpp)
-set_property(TARGET TimeParse PROPERTY CXX_STANDARD 11)
-target_include_directories(TimeParse PRIVATE include ${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout/include)
-if(APPLE)
-  target_link_libraries(TimeParse OSMScout)
-else()
-  target_link_libraries(TimeParse osmscout)
-endif()
-add_test(NAME TimeParse COMMAND TimeParse)
-
 #---- Bearing
 add_executable(Bearing src/Bearing.cpp)
 set_property(TARGET Bearing PROPERTY CXX_STANDARD 11)
@@ -276,6 +265,28 @@ else()
 endif()
 add_test(NAME ScanConversion COMMAND ScanConversion)
 
+#---- TilingTest
+add_executable(TilingTest src/TilingTest.cpp)
+set_property(TARGET TilingTest PROPERTY CXX_STANDARD 11)
+target_include_directories(TilingTest PRIVATE include ${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout/include)
+if(APPLE)
+  target_link_libraries(TilingTest OSMScout)
+else()
+  target_link_libraries(TilingTest osmscout)
+endif()
+add_test(NAME TilingTest COMMAND TilingTest)
+
+#---- TimeParse
+add_executable(TimeParse src/TimeParse.cpp)
+set_property(TARGET TimeParse PROPERTY CXX_STANDARD 11)
+target_include_directories(TimeParse PRIVATE include ${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout/include)
+if(APPLE)
+  target_link_libraries(TimeParse OSMScout)
+else()
+  target_link_libraries(TimeParse osmscout)
+endif()
+add_test(NAME TimeParse COMMAND TimeParse)
+
 #---- WStringStringConversion
 add_executable(WStringStringConversion src/WStringStringConversion.cpp)
 set_property(TARGET WStringStringConversion PROPERTY CXX_STANDARD 11)
@@ -319,8 +330,21 @@ if(${OSMSCOUT_BUILD_MAP})
   else()
     target_link_libraries(OSTAndOSSCheck osmscout osmscout_map)
   endif()
-  add_test(NAME OSTAndOSSCheck COMMAND OSTAndOSSCheck)
-  set_tests_properties(OSTAndOSSCheck PROPERTIES ENVIRONMENT TESTS_TOP_DIR=${CMAKE_CURRENT_SOURCE_DIR})
+
+  set(STYLESHEETS
+          standard.oss
+          winter-sports.oss
+          boundaries.oss
+          railways.oss
+          motorways.oss)
+
+  foreach(STYLESHEET ${STYLESHEETS})
+    add_test(NAME CheckStyleSheet-${STYLESHEET}
+            COMMAND OSTAndOSSCheck
+              --warning-as-error
+              ${CMAKE_CURRENT_SOURCE_DIR}/../stylesheets/map.ost
+              ${CMAKE_CURRENT_SOURCE_DIR}/../stylesheets/${STYLESHEET})
+  endforeach()
 else()
-    message("Skip MapRotate test libosmscout-map, is missing.")
+    message("Skip OSTAndOSSCheck test libosmscout-map, is missing.")
 endif()

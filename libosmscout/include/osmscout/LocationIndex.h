@@ -120,7 +120,9 @@ namespace osmscout {
     LocationIndex();
     virtual ~LocationIndex();
 
-    bool Load(const std::string& path, const uint32_t fileFormatVersion);
+    bool Load(const std::string& path,
+              bool memoryMappedData,
+              const uint32_t fileFormatVersion);
 
     const std::vector<std::string>& GetRegionIgnoreTokens() const
     {

@@ -93,7 +93,9 @@ namespace osmscout {
     WaterIndex();
     virtual ~WaterIndex();
 
-    virtual bool Open(const std::string& path,uint32_t fileFormatVersion);
+    virtual bool Open(const std::string& path,
+                      bool memoryMappedData,
+                      uint32_t fileFormatVersion);
     virtual void Close();
 
     virtual bool GetRegions(const GeoBox& boundingBox,

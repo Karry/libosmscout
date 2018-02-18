@@ -186,6 +186,13 @@ ThreadedDatabase = executable('ThreadedDatabase',
              link_with: [osmscoutmap, osmscout],
              install: false)
 
+TilingTest = executable('TilingTest',
+             'src/TilingTest.cpp',
+             include_directories: [testIncDir, osmscoutIncDir],
+             dependencies: [mathDep, threadDep],
+             link_with: [osmscout],
+             install: false)
+
 TransPolygon = executable('TransPolygon',
              'src/TransPolygon.cpp',
              include_directories: [testIncDir, osmscoutIncDir],
@@ -225,8 +232,24 @@ test('Check impl. of geometric functions', Geometry)
 test('Check LocationService', LocationServiceTest, env: ostandossEnv)
 test('Check rotation of maps', MapRotate)
 test('Check correctness of NumberSet class', NumberSet)
-test('Check standard OST and OSS files', OSTAndOSSCheck, env: ostandossEnv)
 test('Check scan conversion code', ScanConversion)
+test('Check tiling calculation code', TilingTest)
 test('Check polygon transformation code', TransPolygon)
 test('Check implementation of work queue', WorkQueue)
 test('Check WString<=>String conversion code', WStringStringConversion)
+
+stylesheets = [
+            'standard.oss',
+            'winter-sports.oss',
+            'boundaries.oss',
+            'railways.oss',
+            'motorways.oss',
+            ]
+
+foreach stylesheet : stylesheets
+    test('Check OST and OSS file '+stylesheet,
+            OSTAndOSSCheck,
+            args : ['--warning-as-error',
+                    meson.current_source_dir() + '/../stylesheets/map.ost',
+                    meson.current_source_dir() + '/../stylesheets/' + stylesheet])
+endforeach

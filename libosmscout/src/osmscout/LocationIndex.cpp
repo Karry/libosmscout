@@ -39,7 +39,9 @@ namespace osmscout {
     // no code
   }
 
-  bool LocationIndex::Load(const std::string& path, const uint32_t fileFormatVersion)
+  bool LocationIndex::Load(const std::string& path,
+                           bool memoryMappedData,
+                           const uint32_t fileFormatVersion)
   {
     this->path=path;
     this->fileFormatVersion=fileFormatVersion;
@@ -54,7 +56,7 @@ namespace osmscout {
       scanner.Open(AppendFileToDir(path,
                                    FILENAME_LOCATION_IDX),
                    FileScanner::LowMemRandom,
-                   true,
+                   memoryMappedData,
                    fileFormatVersion);
 
       scanner.Read(bytesForNodeFileOffset);

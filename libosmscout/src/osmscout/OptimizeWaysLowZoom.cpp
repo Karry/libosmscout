@@ -73,13 +73,17 @@ namespace osmscout
   }
 
   bool OptimizeWaysLowZoom::Open(const TypeConfigRef& typeConfig,
-                                 const std::string& path)
+                                 const std::string& path,
+                                 bool memoryMappedData)
   {
     this->typeConfig=typeConfig;
     datafilename=AppendFileToDir(path,FILE_WAYSOPT_DAT);
 
     try {
-      scanner.Open(datafilename,FileScanner::LowMemRandom,true,typeConfig->GetFileFormatVersion());
+      scanner.Open(datafilename,
+                   FileScanner::LowMemRandom,
+                   memoryMappedData,
+                   typeConfig->GetFileFormatVersion());
 
       FileOffset indexOffset;
 

@@ -210,6 +210,9 @@ void LocationListModel::onSearchFinished(const QString searchPattern, bool /*err
 
 void LocationListModel::setPattern(const QString& pattern)
 {
+  if (this->pattern==pattern){
+    return;
+  }
   this->pattern = pattern;
   
   // remove old items
