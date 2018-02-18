@@ -811,6 +811,7 @@ bool TestPainter::IsVisibleAreaPublic(const osmscout::Projection& projection,
 int main(int /*argc*/, char** /*argv*/)
 {
   osmscout::TypeConfigRef typeConfig = std::make_shared<osmscout::TypeConfig>();
+  typeConfig->RegisterInternalTags();
   osmscout::StyleConfigRef styleConfig=std::make_shared<osmscout::StyleConfig>(typeConfig);
 
   TestPainter painter(styleConfig);

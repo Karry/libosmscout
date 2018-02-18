@@ -1807,6 +1807,8 @@ namespace osmscout {
    */
   bool TypeConfig::LoadFromOSTFile(const std::string& filename)
   {
+    RegisterInternalTags();
+
     bool success=false;
 
     try {

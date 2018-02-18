@@ -110,6 +110,8 @@ void CheckParseSuccess(bool canFoot,
   size_t                                          featureInstanceIndex;
   std::unordered_map<osmscout::TagId,std::string> tags;
 
+  typeConfig.RegisterInternalTags();
+
   for (const auto &entry : stringTags) {
     osmscout::TagId tagId=typeConfig.RegisterTag(entry.first);
 
