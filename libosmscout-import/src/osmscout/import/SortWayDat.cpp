@@ -260,7 +260,7 @@ namespace osmscout {
 
     if (reduced) {
       if (nodeBuffer.size()<2) {
-        progress.Debug("Way " + NumberToString(offset) + " empty/invalid after node reduction");
+        progress.Debug("Way " + std::to_string(offset) + " empty/invalid after node reduction");
         save=false;
         return true;
       }
@@ -342,9 +342,9 @@ namespace osmscout {
                                                            Progress& progress,
                                                            const TypeConfig& /*typeConfig*/)
   {
-    progress.Info("Duplicate nodes removed: " + NumberToString(duplicateCount));
-    progress.Info("Redundant nodes removed: " + NumberToString(redundantCount));
-    progress.Info("Overall nodes: " + NumberToString(overallCount));
+    progress.Info("Duplicate nodes removed: " + std::to_string(duplicateCount));
+    progress.Info("Redundant nodes removed: " + std::to_string(redundantCount));
+    progress.Info("Overall nodes: " + std::to_string(overallCount));
 
     return true;
   }
@@ -397,7 +397,7 @@ namespace osmscout {
                                                         Progress& progress,
                                                         const TypeConfig& /*typeConfig*/)
   {
-    progress.Info("Ways without a type removed: " + NumberToString(removedWaysCount));
+    progress.Info("Ways without a type removed: " + std::to_string(removedWaysCount));
 
     return true;
   }

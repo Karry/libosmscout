@@ -47,7 +47,6 @@
 #include <osmscout/util/FileWriter.h>
 #include <osmscout/util/GeoBox.h>
 #include <osmscout/util/Geometry.h>
-#include <osmscout/util/String.h>
 
 #include <osmscout/import/SortWayDat.h>
 #include <osmscout/import/SortNodeDat.h>
@@ -1133,7 +1132,7 @@ namespace osmscout {
         areasFound++;
       }
 
-      progress.Info(std::string("Found ")+NumberToString(areasFound)+" place regions of type 'area'");
+      progress.Info(std::string("Found ")+std::to_string(areasFound)+" place regions of type 'area'");
 
       scanner.Close();
     }
@@ -1306,7 +1305,7 @@ namespace osmscout {
         }
       }
 
-      progress.Info(std::string("Found ")+NumberToString(citiesFound)+" cities of type 'node'");
+      progress.Info(std::string("Found ")+std::to_string(citiesFound)+" cities of type 'node'");
 
       scanner.Close();
     }
@@ -1467,7 +1466,7 @@ namespace osmscout {
         }
       }
 
-      progress.Info(std::string("Found ")+NumberToString(areasFound)+" locations of type 'area'");
+      progress.Info(std::string("Found ")+std::to_string(areasFound)+" locations of type 'area'");
 
       scanner.Close();
     }
@@ -1588,7 +1587,7 @@ namespace osmscout {
         waysFound++;
       }
 
-      progress.Info(std::string("Found ")+NumberToString(waysFound)+" locations of type 'way'");
+      progress.Info(std::string("Found ")+std::to_string(waysFound)+" locations of type 'way'");
 
       scanner.Close();
     }
@@ -1858,10 +1857,10 @@ namespace osmscout {
         }
       }
 
-      progress.Info(NumberToString(areaCount)+" areas analyzed, "+
-                    NumberToString(addressFound)+" addresses founds, "+
-                    NumberToString(poiFound)+" POIs founds, "+
-                    NumberToString(postalCodeFound)+" postal codes found");
+      progress.Info(std::to_string(areaCount)+" areas analyzed, "+
+                    std::to_string(addressFound)+" addresses founds, "+
+                    std::to_string(poiFound)+" POIs founds, "+
+                    std::to_string(postalCodeFound)+" postal codes found");
 
       scanner.Close();
     }
@@ -2051,11 +2050,11 @@ namespace osmscout {
         }
       }
 
-      progress.Info(NumberToString(wayCount)+" ways analyzed, "+NumberToString(poiFound)+" POIs founds");
+      progress.Info(std::to_string(wayCount)+" ways analyzed, "+std::to_string(poiFound)+" POIs founds");
 
-      progress.Info(NumberToString(wayCount)+" ways analyzed, "+
-                    NumberToString(poiFound)+" POIs founds, "+
-                    NumberToString(postalCodeFound)+" postal codes found");
+      progress.Info(std::to_string(wayCount)+" ways analyzed, "+
+                    std::to_string(poiFound)+" POIs founds, "+
+                    std::to_string(postalCodeFound)+" postal codes found");
 
       scanner.Close();
     }
@@ -2246,10 +2245,10 @@ namespace osmscout {
         }
       }
 
-      progress.Info(NumberToString(nodeCount)+" nodes analyzed, "+
-                    NumberToString(addressFound)+" addresses founds, "+
-                    NumberToString(poiFound)+" POIs founds, "+
-                    NumberToString(postalCodeFound)+" postal codes found");
+      progress.Info(std::to_string(nodeCount)+" nodes analyzed, "+
+                    std::to_string(addressFound)+" addresses founds, "+
+                    std::to_string(poiFound)+" POIs founds, "+
+                    std::to_string(postalCodeFound)+" postal codes found");
 
       scanner.Close();
     }
@@ -2672,7 +2671,7 @@ namespace osmscout {
       }
 
       for (size_t level=0; level<boundaryAreas.size(); level++) {
-        progress.SetAction("Sorting in "+NumberToString(boundaryAreas[level].size())+" administrative boundaries of level "+NumberToString(level));
+        progress.SetAction("Sorting in "+std::to_string(boundaryAreas[level].size())+" administrative boundaries of level "+std::to_string(level));
 
         SortInBoundaries(progress,
                          *rootRegion,
@@ -2708,7 +2707,7 @@ namespace osmscout {
 
       regionTree.resize(GetRegionTreeDepth(*rootRegion));
 
-      progress.Info(std::string("Area tree depth: ")+NumberToString(regionTree.size()));
+      progress.Info(std::string("Area tree depth: ")+std::to_string(regionTree.size()));
 
       progress.SetAction("Sorting regions by levels");
 
@@ -2717,7 +2716,7 @@ namespace osmscout {
                    0);
 
       for (size_t i=0; i<regionTree.size(); i++) {
-        progress.Info(std::string("Area tree index ")+NumberToString(i)+" size: "+NumberToString(regionTree[i].size()));
+        progress.Info(std::string("Area tree index ")+std::to_string(i)+" size: "+std::to_string(regionTree[i].size()));
       }
 
       progress.SetAction("Index regions");
@@ -2771,7 +2770,7 @@ namespace osmscout {
           }
         }
 
-        progress.Info(std::string("Area tree index ")+NumberToString(i)+" object count size: "+NumberToString(count));
+        progress.Info(std::string("Area tree index ")+std::to_string(i)+" object count size: "+std::to_string(count));
       }
 
       progress.SetAction("Index address areas");
@@ -2815,7 +2814,7 @@ namespace osmscout {
                             poiIgnoreTokens,
                             locationIgnoreTokens);
 
-      progress.Info("Detected "+NumberToString(regionIgnoreTokens.size())+" token(s) to ignore");
+      progress.Info("Detected "+std::to_string(regionIgnoreTokens.size())+" token(s) to ignore");
 
       progress.SetAction("Calculation region metrics");
 
@@ -2824,10 +2823,10 @@ namespace osmscout {
       CalculateRegionMetrics(*rootRegion,
                              metrics);
 
-      progress.Info("Region words: "+NumberToString(metrics.minRegionWords)+" - "+NumberToString(metrics.maxRegionWords));
-      progress.Info("Max POI words: "+NumberToString(metrics.maxPOIWords));
-      progress.Info("Location words: "+NumberToString(metrics.minLocationWords)+" - "+NumberToString(metrics.maxLocationWords));
-      progress.Info("Max address words: "+NumberToString(metrics.maxAddressWords));
+      progress.Info("Region words: "+std::to_string(metrics.minRegionWords)+" - "+std::to_string(metrics.maxRegionWords));
+      progress.Info("Max POI words: "+std::to_string(metrics.maxPOIWords));
+      progress.Info("Location words: "+std::to_string(metrics.minLocationWords)+" - "+std::to_string(metrics.maxLocationWords));
+      progress.Info("Max address words: "+std::to_string(metrics.maxAddressWords));
 
       progress.SetAction("Dumping region tree");
 
