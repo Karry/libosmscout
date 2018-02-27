@@ -90,6 +90,7 @@ namespace osmscout {
 
     void Close();
     bool Open(const std::string& path,
+              bool memoryMappedData,
               uint32_t fileFormatVersion);
 
     inline bool IsOpen() const

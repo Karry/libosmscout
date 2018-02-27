@@ -8,6 +8,8 @@ LineEdit {
 
     property Item desktop;
     property LocationEntry location;
+    property double searchCenterLat;
+    property double searchCenterLon;
 
     // Internal constant
     property int listCellHeight: Theme.textFontSize*2+4
@@ -21,6 +23,7 @@ LineEdit {
             return;
         }
 
+        setupSearchCenter();
         suggestionModel.setPattern(searchEdit.text)
 
         if (suggestionModel.count>=1) {
@@ -39,7 +42,13 @@ LineEdit {
 
     // Private
 
+    function setupSearchCenter() {
+        suggestionModel.lat=searchCenterLat;
+        suggestionModel.lon=searchCenterLon;
+    }
+
     function updateSuggestions() {
+        setupSearchCenter();
         suggestionModel.setPattern(searchEdit.text)
 
         if (suggestionModel.count>=1 &&
@@ -89,6 +98,7 @@ LineEdit {
 
         hidePopup()
 
+        setupSearchCenter();
         suggestionModel.setPattern(searchEdit.text)
     }
 
@@ -219,6 +229,60 @@ LineEdit {
 
     LocationListModel {
         id: suggestionModel
+
+        // compute rank for location, it should be in range 0~1
+        function locationRank(loc){
+
+            if (loc.type=="coordinate"){
+                return 1;
+            } else if (loc.type=="object"){
+                var rank=1;
+
+                if (loc.objectType=="boundary_country"){
+                    rank*=1;
+                }else if (loc.objectType=="boundary_state"){
+                    rank*=0.93;
+                } else if (loc.objectType=="boundary_administrative" ||
+                           loc.objectType=="place_town"){
+                    rank*=0.9;
+                } else if (loc.objectType=="highway_residential" ||
+                           loc.objectType=="address"){
+                    rank*=0.8;
+                } else if (loc.objectType=="railway_station" ||
+                           loc.objectType=="railway_tram_stop" ||
+                           loc.objectType=="railway_subway_entrance" ||
+                           loc.objectType=="highway_bus_stop"
+                          ){
+                    rank*=0.7;
+                }else{
+                    rank*=0.5;
+                }
+                var distance=loc.distanceTo(searchCenterLat, searchCenterLon);
+                rank*= 1 / Math.log( (distance/1000) + Math.E);
+
+                //console.log("rank " + loc.label + ": " + rank + "");
+                return rank;
+            }
+
+            return 0;
+        }
+
+        compare: function(a, b){
+            // console.log("compare " + a.label + " ("+locationRank(a)+") <> " + b.label + " ("+locationRank(b)+")");
+            return locationRank(b) - locationRank(a);
+        }
+
+        equals: function(a, b){
+            if (a.objectType == b.objectType &&
+                a.distanceTo(b.lat, b.lon) < 300 &&
+                a.distanceTo(searchCenterLat, searchCenterLon) > 3000
+                ){
+                // console.log("equals " + a.label + " <> " + b.label + ", " + a.objectType + " <> " + b.objectType + " distance: " + a.distanceTo(b.lat, b.lon));
+                return true;
+            }
+            return false;
+        }
+
         onCountChanged:{
             if (focus){
               updatePopup();

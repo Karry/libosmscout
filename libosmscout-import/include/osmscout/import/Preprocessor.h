@@ -32,7 +32,7 @@
 
 namespace osmscout {
 
-  class PreprocessorCallback
+  class OSMSCOUT_IMPORT_API PreprocessorCallback
   {
   public:
     struct RawNodeData
@@ -40,6 +40,16 @@ namespace osmscout {
       OSMId    id;
       GeoCoord coord;
       TagMap   tags;
+
+      RawNodeData() = default;
+
+      RawNodeData(OSMId id,
+                  const GeoCoord& coord)
+      : id(id),
+        coord(coord)
+      {
+        // no code
+      }
     };
 
     struct RawWayData
@@ -72,10 +82,16 @@ namespace osmscout {
     virtual void ProcessBlock(RawBlockDataRef data) = 0;
   };
 
-  class Preprocessor
+  class OSMSCOUT_IMPORT_API Preprocessor
   {
   public:
     virtual ~Preprocessor();
+
+    virtual bool Import(const TypeConfigRef& typeConfig,
+                        const ImportParameter& parameter,
+                        Progress& progress,
+                        const std::string& filename) = 0;
+
   };
 }
 

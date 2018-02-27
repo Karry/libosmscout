@@ -85,13 +85,14 @@ namespace osmscout {
   }
 
   bool AreaWayIndex::Open(const TypeConfigRef& typeConfig,
-                          const std::string& path)
+                          const std::string& path,
+                          bool memoryMappedData)
   {
     datafilename=AppendFileToDir(path,AREA_WAY_IDX);
 
     try {
       scanner.Open(datafilename,FileScanner::FastRandom,
-                   true,
+                   memoryMappedData,
                    typeConfig->GetFileFormatVersion());
 
       uint32_t indexEntries;

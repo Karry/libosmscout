@@ -26,6 +26,7 @@
 
 #include <osmscout/private/MapDirectXImportExport.h>
 
+#include <osmscout/PathTextRenderer.h>
 #include <osmscout/private/MapDirectXPaint.h>
 #include <osmscout/MapPainter.h>
 
@@ -49,16 +50,15 @@ namespace osmscout {
 		BitmapMap m_Bitmaps;
 		typedef std::unordered_map<uint64_t, ID2D1StrokeStyle*> StrokeStyleMap;
 		StrokeStyleMap m_StrokeStyles;
+		ID2D1StrokeStyle* m_dashLessStrokeStyle;
 
 		ID2D1Factory* m_pDirect2dFactory;
 		IDWriteFactory* m_pWriteFactory;
 		ID2D1RenderTarget* m_pRenderTarget;
 		IWICImagingFactory* m_pImagingFactory;
+		IDWriteRenderingParams* m_pRenderingParams;
+		PathTextRenderer* m_pPathTextRenderer;
 		FLOAT dpiX, dpiY;
-		CoordBufferImpl<Vertex2D>* coordBuffer;
-		std::map<FillStyle, std::string> fillStyleNameMap;
-		std::map<BorderStyle, std::string> borderStyleNameMap;
-		std::map<LineStyle, std::string> lineStyleNameMap;
 		std::map<double, double> fontHeightMap;
 		TypeConfigRef typeConfig;
 
@@ -91,20 +91,15 @@ namespace osmscout {
 			const MapParameter& parameter,
 			IconStyle& style);
 
-		virtual void GetFontHeight(const Projection& projection,
+		virtual double GetFontHeight(const Projection& projection,
 			const MapParameter& parameter,
-			double fontSize,
-			double& height);
+			double fontSize);
 
-		virtual void GetTextDimension(const Projection& projection,
+		TextDimension GetTextDimension(const Projection& projection,
 			const MapParameter& parameter,
       double objectWidth,
 			double fontSize,
-			const std::string& text,
-			double& xOff,
-			double& yOff,
-			double& width,
-			double& height);
+			const std::string& text);
 
 		/*virtual void GetLabelFrame(const LabelStyle& style,
 			double& horizontal,
@@ -139,7 +134,8 @@ namespace osmscout {
 			const MapParameter& parameter,
 			const PathTextStyle& style,
 			const std::string& text,
-			size_t transStart, size_t transEnd);
+			size_t transStart, size_t transEnd,
+      ContourLabelHelper& helper);
 
 		virtual void DrawContourSymbol(const Projection& projection,
 			const MapParameter& parameter,

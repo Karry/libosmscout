@@ -78,7 +78,7 @@ namespace osmscout {
     }
 
     /**
-     * Marks the tile as inpcomplete again, without actually clearing data and types.
+     * Marks the tile as incomplete again, without actually clearing data and types.
      */
     void Invalidate()
     {
@@ -261,7 +261,7 @@ namespace osmscout {
     TileAreaData optimizedAreaData; //!< Optimized area data
 
   private:
-    Tile(const TileId& id);
+    explicit Tile(const TileId& id);
 
   public:
     friend class DataTileCache;
@@ -457,13 +457,18 @@ namespace osmscout {
                                 const TypeInfoSet& areaTypes);
 
   public:
-    DataTileCache(size_t cacheSize);
+    explicit DataTileCache(size_t cacheSize);
 
     void SetSize(size_t cacheSize);
 
     inline size_t GetSize() const
     {
       return cacheSize;
+    }
+
+    inline size_t GetCurrentSize() const
+    {
+      return tileCache.size();
     }
 
     void CleanupCache();

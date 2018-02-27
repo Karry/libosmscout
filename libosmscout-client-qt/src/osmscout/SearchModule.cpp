@@ -22,6 +22,7 @@
 #include <osmscout/LookupModule.h>
 
 #include <osmscout/util/Logger.h>
+#include <iostream>
 
 SearchModule::SearchModule(QThread *thread,DBThreadRef dbThread,LookupModule *lookupModule):
   thread(thread),dbThread(dbThread),lookupModule(lookupModule)
@@ -43,23 +44,32 @@ SearchModule::~SearchModule()
 
 void SearchModule::SearchLocations(DBInstanceRef &db,
                                    const QString searchPattern,
+                                   const osmscout::AdminRegionRef defaultRegion,
                                    int limit,
+                                   osmscout::BreakerRef &breaker,
                                    std::map<osmscout::FileOffset,osmscout::AdminRegionRef> &adminRegionMap)
 {
   QList<LocationEntry> locations;
   std::string stdSearchPattern=searchPattern.toUtf8().constData();
 
-  // Search by location
-  osmscout::LocationSearch search;
-  search.limit=limit;
+  osmscout::LocationStringSearchParameter searchParameter(stdSearchPattern);
+
+  // searchParameter.SetSearchForLocation(args.searchForLocation);
+  // searchParameter.SetSearchForPOI(args.searchForPOI);
+  // searchParameter.SetAdminRegionOnlyMatch(args.adminRegionOnlyMatch);
+  // searchParameter.SetPOIOnlyMatch(args.poiOnlyMatch);
+  // searchParameter.SetLocationOnlyMatch(args.locationOnlyMatch);
+  // searchParameter.SetAddressOnlyMatch(args.addressOnlyMatch);
+  // searchParameter.SetStringMatcherFactory(matcherFactory);
+  if (defaultRegion)
+    searchParameter.SetDefaultAdminRegion(defaultRegion);
+
+  searchParameter.SetLimit(limit);
+  searchParameter.SetBreaker(breaker);
+
   osmscout::LocationSearchResult result;
 
-  if (!db->locationService->InitializeLocationSearchEntries(stdSearchPattern, search)) {
-    emit searchFinished(searchPattern, /*error*/ true);
-    return;
-  }
-
-  if (!db->locationService->SearchForLocations(search, result)){
+  if (!db->locationService->SearchForLocationByString(searchParameter, result)){
     emit searchFinished(searchPattern, /*error*/ true);
     return;
   }
@@ -124,7 +134,11 @@ void SearchModule::FreeTextSearch(DBInstanceRef &db,
 #endif
 }
 
-void SearchModule::SearchForLocations(const QString searchPattern,int limit)
+void SearchModule::SearchForLocations(const QString searchPattern,
+                                      int limit,
+                                      osmscout::GeoCoord searchCenter,
+                                      AdminRegionInfoRef defaultRegionInfo,
+                                      osmscout::BreakerRef breaker)
 {
   QMutexLocker locker(&mutex);
 
@@ -133,10 +147,52 @@ void SearchModule::SearchForLocations(const QString searchPattern,int limit)
   timer.start();
 
   OSMScoutQt::GetInstance().GetDBThread()->RunSynchronousJob(
-    [this,searchPattern,limit](const std::list<DBInstanceRef>& databases) {
-      for (auto db:databases){
+    [this,&searchPattern,&limit,&searchCenter,&breaker,&defaultRegionInfo](const std::list<DBInstanceRef>& databases) {
+
+      // sort databases by distance from search center
+      // to provide nearest results first
+      std::list<DBInstanceRef> sortedDbs=databases;
+      sortedDbs.sort(
+          [&searchCenter](const DBInstanceRef &a,const DBInstanceRef &b){
+            osmscout::GeoBox abox;
+            osmscout::GeoBox bbox;
+            a->database->GetBoundingBox(abox);
+            b->database->GetBoundingBox(bbox);
+            bool ain=abox.Includes(searchCenter);
+            bool bin=bbox.Includes(searchCenter);
+            //std::cout << "  " << a->path.toStdString() << " ? " << b->path.toStdString() << std::endl;
+            if (bin && !ain){
+              return false;
+            }
+            if (ain && !bin){
+              return true;
+            }
+            // (ain==bin)
+            double adist=osmscout::DistanceSquare(searchCenter,abox.GetCenter());
+            double bdist=osmscout::DistanceSquare(searchCenter,bbox.GetCenter());
+            return adist<bdist;
+          });
+
+      //std::cout << "Sorted databases:" << std::endl;
+
+      for (auto db:sortedDbs){
+        //std::cout << "  " << db->path.toStdString() << std::endl;
         std::map<osmscout::FileOffset,osmscout::AdminRegionRef> adminRegionMap;
-        SearchLocations(db,searchPattern,limit,adminRegionMap);
+
+        if (breaker && breaker->IsAborted()){
+          emit searchFinished(searchPattern, /*error*/ false);
+          break;
+        }
+        osmscout::AdminRegionRef defaultRegion;
+        if (defaultRegionInfo && defaultRegionInfo->database==db->path){
+          defaultRegion=defaultRegionInfo->adminRegion;
+        }
+        SearchLocations(db,searchPattern,defaultRegion,limit,breaker,adminRegionMap);
+
+        if (breaker && breaker->IsAborted()){
+          emit searchFinished(searchPattern, /*error*/ false);
+          break;
+        }
         FreeTextSearch(db,searchPattern,limit,adminRegionMap);
       }
     }
@@ -164,7 +220,7 @@ bool SearchModule::BuildLocationEntry(const osmscout::ObjectFileRef& object,
     osmscout::log.Debug() << "obj:    " << title.toStdString() << " (" << objectType.toStdString() << ")";
 
     // Reverse lookup is slow for all search entries
-    // TODO: move it to SeachModel and make it asynchrous
+    // TODO: move it to SearchModel and make it asynchronous
     /*
     std::list<osmscout::LocationService::ReverseLookupResult> result;
     if (db->locationService->ReverseLookupObject(object, result)){
@@ -229,7 +285,7 @@ bool SearchModule::BuildLocationEntry(const osmscout::LocationSearchResult::Entr
              entry.location) {
 
       QString loc=QString::fromUtf8(entry.location->name.c_str());
-      if (!GetObjectDetails(db, entry.location->objects.front(), objectType, coordinates, bbox)){
+      if (!GetObjectDetails(db, entry.location->objects, objectType, coordinates, bbox)){
         return false;
       }
 
@@ -300,37 +356,58 @@ bool SearchModule::GetObjectDetails(DBInstanceRef db,
                                     const osmscout::ObjectFileRef& object,
                                     QString &typeName,
                                     osmscout::GeoCoord& coordinates,
-                                    osmscout::GeoBox& bbox
-                                    )
+                                    osmscout::GeoBox& bbox) {
+
+  std::vector<osmscout::ObjectFileRef> objects;
+  objects.push_back(object);
+  return GetObjectDetails(db,objects,typeName,coordinates,bbox);
+}
+
+bool SearchModule::GetObjectDetails(DBInstanceRef db,
+                                    const std::vector<osmscout::ObjectFileRef>& objects,
+                                    QString &typeName,
+                                    osmscout::GeoCoord& coordinates,
+                                    osmscout::GeoBox& bbox)
 {
-    if (object.GetType()==osmscout::RefType::refNode) {
+  osmscout::GeoBox tmpBox;
+  for (const osmscout::ObjectFileRef& object:objects) {
+    if (!object.Valid()){
+      continue;
+    }
+    if (object.GetType() == osmscout::RefType::refNode) {
       osmscout::NodeRef node;
 
       if (!db->database->GetNodeByOffset(object.GetFileOffset(), node)) {
         return false;
       }
-      typeName = QString::fromUtf8(node->GetType()->GetName().c_str());
-      coordinates = node->GetCoords();
-      bbox = osmscout::GeoBox::BoxByCenterAndRadius(coordinates, 2.0);
-    }
-    else if (object.GetType()==osmscout::RefType::refArea) {
+      if (typeName.isEmpty()) {
+        typeName = QString::fromUtf8(node->GetType()->GetName().c_str());
+      }
+
+      bbox.Include(osmscout::GeoBox::BoxByCenterAndRadius(node->GetCoords(), 2.0));
+    } else if (object.GetType() == osmscout::RefType::refArea) {
       osmscout::AreaRef area;
 
       if (!db->database->GetAreaByOffset(object.GetFileOffset(), area)) {
         return false;
       }
-      typeName = QString::fromUtf8(area->GetType()->GetName().c_str());
-      area->GetCenter(coordinates);
-      area->GetBoundingBox(bbox);
-    }
-    else if (object.GetType()==osmscout::RefType::refWay) {
+      if (typeName.isEmpty()) {
+        typeName = QString::fromUtf8(area->GetType()->GetName().c_str());
+      }
+      area->GetBoundingBox(tmpBox);
+      bbox.Include(tmpBox);
+    } else if (object.GetType() == osmscout::RefType::refWay) {
       osmscout::WayRef way;
       if (!db->database->GetWayByOffset(object.GetFileOffset(), way)) {
         return false;
       }
-      typeName = QString::fromUtf8(way->GetType()->GetName().c_str());
-      way->GetCenter(coordinates);
-      way->GetBoundingBox(bbox);
+      if (typeName.isEmpty()) {
+        typeName = QString::fromUtf8(way->GetType()->GetName().c_str());
+      }
+      way->GetBoundingBox(tmpBox);
+      bbox.Include(tmpBox);
     }
-    return true;
+  }
+  coordinates=bbox.GetCenter();
+  return true;
 }

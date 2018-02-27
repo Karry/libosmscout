@@ -28,6 +28,7 @@
 
 #include <osmscout/Database.h>
 #include <osmscout/LocationService.h>
+#include <osmscout/LocationDescriptionService.h>
 #include <osmscout/MapService.h>
 #include <osmscout/MapPainterQt.h>
 
@@ -99,24 +100,27 @@ public slots:
   void onThreadFinished();
 
 public: // TODO: make it private, ensure thread safety
-  QString                           path;
-  osmscout::DatabaseRef             database;
+  QString                                 path;
+  osmscout::DatabaseRef                   database;
 
-  osmscout::LocationServiceRef      locationService;
-  osmscout::MapServiceRef           mapService;
-  osmscout::BreakerRef              dataLoadingBreaker;
+  osmscout::LocationServiceRef            locationService;
+  osmscout::LocationDescriptionServiceRef locationDescriptionService;
+  osmscout::MapServiceRef                 mapService;
+  osmscout::BreakerRef                    dataLoadingBreaker;
 
   osmscout::StyleConfigRef          styleConfig;
 
   inline DBInstance(QString path,
                     osmscout::DatabaseRef database,
                     osmscout::LocationServiceRef locationService,
+                    osmscout::LocationDescriptionServiceRef locationDescriptionService,
                     osmscout::MapServiceRef mapService,
                     osmscout::BreakerRef dataLoadingBreaker,
                     osmscout::StyleConfigRef styleConfig):
     path(path),
     database(database),
     locationService(locationService),
+    locationDescriptionService(locationDescriptionService),
     mapService(mapService),
     dataLoadingBreaker(dataLoadingBreaker),
     styleConfig(styleConfig)
@@ -136,8 +140,8 @@ public: // TODO: make it private, ensure thread safety
    * Get or create thread local MapPainter instance for this map
    * \note To make sure that painter will not be destroyed during usage,
    * read-lock for databases should be held.
-   * \warning It may be null when styleConfig is not provided!
-   * @return
+   * \warning It may be null when styleConfig is not loaded!
+   * @return pointer to thread-local painter
    */
   osmscout::MapPainterQt* GetPainter();
 

@@ -32,18 +32,20 @@
 
 DBThread::DBThread(QThread *backgroundThread,
                    QString basemapLookupDirectory,
-                   QStringList databaseLookupDirs,
                    QString iconDirectory,
-                   SettingsRef settings)
+                   SettingsRef settings,
+                   MapManagerRef mapManager,
+                   const std::vector<std::string> &customPoiTypes)
   : backgroundThread(backgroundThread),
-    mapManager(std::make_shared<MapManager>(databaseLookupDirs, settings)),
+    mapManager(mapManager),
     basemapLookupDirectory(basemapLookupDirectory),
     settings(settings),
     mapDpi(-1),
     physicalDpi(-1),
     lock(QReadWriteLock::Recursive),
     iconDirectory(iconDirectory),
-    daylight(true)
+    daylight(true),
+    customPoiTypes(customPoiTypes)
 {
   QScreen *srn=QGuiApplication::screens().at(0);
 
@@ -288,6 +290,16 @@ void DBThread::onDatabaseListChanged(QList<QDir> databaseDirectories)
       osmscout::TypeConfigRef typeConfig=database->GetTypeConfig();
 
       if (typeConfig) {
+
+        for (const std::string &typeName:customPoiTypes){
+          osmscout::TypeInfoRef highlighted=std::make_shared<osmscout::TypeInfo>(typeName);
+          highlighted->SetInternal()
+            .CanBeWay(true)
+            .CanBeArea(true)
+            .CanBeNode(true);
+          typeConfig->RegisterType(highlighted);
+        }
+
         styleConfig=std::make_shared<osmscout::StyleConfig>(typeConfig);
 
         // setup flag overrides before load
@@ -321,6 +333,7 @@ void DBThread::onDatabaseListChanged(QList<QDir> databaseDirectories)
     databases.push_back(std::make_shared<DBInstance>(databaseDirectory.absolutePath(),
                                                      database,
                                                      std::make_shared<osmscout::LocationService>(database),
+                                                     std::make_shared<osmscout::LocationDescriptionService>(database),
                                                      mapService,
                                                      std::make_shared<QBreaker>(),
                                                      styleConfig));

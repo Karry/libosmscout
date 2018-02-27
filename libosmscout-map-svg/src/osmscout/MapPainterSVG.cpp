@@ -24,8 +24,6 @@
 #include <limits>
 #include <list>
 
-#include <osmscout/util/String.h>
-
 #include <osmscout/system/Assert.h>
 #include <osmscout/system/Math.h>
 
@@ -35,10 +33,9 @@ namespace osmscout {
 
   MapPainterSVG::MapPainterSVG(const StyleConfigRef& styleConfig)
   : MapPainter(styleConfig,
-               new CoordBufferImpl<Vertex2D>()),
-    coordBuffer((CoordBufferImpl<Vertex2D>*)transBuffer.buffer),
-    stream(NULL),
-    typeConfig(NULL)
+               new CoordBuffer()),
+    stream(nullptr),
+    typeConfig(nullptr)
   {
 #if defined(OSMSCOUT_MAP_SVG_HAVE_LIB_PANGO)
 #if !defined(GLIB_VERSION_2_36)
@@ -59,7 +56,7 @@ namespace osmscout {
     for (FontMap::const_iterator entry=fonts.begin();
          entry!=fonts.end();
          ++entry) {
-      if (entry->second!=NULL) {
+      if (entry->second!=nullptr) {
         pango_font_description_free(entry->second);
       }
     }
@@ -143,7 +140,7 @@ namespace osmscout {
       std::map<FillStyle,std::string>::const_iterator entry=fillStyleNameMap.find(*area.fillStyle);
 
       if (entry==fillStyleNameMap.end()) {
-        std::string name="area_"+NumberToString(nextAreaId);
+        std::string name="area_"+std::to_string(nextAreaId);
 
         fillStyleNameMap.insert(std::make_pair(*area.fillStyle,name));
 
@@ -196,7 +193,7 @@ namespace osmscout {
       std::map<LineStyle,std::string>::const_iterator entry=lineStyleNameMap.find(*way.lineStyle);
 
       if (entry==lineStyleNameMap.end()) {
-        std::string name="way_"+NumberToString(nextWayId);
+        std::string name="way_"+std::to_string(nextWayId);
 
         lineStyleNameMap.insert(std::make_pair(*way.lineStyle,name));
 
@@ -276,10 +273,9 @@ namespace osmscout {
     return false;
   }
 
-  void MapPainterSVG::GetFontHeight(const Projection& projection,
+  double MapPainterSVG::GetFontHeight(const Projection& projection,
                                     const MapParameter& parameter,
-                                    double fontSize,
-                                    double& height)
+                                    double fontSize)
   {
 #if defined(OSMSCOUT_MAP_SVG_HAVE_LIB_PANGO)
     PangoFontDescription *font;
@@ -288,24 +284,21 @@ namespace osmscout {
                  parameter,
                  fontSize);
 
-    height=pango_font_description_get_size(font)/PANGO_SCALE;
+    return pango_font_description_get_size(font)/PANGO_SCALE;
 #else
       unused(projection);
       unused(parameter);
       unused(fontSize);
-      height=0.0;
+
+      return 0.0;
 #endif
   }
 
-  void MapPainterSVG::GetTextDimension(const Projection& projection,
-                                       const MapParameter& parameter,
-                                       double /*objectWidth*/,
-                                       double fontSize,
-                                       const std::string& text,
-                                       double& xOff,
-                                       double& yOff,
-                                       double& width,
-                                       double& height)
+  MapPainter::TextDimension MapPainterSVG::GetTextDimension(const Projection& projection,
+                                                            const MapParameter& parameter,
+                                                            double /*objectWidth*/,
+                                                            double fontSize,
+                                                            const std::string& text)
   {
 #if defined(OSMSCOUT_MAP_SVG_HAVE_LIB_PANGO)
     PangoFontDescription *font;
@@ -321,22 +314,19 @@ namespace osmscout {
 
     pango_layout_get_pixel_extents(layout,&extends,NULL);
 
-    xOff=extends.x;
-    yOff=extends.y;
-    width=extends.width;
-    height=pango_font_description_get_size(font)/PANGO_SCALE;
-
     g_object_unref(layout);
-#else
-      unused(projection);
-      unused(parameter);
-      unused(fontSize);
-      unused(text);
-      xOff=0.0;
-      yOff=0.0;
-      width=0.0;
-      height=0.0;
 
+    return TextDimension(extends.x,
+                         extends.y,
+                         extends.width,
+                         pango_font_description_get_size(font)/PANGO_SCALE);
+#else
+    unused(projection);
+    unused(parameter);
+    unused(fontSize);
+    unused(text);
+
+    return TextDimension();
 #endif
   }
 
@@ -430,7 +420,8 @@ namespace osmscout {
                                        const MapParameter& /*parameter*/,
                                        const PathTextStyle& /*style*/,
                                        const std::string& /*text*/,
-                                       size_t /*transStart*/, size_t /*transEnd*/)
+                                       size_t /*transStart*/, size_t /*transEnd*/,
+                                       ContourLabelHelper& /*helper*/)
   {
     // Not implemented
   }
@@ -599,21 +590,24 @@ namespace osmscout {
                               const MapData& data,
                               std::ostream& stream)
   {
+    std::lock_guard<std::mutex> guard(mutex);
+    bool                        result=true;
+
     this->stream.rdbuf(stream.rdbuf());
     typeConfig=styleConfig->GetTypeConfig();
 
     WriteHeader(projection.GetWidth(),projection.GetHeight());
 
-    Draw(projection,
-         parameter,
-         data);
+    result=Draw(projection,
+                parameter,
+                data);
 
     WriteFooter();
 
     fillStyleNameMap.clear();
     lineStyleNameMap.clear();
 
-    return true;
+    return result;
   }
 }
 

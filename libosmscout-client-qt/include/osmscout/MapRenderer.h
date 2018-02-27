@@ -28,8 +28,11 @@
 #include <osmscout/DBThread.h>
 
 #include <osmscout/private/ClientQtImportExport.h>
-#include <osmscout/OverlayWay.h>
+#include <osmscout/OverlayObject.h>
 
+/**
+ * \ingroup QtAPI
+ */
 class OSMSCOUT_CLIENT_QT_API DBRenderJob : public DBJob{
   Q_OBJECT
 private:
@@ -40,14 +43,14 @@ private:
   bool success;
   bool drawCanvasBackground;
   bool renderBasemap;
-  std::vector<OverlayWayRef> overlayWays;
+  std::vector<OverlayObjectRef> overlayObjects;
 
 public:
   DBRenderJob(osmscout::MercatorProjection renderProjection,
               QMap<QString,QMap<osmscout::TileId,osmscout::TileRef>> tiles,
               osmscout::MapParameter *drawParameter,
               QPainter *p,
-              std::vector<OverlayWayRef> overlayWays,
+              std::vector<OverlayObjectRef> overlayObjects,
               bool drawCanvasBackground=true,
               bool renderBasemap=true);
   virtual ~DBRenderJob();
@@ -61,6 +64,9 @@ public:
   };
 };
 
+/**
+ * \ingroup QtAPI
+ */
 class OSMSCOUT_CLIENT_QT_API MapRenderer : public QObject {
   Q_OBJECT
 
@@ -77,8 +83,8 @@ protected:
   double      fontSize;
   QString     iconDirectory;
 
-  mutable QMutex              overlayLock;
-  std::map<int,OverlayWayRef> overlayWayMap; // <! map guarded by overlayLock, OverlayWay object is multithread
+  mutable QMutex                 overlayLock;
+  std::map<int,OverlayObjectRef> overlayObjectMap; // <! map guarded by overlayLock, OverlayWay object is multithread
 
 signals:
   void Redraw();
@@ -103,8 +109,8 @@ protected:
 
   osmscout::GeoBox overlayObjectsBox() const;
   
-  void getOverlayWays(std::vector<OverlayWayRef> &ways,
-                      osmscout::GeoBox requestBox) const;
+  void getOverlayObjects(std::vector<OverlayObjectRef> &objs,
+                         osmscout::GeoBox requestBox) const;
 
 public:
   virtual ~MapRenderer();
@@ -116,13 +122,14 @@ public:
    * @return true if rendered map is complete
    */
   virtual bool RenderMap(QPainter& painter,
-                         const RenderMapRequest& request) = 0;
+                         const MapViewStruct& request) = 0;
 
-  void addOverlayWay(int id,OverlayWayRef way);
+  void addOverlayObject(int id, OverlayObjectRef obj);
 
-  void removeOverlayWay(int id);
+  void removeOverlayObject(int id);
+  void removeAllOverlayObjects();
 
-  std::map<int,OverlayWayRef> getOverlayWays() const;
+  std::map<int,OverlayObjectRef> getOverlayObjects() const;
 };
 
 typedef std::shared_ptr<MapRenderer> MapRendererRef;

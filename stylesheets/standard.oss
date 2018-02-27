@@ -404,6 +404,11 @@ CONST
     CIRCLE 0,0 0.4 {
       AREA {color: @busSymbolColor; }
     }
+  
+  SYMBOL ferry_terminal
+    RECTANGLE 0,0 1 x 1 {
+      AREA { color: #30307080; }
+    }
 
   SYMBOL amenity
     RECTANGLE 0,0 1 x 1 {
@@ -467,7 +472,7 @@ CONST
 
   SYMBOL highway_street_lamp
     CIRCLE GROUND 0,0 10 {
-      AREA {color: #f5fb5b; }
+      AREA {color: #f5fb5b44; }
     }
 
   SYMBOL marker
@@ -738,7 +743,10 @@ STYLE
      WAY {color: #0000ff; dash: 1,1; joinCap: butt; endCap: butt; displayWidth: 0.4mm;}
    }
  }
-
+ [TYPE amenity_ferry_terminal] {
+   [MAG detail-] NODE.ICON { symbol: ferry_terminal;}
+   [MAG close-] NODE.TEXT { label: Name.name; color: #303070;}
+ }
  [MAG suburb-] {
    [TYPE highway_trunk_link] {
      [SIZE 18m 0.4mm:3px<] {
@@ -1087,8 +1095,9 @@ STYLE
          highway_primary,
          highway_primary_link,
          highway_secondary,
-         highway_secondary_link,
-         route_ferry] WAY.TEXT{label: Name.name; color: @wayLabelColor; size: 1.0; }
+         highway_secondary_link] WAY.TEXT{label: Name.name; color: @wayLabelColor; size: 1.0; }
+
+    [TYPE route_ferry] WAY.TEXT{label: Name.name; color: @wayLabelColor; size: 1.0; displayOffset: 1.4mm; }
  }
 
  [MAG close-] {
@@ -1371,6 +1380,9 @@ STYLE
        AREA.BORDER { color: @natureReserveBorderColor; width: 0.2mm;}
        AREA.TEXT { label: Name.name; priority: @labelPrioNatural; color: @natureReserveLabelColor; autoSize: true;}
      }
+     [TYPE leisure_swimming_pool] {
+       AREA { color: #74daff;}
+     }
    }
 
    [MAG cityOver-] {
@@ -1474,6 +1486,7 @@ STYLE
          amenity_fast_food,
          amenity_fuel,
          amenity_kindergarten,
+         amenity_library,
          amenity_restaurant,
          amenity_school] AREA { color: @amenityColor; }
  }
@@ -1552,6 +1565,7 @@ STYLE
          amenity_fast_food,
          amenity_fuel,
          amenity_kindergarten,
+         amenity_library,
          amenity_recycling,
          amenity_restaurant,
          amenity_school] {
@@ -1636,6 +1650,7 @@ STYLE
            amenity_fast_food_building,
            amenity_fuel_building,
            amenity_kindergarten_building,
+           amenity_library_building,
            amenity_restaurant_building,
            amenity_school_building] {
        AREA { color: @amenityBuildingColor; }
@@ -1835,6 +1850,11 @@ STYLE
          place_islet] {
      NODE.TEXT {label: IName; style: emphasize; size: 1.3; priority: @labelPrioIsland;}
      AREA.TEXT { label: IName; style: emphasize; priority: @labelPrioIsland; autoSize: true; }
+   }
+ }
+ [MAG region-] {
+   [TYPE place_island,
+         place_islet] {
      AREA {color: @landColor;}
    }
  }

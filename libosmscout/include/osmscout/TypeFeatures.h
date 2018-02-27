@@ -24,8 +24,6 @@
 
 #include <osmscout/TypeConfig.h>
 
-#include <osmscout/util/String.h>
-
 namespace osmscout {
 
   class OSMSCOUT_API NameFeatureValue : public FeatureValue
@@ -1268,7 +1266,7 @@ namespace osmscout {
 
     inline std::string GetLabel() const
     {
-      return NumberToString(ele)+"m";
+      return std::to_string(ele)+"m";
     }
 
     void Read(FileScanner& scanner);
@@ -1598,6 +1596,89 @@ namespace osmscout {
                FeatureValueBuffer& buffer) const;
   };
 
+  class OSMSCOUT_API ConstructionYearFeatureValue : public FeatureValue
+  {
+  private:
+    int startYear;
+    int endYear;
+
+  public:
+    inline ConstructionYearFeatureValue()
+    {
+      // no code
+    }
+
+    inline ConstructionYearFeatureValue(int startYear, int endYear)
+      : startYear(startYear),
+        endYear(endYear)
+    {
+      // no code
+    }
+
+    inline void SetStartYear(int year)
+    {
+      this->startYear=year;
+    }
+
+    inline int GetStartYear() const
+    {
+      return startYear;
+    }
+
+    inline void SetEndYear(int year)
+    {
+      this->endYear=year;
+    }
+
+    inline int GetEndYear() const
+    {
+      return endYear;
+    }
+
+    inline std::string GetLabel() const
+    {
+      if (startYear==endYear) {
+        return std::to_string(startYear);
+      }
+      else {
+        return std::to_string(startYear)+"-"+std::to_string(endYear);
+      }
+    }
+
+    void Read(FileScanner& scanner);
+    void Write(FileWriter& writer);
+
+    FeatureValue& operator=(const FeatureValue& other);
+    bool operator==(const FeatureValue& other) const;
+  };
+
+  class OSMSCOUT_API ConstructionYearFeature : public Feature
+  {
+  private:
+    TagId tagConstructionYear;
+    TagId tagStartDate;
+
+  public:
+    /** Name of this feature */
+    static const char* const NAME;
+
+  public:
+    ConstructionYearFeature();
+    void Initialize(TypeConfig& typeConfig);
+
+    std::string GetName() const;
+
+    size_t GetValueSize() const;
+    FeatureValue* AllocateValue(void* buffer);
+
+    void Parse(TagErrorReporter& reporter,
+               const TypeConfig& typeConfig,
+               const FeatureInstance& feature,
+               const ObjectOSMRef& object,
+               const TagMap& tags,
+               FeatureValueBuffer& buffer) const;
+  };
+
   /**
    * Helper template class for easy access to flag-like Features.
    *
@@ -1781,7 +1862,7 @@ namespace osmscout {
     size_t index=lookupTable[buffer.GetType()->GetIndex()];
 
     if (index!=std::numeric_limits<size_t>::max() &&
-    buffer.HasFeature(index)) {
+        buffer.HasFeature(index)) {
       return dynamic_cast<V*>(buffer.GetValue(index));
     }
     else {
@@ -1804,6 +1885,7 @@ namespace osmscout {
   typedef FeatureValueReader<PostalCodeFeature,PostalCodeFeatureValue>             PostalCodeFeatureValueReader;
   typedef FeatureValueReader<IsInFeature,IsInFeatureValue>                         IsInFeatureValueReader;
   typedef FeatureValueReader<DestinationFeature,DestinationFeatureValue>           DestinationFeatureValueReader;
+  typedef FeatureValueReader<ConstructionYearFeature,ConstructionYearFeatureValue> ConstructionYearFeatureValueReader;
 
   template <class F, class V>
   class FeatureLabelReader

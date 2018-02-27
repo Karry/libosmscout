@@ -23,9 +23,9 @@
 
 #include <osmscout/Database.h>
 #include <osmscout/LocationService.h>
+#include <osmscout/LocationDescriptionService.h>
 
 #include <osmscout/util/CmdLineParsing.h>
-#include <osmscout/util/String.h>
 
 struct Arguments
 {
@@ -38,7 +38,9 @@ struct Arguments
   bool                   poiOnlyMatch=false;
   bool                   locationOnlyMatch=false;
   bool                   addressOnlyMatch=true;
+  bool                   partialMatch=false;
   size_t                 limit=30;
+  size_t                 repeat=1;
   std::list<std::string> location;
 };
 
@@ -181,7 +183,7 @@ std::string GetObject(const osmscout::DatabaseRef& database,
 
   label=object.GetTypeName();
   label+=" ";
-  label+=osmscout::NumberToString(object.GetFileOffset());
+  label+=std::to_string(object.GetFileOffset());
 
   if (object.GetType()==osmscout::RefType::refNode) {
     osmscout::NodeRef node;
@@ -366,11 +368,23 @@ int main(int argc, char* argv[])
                       "addressOnlyMatch",
                       "Return only exact matches for the address");
 
+  argParser.AddOption(osmscout::CmdLineBoolOption([&args](bool value) {
+                        args.partialMatch=value;
+                      }),
+                      "partialMatch",
+                      "Return only matches that match the complete search string");
+
   argParser.AddOption(osmscout::CmdLineSizeTOption([&args](size_t value) {
                         args.limit=value;
                       }),
                       "limit",
                       "Maximum number of results");
+
+  argParser.AddOption(osmscout::CmdLineSizeTOption([&args](size_t value) {
+                        args.repeat=value;
+                      }),
+                      "repeat",
+                      "Cout of repeat for performance test");
 
   argParser.AddPositional(osmscout::CmdLineStringOption([&args](const std::string& value) {
                             args.databaseDirectory=value;
@@ -431,7 +445,6 @@ int main(int argc, char* argv[])
 
   osmscout::StringMatcherFactoryRef matcherFactory=std::make_shared<osmscout::StringMatcherCIFactory>();
   osmscout::LocationServiceRef     locationService=std::make_shared<osmscout::LocationService>(database);
-  osmscout::LocationSearchResult   searchResult;
 
   osmscout::LocationStringSearchParameter searchParameter(osmscout::LocaleStringToUTF8String(searchPattern));
 
@@ -441,6 +454,7 @@ int main(int argc, char* argv[])
   searchParameter.SetPOIOnlyMatch(args.poiOnlyMatch);
   searchParameter.SetLocationOnlyMatch(args.locationOnlyMatch);
   searchParameter.SetAddressOnlyMatch(args.addressOnlyMatch);
+  searchParameter.SetPartialMatch(args.partialMatch);
   searchParameter.SetStringMatcherFactory(matcherFactory);
   searchParameter.SetLimit(args.limit);
 
@@ -482,6 +496,7 @@ int main(int argc, char* argv[])
   std::cout << "POI only match:          " << (searchParameter.GetPOIOnlyMatch() ? "true" : "false") << std::endl;
   std::cout << "Location only match:     " << (searchParameter.GetLocationOnlyMatch() ? "true" : "false") << std::endl;
   std::cout << "Address only match:      " << (searchParameter.GetAddressOnlyMatch() ? "true" : "false") << std::endl;
+  std::cout << "Partial match:           " << (searchParameter.GetPartialMatch() ? "true" : "false") << std::endl;
 
   if (searchParameter.GetDefaultAdminRegion()) {
     std::cout << "Default admin region:    " << searchParameter.GetDefaultAdminRegion()->name << " (" << searchParameter.GetDefaultAdminRegion()->object.GetName() << ")" << std::endl;
@@ -493,20 +508,25 @@ int main(int argc, char* argv[])
 
   osmscout::StopClock locationSearchTime;
 
-  if (!locationService->SearchForLocationByString(searchParameter,
-                                                  searchResult)) {
-    std::cerr << "Error while searching for location" << std::endl;
-    return 1;
+  for (size_t i=0; i<args.repeat; i++) {
+    osmscout::LocationSearchResult   searchResult;
+
+    if (!locationService->SearchForLocationByString(searchParameter,
+                                                    searchResult)) {
+      std::cerr << "Error while searching for location" << std::endl;
+      return 1;
+    }
+
+    if (args.repeat==1) {
+      DumpResult(database,
+                 locationService,
+                 searchResult);
+    }
   }
 
   locationSearchTime.Stop();
-
-  std::cout << "Location search time: " << locationSearchTime.ResultString() << std::endl;
   std::cout << std::endl;
-
-  DumpResult(database,
-             locationService,
-             searchResult);
+  std::cout << "Location search time: " << locationSearchTime.ResultString() << std::endl;
 
   database->Close();
 

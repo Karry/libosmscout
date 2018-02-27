@@ -163,15 +163,16 @@ class OSMSCOUT_CLIENT_QT_API MapView: public QObject
   Q_PROPERTY(double   angle     READ GetAngle)
   Q_PROPERTY(double   mag       READ GetMag)
   Q_PROPERTY(uint32_t magLevel  READ GetMagLevel)
+  Q_PROPERTY(double   mapDpi    READ GetMapDpi)
 
 public:
-  inline MapView(){}
+  inline MapView(QObject *parent=0): QObject(parent) {}
 
-  inline MapView(QObject *parent, osmscout::GeoCoord center, double angle, osmscout::Magnification magnification):
-    QObject(parent), center(center), angle(angle), magnification(magnification) {}
+  inline MapView(QObject *parent, osmscout::GeoCoord center, double angle, osmscout::Magnification magnification, double mapDpi):
+    QObject(parent), center(center), angle(angle), magnification(magnification), mapDpi(mapDpi) {}
 
-  inline MapView(osmscout::GeoCoord center, double angle, osmscout::Magnification magnification):
-    center(center), angle(angle), magnification(magnification) {}
+  inline MapView(osmscout::GeoCoord center, double angle, osmscout::Magnification magnification, double mapDpi):
+    center(center), angle(angle), magnification(magnification), mapDpi(mapDpi) {}
 
   /**
    * This copy constructor don't transfer ownership
@@ -179,7 +180,7 @@ public:
    * @param mv
    */
   inline MapView(const MapView &mv):
-    QObject(), center(mv.center), angle(mv.angle), magnification(mv.magnification) {}
+    QObject(), center(mv.center), angle(mv.angle), magnification(mv.magnification), mapDpi(mv.mapDpi) {}
 
   virtual inline ~MapView(){}
 
@@ -188,24 +189,29 @@ public:
   inline double GetAngle(){ return angle; }
   inline double GetMag(){ return magnification.GetMagnification(); }
   inline double GetMagLevel(){ return magnification.GetLevel(); }
+  inline double GetMapDpi(){ return mapDpi; }
+
+  inline bool IsValid(){ return mapDpi > 0; }
 
   void inline operator=(const MapView &mv)
   {
     center = mv.center;
     angle = mv.angle;
     magnification = mv.magnification;
+    mapDpi = mv.mapDpi;
   }
 
   osmscout::GeoCoord           center;
-  double                       angle;
+  double                       angle{0};
   osmscout::Magnification      magnification;
+  double                       mapDpi{0};
 };
 
 Q_DECLARE_METATYPE(MapView)
 
 inline bool operator==(const MapView& a, const MapView& b)
 {
-  return a.center == b.center && a.angle == b.angle && a.magnification == b.magnification;
+  return a.center == b.center && a.angle == b.angle && a.magnification == b.magnification && a.mapDpi == b.mapDpi;
 }
 inline bool operator!=(const MapView& a, const MapView& b)
 {
@@ -241,9 +247,10 @@ public:
     virtual bool showCoordinates(osmscout::GeoCoord coord, osmscout::Magnification magnification);
     virtual bool zoom(double zoomFactor, const QPoint widgetPosition, const QRect widgetDimension);
     virtual bool move(QVector2D vector); // move vector in pixels
-    virtual bool rotateBy(double angleStep, double angleChange);
+    virtual bool rotateTo(double angle);
+    virtual bool rotateBy(double angleChange);
     virtual bool touch(QTouchEvent *event);
-    virtual bool currentPosition(bool locationValid, osmscout::GeoCoord currentPosition);
+    virtual bool currentPosition(bool locationValid, osmscout::GeoCoord currentPosition, double moveTolerance);
     virtual bool isLockedToPosition();
     virtual bool focusOutEvent(QFocusEvent *event);
 
@@ -269,17 +276,19 @@ private:
     MapView startMapView;
     QVector2D _move;
     osmscout::Magnification targetMagnification;
+    double targetAngle;
     int animationDuration;
 
     const int MOVE_ANIMATION_DURATION = 1000; // ms
     const int ZOOM_ANIMATION_DURATION = 500; // ms
+    const int ROTATE_ANIMATION_DURATION = 1000; //ms
     const int ANIMATION_TICK = 16;
 
 private slots:
     void onTimeout();
 
 public:
-    MoveHandler(MapView view, double dpi);
+    MoveHandler(MapView view);
     virtual ~MoveHandler();
 
     virtual bool animationInProgress();
@@ -294,11 +303,10 @@ public:
 
     virtual bool zoom(double zoomFactor, const QPoint widgetPosition, const QRect widgetDimension);
     virtual bool move(QVector2D vector); // move vector in pixels
-    virtual bool rotateBy(double angleStep, double angleChange);
+    virtual bool rotateTo(double angle);
+    virtual bool rotateBy(double angleChange);
     virtual bool touch(QTouchEvent *event);
 
-private:
-    double dpi;
 };
 
 /**
@@ -337,14 +345,14 @@ public:
 class OSMSCOUT_CLIENT_QT_API DragHandler : public MoveHandler {
     Q_OBJECT
 public:
-    DragHandler(MapView view, double dpi);
+    DragHandler(MapView view);
     virtual ~DragHandler();
 
     virtual bool animationInProgress();
 
     virtual bool zoom(double zoomFactor, const QPoint widgetPosition, const QRect widgetDimension);
     virtual bool move(QVector2D vector); // move vector in pixels
-    virtual bool rotateBy(double angleStep, double angleChange);
+    virtual bool rotateBy(double angleChange);
 
     virtual bool touch(QTouchEvent *event);
 
@@ -367,14 +375,14 @@ private:
 class OSMSCOUT_CLIENT_QT_API MultitouchHandler : public MoveHandler {
     Q_OBJECT
 public:
-    MultitouchHandler(MapView view, double dpi);
+    MultitouchHandler(MapView view);
     virtual ~MultitouchHandler();
 
     virtual bool animationInProgress();
 
     virtual bool zoom(double zoomFactor, const QPoint widgetPosition, const QRect widgetDimension);
     virtual bool move(QVector2D vector); // move vector in pixels
-    virtual bool rotateBy(double angleStep, double angleChange);
+    virtual bool rotateBy(double angleChange);
 
     virtual bool touch(QTouchEvent *event);
 private:
@@ -396,15 +404,12 @@ private:
  */
 class OSMSCOUT_CLIENT_QT_API LockHandler : public JumpHandler {
     Q_OBJECT
-protected:
-    double dpi;
-    double moveTolerance;
 public:
-    inline LockHandler(MapView view, double dpi, double moveTolerance):
-      JumpHandler(view), dpi(dpi), moveTolerance(moveTolerance)
+    inline LockHandler(MapView view):
+      JumpHandler(view)
     {};
 
-    virtual bool currentPosition(bool locationValid, osmscout::GeoCoord currentPosition);
+    virtual bool currentPosition(bool locationValid, osmscout::GeoCoord currentPosition, double moveTolerance);
     virtual bool showCoordinates(osmscout::GeoCoord coord, osmscout::Magnification magnification);
     virtual bool isLockedToPosition();
     virtual bool focusOutEvent(QFocusEvent *event);

@@ -19,8 +19,12 @@
  */
 
 #include <osmscout/PlaneMapRenderer.h>
-
 #include <osmscout/OSMTile.h>
+
+#include <osmscout/system/Math.h>
+
+// uncomment or define by compiler parameter to render various debug marks
+// #define DRAW_DEBUG
 
 // Timeout for the first rendering after rerendering was triggered (render what ever data is available)
 static int INITIAL_DATA_RENDERING_TIMEOUT = 10;
@@ -52,8 +56,8 @@ PlaneMapRenderer::PlaneMapRenderer(QThread *thread,
   // else we might get into a dead lock
   //
 
-  connect(this,SIGNAL(TriggerMapRenderingSignal(const RenderMapRequest&)),
-          this,SLOT(TriggerMapRendering(const RenderMapRequest&)),
+  connect(this,SIGNAL(TriggerMapRenderingSignal(const MapViewStruct&)),
+          this,SLOT(TriggerMapRendering(const MapViewStruct&)),
           Qt::QueuedConnection);
 
   connect(this,SIGNAL(TriggerInitialRendering()),
@@ -61,20 +65,6 @@ PlaneMapRenderer::PlaneMapRenderer(QThread *thread,
 
   connect(&pendingRenderingTimer,SIGNAL(timeout()),
           this,SLOT(DrawMap()));
-
-  /*
-  connect(this,SIGNAL(TileStatusChanged(const osmscout::TileRef&)),
-          this,SLOT(HandleTileStatusChanged(const osmscout::TileRef&)),
-          Qt::QueuedConnection);
-  */
-
-  connect(dbThread.get(),SIGNAL(stylesheetFilenameChanged()),
-          this,SLOT(onStylesheetFilenameChanged()),
-          Qt::QueuedConnection);
-
-  connect(dbThread.get(),SIGNAL(stylesheetFilenameChanged()),
-          this,SLOT(InvalidateVisualCache()),
-          Qt::QueuedConnection);
 
   connect(this,SIGNAL(TriggerDrawMap()),
           this,SLOT(DrawMap()),
@@ -108,10 +98,9 @@ void PlaneMapRenderer::InvalidateVisualCache()
  * @return true if rendered map is complete
  */
 bool PlaneMapRenderer::RenderMap(QPainter& painter,
-                                 const RenderMapRequest& request)
+                                 const MapViewStruct& request)
 {
   //qDebug() << "RenderMap()";
-
   QMutexLocker locker(&finishedMutex);
 
   osmscout::Color backgroundColor;
@@ -166,29 +155,37 @@ bool PlaneMapRenderer::RenderMap(QPainter& painter,
     return false;
   }
 
-  osmscout::GeoBox finalImgBoundingBox;
-  finalImgProjection.GetDimensions(finalImgBoundingBox);
-
-  finalImgProjection.GetDimensions(finalImgBoundingBox);
-
   // projection bounding box may be smaller than projection dimensions...
-  double srcX1;
-  double srcY1;
-  double srcX2;
-  double srcY2;
+  double scale=computeScale(finalImgProjection,requestProjection);
 
-  finalImgProjection.GeoToPixel(finalImgBoundingBox.GetMaxCoord(),srcX2,srcY1); // max coord => right top
-  finalImgProjection.GeoToPixel(finalImgBoundingBox.GetMinCoord(),srcX1,srcY2); // min coord => left bottom
+  QRectF sourceRectangle(0,
+                         0,
+                         finalImgProjection.GetWidth(),
+                         finalImgProjection.GetHeight());
 
-  double x1;
-  double y1;
-  double x2;
-  double y2;
+  double targetCenterX;
+  double targetCenterY;
 
-  requestProjection.GeoToPixel(finalImgBoundingBox.GetMaxCoord(),x2,y1); // max coord => right top
-  requestProjection.GeoToPixel(finalImgBoundingBox.GetMinCoord(),x1,y2); // min coord => left bottom
+  osmscout::GeoCoord srcImageCenterCoord;
+  finalImgProjection.PixelToGeo(finalImgProjection.GetWidth()/2,
+                                finalImgProjection.GetHeight()/2,
+                                srcImageCenterCoord);
 
-  if (x1>0 || y1>0 || x2<request.width || y2<request.height) {
+  requestProjection.GeoToPixel(srcImageCenterCoord,targetCenterX,targetCenterY);
+  double targetTopLeftX=targetCenterX - finalImgProjection.GetWidth()*scale*0.5;
+  double targetTopLeftY=targetCenterY - finalImgProjection.GetHeight()*scale*0.5;
+
+  QRectF targetRectangle(targetTopLeftX,
+                         targetTopLeftY,
+                         finalImgProjection.GetWidth()*scale,
+                         finalImgProjection.GetHeight()*scale);
+
+
+  // check if transformed final img cover current canvas...
+  if (finalImgProjection.GetAngle()!=requestProjection.GetAngle() ||
+      targetRectangle.top()>0 || targetRectangle.left()>0 ||
+      targetRectangle.bottom()<requestProjection.GetHeight() || targetRectangle.right()<requestProjection.GetWidth()) {
+    // ...if not, there is necessary to draw some background
     painter.fillRect(0,
                      0,
                      request.width,
@@ -199,11 +196,58 @@ bool PlaneMapRenderer::RenderMap(QPainter& painter,
                                       backgroundColor.GetA()));
   }
 
-  // TODO: handle angle
-  //qDebug() << "Draw final image to canvas:" << QRectF(x1,y1,x2-x1,y2-y1);
-  painter.drawImage(QRectF(x1,y1,x2-x1,y2-y1),*finishedImage,QRectF(srcX1,srcY1,srcX2-srcX1,srcY2-srcY1));
+  painter.save();
+  if (finalImgProjection.GetAngle()!=requestProjection.GetAngle()){
+    // rotate final image
+    QPointF rotationCenter(targetRectangle.x()+targetRectangle.width()/2.0,
+                           targetRectangle.y()+targetRectangle.height()/2.0);
+    painter.translate(rotationCenter);
+    painter.rotate(qRadiansToDegrees(requestProjection.GetAngle()-finalImgProjection.GetAngle()));
+    painter.translate(rotationCenter*-1.0);
+  }
 
-  RenderMapRequest extendedRequest=request;
+  // After our computations with float numbers, target rectangle is not aligned to pixel.
+  // It leads to additional anti-aliasing that blurs output...
+  double absDiff=std::abs((targetRectangle.x()-targetTopLeftX) - sourceRectangle.x()) +
+                 std::abs((targetRectangle.y()-targetTopLeftY) - sourceRectangle.y()) +
+                 std::abs(targetRectangle.width()              - sourceRectangle.width()) +
+                 std::abs(targetRectangle.height()             - sourceRectangle.height());
+
+  // ...for that reason, when rectangles are (almost) the same,
+  // round target position to get better output
+  if (absDiff < 1e-3 && finalImgProjection.GetAngle()==requestProjection.GetAngle()){
+    targetRectangle.setX(sourceRectangle.x() + round(targetTopLeftX));
+    targetRectangle.setY(sourceRectangle.y() + round(targetTopLeftY));
+    targetRectangle.setSize(sourceRectangle.size());
+  }
+
+  painter.drawImage(targetRectangle,
+                    *finishedImage,
+                    sourceRectangle);
+
+#ifdef DRAW_DEBUG
+  painter.resetTransform();
+  double lon,lat;
+  finalImgProjection.PixelToGeo(0,0,lon,lat);
+  osmscout::GeoCoord topLeft(lat,lon);
+  finalImgProjection.PixelToGeo(finalImgProjection.GetWidth(),finalImgProjection.GetHeight(),lon,lat);
+  osmscout::GeoCoord bottomRight(lat,lon);
+  finalImgProjection.PixelToGeo(finalImgProjection.GetWidth(),0,lon,lat);
+  osmscout::GeoCoord topRight(lat,lon);
+  finalImgProjection.PixelToGeo(0,finalImgProjection.GetHeight(),lon,lat);
+  osmscout::GeoCoord bottomLeft(lat,lon);
+
+  painter.setPen(QColor::fromRgbF(0,0,1));
+  double x1,y1,x2,y2;
+  requestProjection.GeoToPixel(topLeft,x1,y1);
+  requestProjection.GeoToPixel(bottomRight,x2,y2);
+  painter.drawLine(x1,y1,x2,y2);
+  requestProjection.GeoToPixel(topRight,x1,y1);
+  requestProjection.GeoToPixel(bottomLeft,x2,y2);
+  painter.drawLine(x1,y1,x2,y2);
+#endif
+
+  MapViewStruct extendedRequest=request;
   extendedRequest.width*=canvasOverrun;
   extendedRequest.height*=canvasOverrun;
   bool needsNoRepaint=finishedImage->width()==(int) extendedRequest.width &&
@@ -220,7 +264,32 @@ bool PlaneMapRenderer::RenderMap(QPainter& painter,
     emit TriggerMapRenderingSignal(extendedRequest);
   }
 
+  painter.restore();
   return needsNoRepaint;
+}
+
+double PlaneMapRenderer::computeScale(const osmscout::MercatorProjection &previousProjection,
+                                      const osmscout::MercatorProjection &currentProjection)
+{
+  double currentDiagonal=sqrt(pow(currentProjection.GetWidth(),2) + pow(currentProjection.GetHeight(),2));
+
+  double topLeftLon;
+  double topLeftLat;
+  currentProjection.PixelToGeo(0,0,topLeftLon,topLeftLat);
+  double bottomRightLon;
+  double bottomRightLat;
+  currentProjection.PixelToGeo(currentProjection.GetWidth(),currentProjection.GetHeight(),
+                               bottomRightLon,bottomRightLat);
+
+  double x1;
+  double y1;
+  previousProjection.GeoToPixel(osmscout::GeoCoord(topLeftLat,topLeftLon),x1,y1);
+  double x2;
+  double y2;
+  previousProjection.GeoToPixel(osmscout::GeoCoord(bottomRightLat,bottomRightLon),x2,y2);
+
+  double previousDiagonal=sqrt(pow(x2-x1,2) + pow(y2-y1,2));
+  return currentDiagonal / previousDiagonal;
 }
 
 void PlaneMapRenderer::Initialize()
@@ -302,11 +371,11 @@ void PlaneMapRenderer::DrawMap()
     p.setRenderHint(QPainter::TextAntialiasing);
     p.setRenderHint(QPainter::SmoothPixmapTransform);
 
-    // overlay ways
-    std::vector<OverlayWayRef> overlayWays;
+    // overlay objects
+    std::vector<OverlayObjectRef> overlayObjects;
     osmscout::GeoBox renderBox;
     projection.GetDimensions(renderBox);
-    getOverlayWays(overlayWays,renderBox);
+    getOverlayObjects(overlayObjects, renderBox);
 
     bool success;
     {
@@ -314,13 +383,25 @@ void PlaneMapRenderer::DrawMap()
                       loadJob->GetAllTiles(),
                       &drawParameter,
                       &p,
-                      overlayWays,
+                      overlayObjects,
                       /*drawCanvasBackground*/ true);
       dbThread->RunJob(&job);
       success=job.IsSuccess();
     }
 
+#ifdef DRAW_DEBUG
+    p.setPen(QColor::fromRgbF(1,0,0));
+    p.drawLine(0,0, currentImage->width(), currentImage->height());
+    p.drawLine(currentImage->width(),0, 0, currentImage->height());
+#endif
+
     p.end();
+
+    if (loadJob->IsFinished()){
+      // this slot is may be called from DBLoadJob, we can't delete it now
+      loadJob->deleteLater();
+      loadJob=NULL;
+    }
 
     if (!success)  {
       osmscout::log.Error() << "*** Rendering of data has error or was interrupted";
@@ -335,11 +416,6 @@ void PlaneMapRenderer::DrawMap()
       finishedMagnification=currentMagnification;
 
       lastRendering=QTime::currentTime();
-    }
-
-    if (loadJob->IsFinished()){
-      loadJob->deleteLater();
-      loadJob=NULL;
     }
   }
   emit Redraw();
@@ -370,7 +446,7 @@ void PlaneMapRenderer::onLoadJobFinished(QMap<QString,QMap<osmscout::TileId,osms
   emit TriggerDrawMap();
 }
 
-void PlaneMapRenderer::TriggerMapRendering(const RenderMapRequest& request)
+void PlaneMapRenderer::TriggerMapRendering(const MapViewStruct& request)
 {
   {
     QMutexLocker reqLocker(&lastRequestMutex);
@@ -445,7 +521,7 @@ void PlaneMapRenderer::onStylesheetFilenameChanged()
       [this](const std::list<DBInstanceRef>& databases) {
         for (auto &db:databases){
           if (db->styleConfig){
-            db->styleConfig->GetUnknownFillStyle(projection, finishedUnknownFillStyle);
+            finishedUnknownFillStyle=db->styleConfig->GetUnknownFillStyle(projection);
             if (finishedUnknownFillStyle){
               break;
             }

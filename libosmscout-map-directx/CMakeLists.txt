@@ -5,10 +5,12 @@ endif()
 set(HEADER_FILES
     include/osmscout/private/MapDirectXPaint.h
     include/osmscout/MapPainterDirectX.h
+    include/osmscout/PathTextRenderer.h
 )
 
 set(SOURCE_FILES
     src/osmscout/MapPainterDirectX.cpp
+    src/osmscout/PathTextRenderer.cpp
 )
 
 add_library(osmscout_map_directx SHARED ${SOURCE_FILES} ${HEADER_FILES})
@@ -26,10 +28,10 @@ target_link_libraries(osmscout_map_directx
 		osmscout_map
 		${Direct2D_LIBRARIES}
 		Windowscodecs)
-target_compile_definitions(osmscout_map_directx PRIVATE -DOSMSCOUT_MAP_DIRECTX_EXPORT_SYMBOLS)
+target_compile_definitions(osmscout_map_directx PRIVATE -DOSMSCOUT_MAP_DIRECTX_EXPORT_SYMBOLS -DUNICODE -D_UNICODE)
 install(TARGETS osmscout_map_directx
         RUNTIME DESTINATION bin
         LIBRARY DESTINATION lib
         ARCHIVE DESTINATION lib)
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/osmscout DESTINATION include FILES_MATCHING PATTERN "*.h" PATTERN "private" EXCLUDE)
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/osmscout DESTINATION include FILES_MATCHING PATTERN "*.h" PATTERN "private/Config.h" EXCLUDE)
 install(FILES ${OSMSCOUT_BASE_DIR_BUILD}/include/osmscout/MapDirectXFeatures.h DESTINATION include/osmscout)

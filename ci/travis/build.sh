@@ -2,9 +2,6 @@
 
 set -e
 
-echo "Original locale settings:"
-locale
-
 echo "Setting LANG to C.UTF-8:"
 export LANG="C.UTF-8"
 
@@ -14,25 +11,40 @@ locale
 echo "Build start time: `date`"
 
 if [ "$TARGET" = "build" ]; then
-  if  [ "$TRAVIS_OS_NAME" = "osx" ]; then
+  if  [ "$TRAVIS_OS_NAME" = "osx" ] && [ "$PLATFORM" = "osx" ] ; then
     export PATH="/usr/local/opt/qt/bin:$PATH"
     export PATH="/usr/local/opt/gettext/bin:$PATH"
     export PATH="/usr/local/opt/libxml2/bin:$PATH"
   fi
 
-  if [ "$BUILDTOOL" = "autoconf" ]; then
-    make full
-    (cd Tests && make check)
-  elif [ "$BUILDTOOL" = "meson" ]; then
-    meson debug
+  if [ "$BUILDTOOL" = "meson" ]; then
+    # Travis currently cannot build clang + OpenMP (https://github.com/travis-ci/travis-ci/issues/8613)
+    if [ "$CXX" = "clang++" ]; then
+      meson debug -Dopenmp=false
+    else
+      meson debug
+    fi
     cd debug
+
     ninja
+    meson test -v
   elif [ "$BUILDTOOL" = "cmake" ]; then
     mkdir build
     cd build
-    cmake ..
+
+    if  [ "$TRAVIS_OS_NAME" = "osx" ] && [ "$PLATFORM" = "ios" ] ; then
+      cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/iOS.cmake -DMARISA_INCLUDE_DIRS=/usr/local/include/ -DPKG_CONFIG_EXECUTABLE=/usr/local/bin/pkg-config ..
+    else
+      cmake ..
+    fi
+
     make
-    make test
+
+    if  [ "$TRAVIS_OS_NAME" = "osx" ] && [ "$PLATFORM" = "ios" ] ; then
+        echo "Skip test execution for iOS platform"
+    else
+        make test
+    fi
   fi
 elif [ "$TARGET" = "importer" ]; then
     packaging/import/linux/build_import.sh

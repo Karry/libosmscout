@@ -39,7 +39,9 @@ namespace osmscout {
     // no code
   }
 
-  bool LocationIndex::Load(const std::string& path, const uint32_t fileFormatVersion)
+  bool LocationIndex::Load(const std::string& path,
+                           bool memoryMappedData,
+                           const uint32_t fileFormatVersion)
   {
     this->path=path;
     this->fileFormatVersion=fileFormatVersion;
@@ -54,7 +56,7 @@ namespace osmscout {
       scanner.Open(AppendFileToDir(path,
                                    FILENAME_LOCATION_IDX),
                    FileScanner::LowMemRandom,
-                   true,
+                   memoryMappedData,
                    fileFormatVersion);
 
       scanner.Read(bytesForNodeFileOffset);
@@ -687,6 +689,36 @@ namespace osmscout {
         }
 
         scanner.SetPos(currentPos);
+      }
+
+      scanner.Close();
+
+      return true;
+    }
+    catch (IOException& e) {
+      log.Error() << e.GetDescription();
+      scanner.CloseFailsafe();
+      return false;
+    }
+  }
+
+  bool LocationIndex::VisitAdminRegions(const AdminRegion& adminRegion,
+                                        AdminRegionVisitor& visitor) const
+  {
+    FileScanner scanner;
+
+    try {
+      scanner.Open(AppendFileToDir(path,
+                                   FILENAME_LOCATION_IDX),
+                   FileScanner::LowMemRandom,
+                   true,
+                   fileFormatVersion);
+
+      if (!VisitRegionEntries(adminRegion,
+                              scanner,
+                              visitor)) {
+        scanner.Close();
+        return false;
       }
 
       scanner.Close();

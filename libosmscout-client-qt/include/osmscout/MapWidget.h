@@ -33,7 +33,7 @@
 #include <osmscout/SearchLocationModel.h>
 #include <osmscout/InputHandler.h>
 #include <osmscout/OSMScoutQt.h>
-#include <osmscout/OverlayWay.h>
+#include <osmscout/OverlayObject.h>
 
 /**
  * \defgroup QtAPI Qt API
@@ -75,7 +75,6 @@ private:
   MapRenderer      *renderer;
 
   MapView          *view;
-  double           mapDpi;
 
   InputHandler     *inputHandler;
   TapRecognizer    tapRecognizer;     
@@ -126,6 +125,12 @@ public slots:
   void right();
   void up();
   void down();
+
+  /**
+   * Rotate view to specified angle [radians; [0 ~ 2*PI) ]
+   * @param angle
+   */
+  void rotateTo(double angle);
   void rotateLeft();
   void rotateRight();
 
@@ -149,30 +154,34 @@ public slots:
   void removePositionMark(int id);
 
   /**
-   * Method for registering map overlay way.
+   * Method for registering map overlay objects.
    * Usage from QML:
    *
    *    var way=map.createOverlayWay();
    *    way.addPoint(50.09180646851823, 14.498789861494872);
    *    way.addPoint(50.09180646851823, 14.60);
-   *    map.addOverlayWay(0,way);
+   *    map.addOverlayObject(0,way);
    *
    * @param id
    * @param o
    */
-  void addOverlayWay(int id,QObject *o);
-  void removeOverlayWay(int id);
+  void addOverlayObject(int id, QObject *o);
+  void removeOverlayObject(int id);
+  void removeAllOverlayObjects();
+
   OverlayWay *createOverlayWay(QString type="_route");
+  OverlayArea *createOverlayArea(QString type="_highlighted");
+  OverlayNode *createOverlayNode(QString type="_highlighted");
 
   bool toggleDebug();
   bool toggleInfo();
 
 private slots:
 
-  void onTap(const QPoint p);
-  void onDoubleTap(const QPoint p);
-  void onLongTap(const QPoint p);
-  void onTapLongTap(const QPoint p);
+  virtual void onTap(const QPoint p);
+  virtual void onDoubleTap(const QPoint p);
+  virtual void onLongTap(const QPoint p);
+  virtual void onTapLongTap(const QPoint p);
   
   void onMapDPIChange(double dpi);  
   
@@ -269,7 +278,7 @@ public:
     projection.Set(GetCenter(),
                view->angle,
                view->magnification,
-               mapDpi,
+               view->mapDpi,
                // to avoid invalid projection when scene is not finished yet
                w==0? 100:w,
                h==0? 100:h);

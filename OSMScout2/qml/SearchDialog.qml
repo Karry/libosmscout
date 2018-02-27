@@ -9,6 +9,8 @@ FocusScope {
     id: searchDialog
 
     property Item desktop;
+    property double searchCenterLat;
+    property double searchCenterLon;
 
     property alias startLocation: searchEdit.location;
     property alias destinationLocation: destinationEdit.location;
@@ -68,7 +70,7 @@ FocusScope {
         routingPopup.parent = desktop
         routingPopup.visible = true
 
-        map.addOverlayWay(0,routingModel.routeWay);
+        map.addOverlayObject(0,routingModel.routeWay);
         console.log("Show routing result; dialog height: "+routingBox.height);
     }
 
@@ -89,6 +91,9 @@ FocusScope {
 
             LocationSearch {
                 id: searchEdit;
+
+                searchCenterLat: searchDialog.searchCenterLat
+                searchCenterLon: searchDialog.searchCenterLon
 
                 focus: true
 
@@ -149,6 +154,9 @@ FocusScope {
 
             LocationSearch {
                 id: destinationEdit;
+
+                searchCenterLat: searchDialog.searchCenterLat
+                searchCenterLon: searchDialog.searchCenterLon
 
                 visible: false
 
@@ -247,31 +255,7 @@ FocusScope {
                 anchors.margins: 1
                 clip: true
 
-                delegate: Item {
-                    id: item
-
-                    anchors.right: parent.right;
-                    anchors.left: parent.left;
-                    height: text.implicitHeight+5
-
-                    Text {
-                        id: text
-
-                        y:2
-                        x: 2
-                        width: parent.width-4
-                        text: label
-                        font.pixelSize: Theme.textFontSize
-                    }
-
-                    Rectangle {
-                        x: 2
-                        y: parent.height-2
-                        width: parent.width-4
-                        height: 1
-                        color: "lightgrey"
-                    }
-                }
+                delegate: RoutingStep{}
             }
 
             ScrollIndicator {

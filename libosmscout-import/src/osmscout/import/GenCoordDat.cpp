@@ -27,7 +27,6 @@
 #include <osmscout/import/Preprocess.h>
 #include <osmscout/import/RawCoord.h>
 
-#include <osmscout/util/String.h>
 #include <osmscout/system/Compiler.h>
 
 namespace osmscout {
@@ -76,7 +75,7 @@ namespace osmscout {
         std::map<Id,std::vector<Id>> coordPages;
         uint32_t                     currentCoordCount=0;
 
-        progress.Info("Searching for coordinates with page id >= "+NumberToString(currentLowerLimit));
+        progress.Info("Searching for coordinates with page id >= "+std::to_string(currentLowerLimit));
 
         scanner.GotoBegin();
 
@@ -158,13 +157,13 @@ namespace osmscout {
           }
         }
 
-        progress.Info("Loaded "+NumberToString(currentCoordCount)+" coords (" +NumberToString(loadedCoordCount)+"/"+NumberToString(coordCount)+")");
+        progress.Info("Loaded "+std::to_string(currentCoordCount)+" coords (" +std::to_string(loadedCoordCount)+"/"+std::to_string(coordCount)+")");
 
         currentLowerLimit=currentUpperLimit+1;
         currentUpperLimit=maxId/coordSortPageSize;
       }
 
-      progress.Info("Found "+NumberToString(duplicates.size())+" duplicate cordinates");
+      progress.Info("Found "+std::to_string(duplicates.size())+" duplicate cordinates");
 
       scanner.Close();
     }
@@ -254,7 +253,7 @@ namespace osmscout {
         std::map<Id,std::vector<RawCoord>> coordPages;
         uint32_t                           currentCoordCount=0;
 
-        progress.Info("Search for coordinates with page id >= "+NumberToString(currentLowerLimit));
+        progress.Info("Search for coordinates with page id >= "+std::to_string(currentLowerLimit));
 
         scanner.GotoBegin();
 
@@ -322,7 +321,7 @@ namespace osmscout {
               serial=duplicateEntry->second;
 
               if (serial==255) {
-                progress.Error("Coordinate "+NumberToString(osmCoord.GetOSMId())+" "+osmCoord.GetCoord().GetDisplayText()+" has more than 256 nodes");
+                progress.Error("Coordinate "+std::to_string(osmCoord.GetOSMId())+" "+osmCoord.GetCoord().GetDisplayText()+" has more than 256 nodes");
                 continue;
               }
 
@@ -361,7 +360,7 @@ namespace osmscout {
           pageIndex[currentPageId]=pageOffset;
         }
 
-        progress.Info("Loaded "+NumberToString(currentCoordCount)+" coords (" +NumberToString(loadedCoordCount)+"/"+NumberToString(coordCount)+")");
+        progress.Info("Loaded "+std::to_string(currentCoordCount)+" coords (" +std::to_string(loadedCoordCount)+"/"+std::to_string(coordCount)+")");
 
         currentLowerLimit=currentUpperLimit+1;
         currentUpperLimit=maxId/coordSortPageSize;
@@ -369,7 +368,7 @@ namespace osmscout {
 
       FileOffset indexStartOffset=writer.GetPos();
 
-      progress.SetAction("Writing "+NumberToString(pageIndex.size())+" index entries to disk");
+      progress.SetAction("Writing "+std::to_string(pageIndex.size())+" index entries to disk");
 
       writer.Write((uint32_t)pageIndex.size());
 

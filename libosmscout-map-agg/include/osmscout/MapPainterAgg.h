@@ -59,8 +59,6 @@ namespace osmscout {
     typedef agg::conv_contour<AggTextCurveConverter>           AggTextContourConverter;
 
   private:
-    CoordBufferImpl<Vertex2D> *coordBuffer;
-
     AggPixelFormat            *pf;
     AggRenderBase             *renderer_base;
     AggScanlineRasterizer     *rasterizer;
@@ -104,38 +102,33 @@ namespace osmscout {
   protected:
     bool HasIcon(const StyleConfig& styleConfig,
                  const MapParameter& parameter,
-                 IconStyle& style);
+                 IconStyle& style) override;
 
-    void GetFontHeight(const Projection& projection,
+    double GetFontHeight(const Projection& projection,
                        const MapParameter& parameter,
-                       double fontSize,
-                       double& height);
+                       double fontSize) override;
 
-    void GetTextDimension(const Projection& projection,
-                          const MapParameter& parameter,
-                          double objectWidth,
-                          double fontSize,
-                          const std::string& text,
-                          double& xOff,
-                          double& yOff,
-                          double& width,
-                          double& height);
+    TextDimension GetTextDimension(const Projection& projection,
+                                   const MapParameter& parameter,
+                                   double objectWidth,
+                                   double fontSize,
+                                   const std::string& text) override;
 
     void DrawGround(const Projection& projection,
                     const MapParameter& parameter,
-                    const FillStyle& style);
+                    const FillStyle& style) override;
 
     void DrawLabel(const Projection& projection,
                    const MapParameter& parameter,
-                   const LabelData& label);
+                   const LabelData& label) override;
 
     void DrawIcon(const IconStyle* style,
-                  double x, double y);
+                  double x, double y) override;
 
     void DrawSymbol(const Projection& projection,
                     const MapParameter& parameter,
                     const Symbol& symbol,
-                    double x, double y);
+                    double x, double y) override;
 
     void DrawPath(const Projection& projection,
                   const MapParameter& parameter,
@@ -144,27 +137,28 @@ namespace osmscout {
                   const std::vector<double>& dash,
                   LineStyle::CapStyle startCap,
                   LineStyle::CapStyle endCap,
-                  size_t transStart, size_t transEnd);
+                  size_t transStart, size_t transEnd) override;
 
     void DrawContourLabel(const Projection& projection,
                           const MapParameter& parameter,
                           const PathTextStyle& style,
                           const std::string& text,
-                          size_t transStart, size_t transEnd);
+                          size_t transStart, size_t transEnd,
+                          ContourLabelHelper& helper) override;
 
     void DrawContourSymbol(const Projection& projection,
                            const MapParameter& parameter,
                            const Symbol& symbol,
                            double space,
-                           size_t transStart, size_t transEnd);
+                           size_t transStart, size_t transEnd) override;
 
     void DrawArea(const Projection& projection,
                   const MapParameter& parameter,
-                  const AreaData& area);
+                  const AreaData& area) override;
 
   public:
-    MapPainterAgg(const StyleConfigRef& styleConfig);
-    virtual ~MapPainterAgg();
+    explicit MapPainterAgg(const StyleConfigRef& styleConfig);
+    ~MapPainterAgg() override;
 
 
     bool DrawMap(const Projection& projection,

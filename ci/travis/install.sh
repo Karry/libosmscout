@@ -15,17 +15,15 @@ if [ "$TARGET" = "build" ]; then
   if [ "$TRAVIS_OS_NAME" = "linux" ]; then
     sudo apt-get -qq update
 
-    if [ "$BUILDTOOL" = "autoconf" ]; then
-      sudo apt-get install -y autoconf
-    elif [ "$BUILDTOOL" = "meson" ]; then
-      wget https://github.com/ninja-build/ninja/releases/download/v1.7.2/ninja-linux.zip
+    if [ "$BUILDTOOL" = "meson" ]; then
+      wget https://github.com/ninja-build/ninja/releases/download/v1.8.2/ninja-linux.zip
       unzip ninja-linux.zip
       mkdir -p ~/bin
       mv ninja ~/bin
       export PATH=~/bin:$PATH
       sudo apt-get install python3-pip python3-dev build-essential
       pip3 install --upgrade --user pip
-      pip3 install --user meson
+      pip3 install --user meson==0.44.1
     elif [ "$BUILDTOOL" = "cmake" ]; then
       sudo apt-get install -y cmake
     fi
@@ -38,6 +36,7 @@ if [ "$TARGET" = "build" ]; then
       libagg-dev libfreetype6-dev \
       libcairo2-dev libpangocairo-1.0-0 libpango1.0-dev \
       qt5-default qtdeclarative5-dev libqt5svg5-dev qtlocation5-dev \
+      qttools5-dev-tools qttools5-dev \
       freeglut3 freeglut3-dev \
       libmarisa-dev \
       libglew-dev \
@@ -59,18 +58,18 @@ if [ "$TARGET" = "build" ]; then
       brew install meson || true
     fi
 
-    brew install gettext libxml2 protobuf cairo pango qt5 glfw3 glew glm
-    brew link --force gettext
-    brew link --force libxml2
-    brew link --force qt5
+    if  [ "$TRAVIS_OS_NAME" = "osx" ] && [ "$PLATFORM" = "osx" ]; then
+      brew install gettext libxml2 protobuf cairo pango qt5 glfw3 glew glm
+      brew link --force gettext
+      brew link --force libxml2
+      brew link --force qt5
+    fi
   fi
 elif [ "$TARGET" = "importer" ]; then
   if [ "$TRAVIS_OS_NAME" = "linux" ]; then
     sudo apt-get -qq update
 
-    if [ "$BUILDTOOL" = "autoconf" ]; then
-      sudo apt-get install -y autoconf
-    elif [ "$BUILDTOOL" = "cmake" ]; then
+    if [ "$BUILDTOOL" = "cmake" ]; then
       sudo apt-get install -y cmake
     fi
 
@@ -83,8 +82,8 @@ elif [ "$TARGET" = "importer" ]; then
 elif [ "$TARGET" = "website" ]; then
   echo "Installing dependencies for website..."
 
-  wget https://github.com/spf13/hugo/releases/download/v0.26/hugo_0.26_Linux-64bit.deb
-  sudo dpkg -i hugo_0.26_Linux-64bit.deb
+  wget https://github.com/spf13/hugo/releases/download/v0.31/hugo_0.31_Linux-64bit.deb
+  sudo dpkg -i hugo_0.31_Linux-64bit.deb
 
   sudo apt-get -qq update
   sudo apt-get install -y python3-pygments python-pygments doxygen lftp

@@ -31,13 +31,9 @@
 
 #include <osmscout/private/ClientQtImportExport.h>
 
-// these variables should be defined by build system
-#ifndef OSMSCOUT_VERSION_STRING
-#define OSMSCOUT_VERSION_STRING "v?"
-#endif
-
-#ifndef OSMSCOUT_USER_AGENT
-#define OSMSCOUT_USER_AGENT "OSMScout demo app %1"
+// this variable should be defined by build system
+#ifndef LIBOSMSCOUT_VERSION_STRING
+#define LIBOSMSCOUT_VERSION_STRING "v?"
 #endif
 
 /**
@@ -71,6 +67,7 @@ signals:
   void MapDPIChange(double dpi);
   void OnlineTilesEnabledChanged(bool);
   void OnlineTileProviderIdChanged(const QString id);
+  void OnlineTileProviderChanged(const OnlineTileProvider &provider);
   void OfflineMapChanged(bool);
   void RenderSeaChanged(bool);
   void StyleSheetDirectoryChanged(const QString dir);

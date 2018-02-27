@@ -32,12 +32,12 @@ namespace osmscout {
     PreprocessorCallback& callback;
 
   public:
-    PreprocessOSM(PreprocessorCallback& callback);
+    explicit PreprocessOSM(PreprocessorCallback& callback);
 
     bool Import(const TypeConfigRef& typeConfig,
                 const ImportParameter& parameter,
                 Progress& progress,
-                const std::string& filename);
+                const std::string& filename) override;
   };
 }
 

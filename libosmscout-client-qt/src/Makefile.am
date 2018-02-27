@@ -61,14 +61,22 @@ libosmscoutclientqt_la_SOURCES = osmscout/DBThread.cpp \
                                  osmscout/moc_LookupModule.cpp \
                                  osmscout/SearchModule.cpp \
                                  osmscout/moc_SearchModule.cpp \
+                                 osmscout/StyleModule.cpp \
+                                 osmscout/moc_StyleModule.cpp \
                                  osmscout/MapRenderer.cpp \
                                  osmscout/moc_MapRenderer.cpp \
                                  osmscout/PlaneMapRenderer.cpp \
                                  osmscout/moc_PlaneMapRenderer.cpp \
                                  osmscout/TiledMapRenderer.cpp \
                                  osmscout/moc_TiledMapRenderer.cpp \
-                                 osmscout/OverlayWay.cpp \
-                                 osmscout/moc_OverlayWay.cpp
+                                 osmscout/OverlayObject.cpp \
+                                 osmscout/moc_OverlayObject.cpp \
+                                 osmscout/MapOverlay.cpp \
+                                 osmscout/moc_MapOverlay.cpp \
+                                 osmscout/TiledMapOverlay.cpp \
+                                 osmscout/moc_TiledMapOverlay.cpp \
+                                 osmscout/TiledRenderingHelper.cpp \
+                                 osmscout/moc_TiledRenderingHelper.cpp
 
 osmscout/moc_%.cpp: $(top_srcdir)/include/osmscout/%.h
 	@MOC@ -o$@ $<
@@ -99,7 +107,11 @@ MOSTLYCLEANFILES = osmscout/moc_DBThread.cpp \
                    osmscout/moc_DBJob.cpp \
                    osmscout/moc_LookupModule.cpp \
                    osmscout/moc_SearchModule.cpp \
+                   osmscout/moc_StyleModule.cpp \
                    osmscout/moc_MapRenderer.cpp \
                    osmscout/moc_PlaneMapRenderer.cpp \
                    osmscout/moc_TiledMapRenderer.cpp \
-                   osmscout/moc_OverlayWay.cpp
+                   osmscout/moc_OverlayObject.cpp
+                   osmscout/moc_MapOverlay.cpp \
+                   osmscout/moc_TiledMapOverlay.cpp \
+                   osmscout/moc_TiledRenderingHelper.cpp

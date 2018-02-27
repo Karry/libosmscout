@@ -25,7 +25,6 @@
 #include <osmscout/LocationService.h>
 
 #include <osmscout/util/CmdLineParsing.h>
-#include <osmscout/util/String.h>
 
 struct Arguments
 {
@@ -39,6 +38,7 @@ struct Arguments
   bool                   postalAreaOnlyMatch=true;
   bool                   locationOnlyMatch=false;
   bool                   addressOnlyMatch=true;
+  bool                   partialMatch=false;
   size_t                 limit=30;
 };
 
@@ -181,7 +181,7 @@ std::string GetObject(const osmscout::DatabaseRef& database,
 
   label=object.GetTypeName();
   label+=" ";
-  label+=osmscout::NumberToString(object.GetFileOffset());
+  label+=std::to_string(object.GetFileOffset());
 
   if (object.GetType()==osmscout::RefType::refNode) {
     osmscout::NodeRef node;
@@ -372,6 +372,12 @@ int main(int argc, char* argv[])
                       "addressOnlyMatch",
                       "Return only exact matches for the address");
 
+  argParser.AddOption(osmscout::CmdLineBoolOption([&args](bool value) {
+                        args.partialMatch=value;
+                      }),
+                      "partialMatch",
+                      "Return only matches that match the complete search string");
+
   argParser.AddOption(osmscout::CmdLineSizeTOption([&args](size_t value) {
                         args.limit=value;
                       }),
@@ -434,6 +440,8 @@ int main(int argc, char* argv[])
   searchParameter.SetPostalAreaOnlyMatch(args.postalAreaOnlyMatch);
   searchParameter.SetLocationOnlyMatch(args.locationOnlyMatch);
   searchParameter.SetAddressOnlyMatch(args.addressOnlyMatch);
+
+  searchParameter.SetPartialMatch(args.partialMatch);
 
   searchParameter.SetStringMatcherFactory(matcherFactory);
   searchParameter.SetLimit(args.limit);

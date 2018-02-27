@@ -104,7 +104,7 @@ namespace osmscout {
         }
       }
 
-      progress.Info(NumberToString(dataCount)+" areas, "+NumberToString(idCount)+" ids found");
+      progress.Info(std::to_string(dataCount)+" areas, "+std::to_string(idCount)+" ids found");
 
       scanner.Close();
     }
@@ -123,13 +123,14 @@ namespace osmscout {
                                                std::unordered_set<Id>& usedIdAtLeastTwiceSet)
   {
     FileScanner scanner;
-    uint32_t    dataCount=0;
-    uint32_t    idCount=0;
-    uint32_t    circularWayCount=0;
 
     progress.SetAction("Scanning ids from 'wayway.tmp'");
 
     try {
+      uint32_t dataCount=0;
+      uint32_t idCount=0;
+      uint32_t circularWayCount=0;
+
       scanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                    WayWayDataGenerator::WAYWAY_TMP),
                    FileScanner::Sequential,
@@ -183,7 +184,7 @@ namespace osmscout {
         }
       }
 
-      progress.Info(NumberToString(dataCount)+" ways, "+NumberToString(idCount)+" ids, "+NumberToString(circularWayCount)+" circular ways found");
+      progress.Info(std::to_string(dataCount)+" ways, "+std::to_string(idCount)+" ids, "+std::to_string(circularWayCount)+" circular ways found");
 
       scanner.Close();
     }
@@ -202,10 +203,11 @@ namespace osmscout {
   {
     FileScanner scanner;
     FileWriter  writer;
-    uint32_t    areaCount=0;
-    uint32_t    idClearedCount=0;
 
     try {
+      uint32_t areaCount=0;
+      uint32_t idClearedCount=0;
+
       writer.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                   AREAS3_TMP));
 
@@ -257,7 +259,7 @@ namespace osmscout {
 
       writer.Close();
 
-      progress.Info(NumberToString(idClearedCount)+" node serials cleared");
+      progress.Info(std::to_string(idClearedCount)+" node serials cleared");
     }
     catch (IOException& e) {
       progress.Error(e.GetDescription());
@@ -278,12 +280,13 @@ namespace osmscout {
   {
     FileScanner scanner;
     FileWriter  writer;
-    uint32_t    dataCount=0;
-    uint32_t    idClearedCount=0;
 
     progress.SetAction("Copy data from 'wayway.tmp' to 'ways.tmp'");
 
     try {
+      uint32_t dataCount=0;
+      uint32_t idClearedCount=0;
+
       scanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                    WayWayDataGenerator::WAYWAY_TMP),
                    FileScanner::Sequential,
@@ -327,7 +330,7 @@ namespace osmscout {
       scanner.Close();
       writer.Close();
 
-      progress.Info(NumberToString(idClearedCount)+" node serials cleared");
+      progress.Info(std::to_string(idClearedCount)+" node serials cleared");
     }
     catch (IOException& e) {
       progress.Error(e.GetDescription());
@@ -366,7 +369,7 @@ namespace osmscout {
       return false;
     }
 
-    progress.Info("Found "+NumberToString(usedIdSet.size())+" relevant nodes, "+NumberToString(usedIdAtLeastTwiceSet.size())+" of it at least used twice");
+    progress.Info("Found "+std::to_string(usedIdSet.size())+" relevant nodes, "+std::to_string(usedIdAtLeastTwiceSet.size())+" of it at least used twice");
 
     usedIdSet.clear();
 
@@ -377,14 +380,10 @@ namespace osmscout {
       return false;
     }
 
-    if (!CopyWays(parameter,
+    return CopyWays(parameter,
                     progress,
                     *typeConfig,
-                  usedIdAtLeastTwiceSet)) {
-      return false;
-    }
-
-    return true;
+                    usedIdAtLeastTwiceSet);
   }
 }
 

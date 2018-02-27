@@ -198,15 +198,19 @@ bool InputHandler::move(QVector2D /*move*/)
 {
     return false;
 }
-bool InputHandler::rotateBy(double /*angleStep*/, double /*angleChange*/)
+bool InputHandler::rotateTo(double /*angle*/)
 {
     return false;
 }
-bool InputHandler::touch(QTouchEvent */*event*/)
+bool InputHandler::rotateBy(double /*angleChange*/)
 {
     return false;
 }
-bool InputHandler::currentPosition(bool /*locationValid*/, osmscout::GeoCoord /*currentPosition*/)
+bool InputHandler::touch(QTouchEvent* /*event*/)
+{
+    return false;
+}
+bool InputHandler::currentPosition(bool /*locationValid*/, osmscout::GeoCoord /*currentPosition*/, double /*moveTolerance*/)
 {
     return false;
 }
@@ -214,12 +218,12 @@ bool InputHandler::isLockedToPosition()
 {
     return false;
 }
-bool InputHandler::focusOutEvent(QFocusEvent */*event*/)
+bool InputHandler::focusOutEvent(QFocusEvent* /*event*/)
 {
     return false;
 }
 
-MoveHandler::MoveHandler(MapView view, double dpi): InputHandler(view), dpi(dpi)
+MoveHandler::MoveHandler(MapView view): InputHandler(view)
 {
     connect(&timer, SIGNAL(timeout()), this, SLOT(onTimeout()));
     timer.setSingleShot(false);
@@ -255,9 +259,22 @@ void MoveHandler::onTimeout()
     //qDebug() << "move: " << QString::fromStdString(view.center.GetDisplayText()) << "   by: " << move;
     double startMag = startMapView.magnification.GetMagnification();
     double targetMag = targetMagnification.GetMagnification();
+
+    double startAngle = startMapView.angle;
+    double finalAngle = startAngle + ((targetAngle-startAngle) * scale);
+
+    if (finalAngle > 2*M_PI) {
+        finalAngle = fmod(finalAngle, 2*M_PI);
+    }
+
+    if (finalAngle < 0) {
+        finalAngle = 2*M_PI + fmod(finalAngle, 2*M_PI);
+    }
+
     if (!projection.Set(startMapView.center,
+                        finalAngle,
                         osmscout::Magnification(startMag + ((targetMag - startMag) * scale) ),
-                        dpi, 1000, 1000)) {
+                        startMapView.mapDpi, 1000, 1000)) {
         return;
     }
 
@@ -267,6 +284,7 @@ void MoveHandler::onTimeout()
 
     view.magnification = projection.GetMagnification();
     view.center=projection.GetCenter();
+    view.angle=projection.GetAngle();
     if (view.center.GetLon() < OSMTile::minLon()){
         view.center.Set(view.center.GetLat(),OSMTile::minLon());
     }else if (view.center.GetLon() > OSMTile::maxLon()){
@@ -289,7 +307,7 @@ bool MoveHandler::animationInProgress()
 bool MoveHandler::zoom(double zoomFactor, const QPoint widgetPosition, const QRect widgetDimension)
 {
     startMapView = view;
-
+    targetAngle = view.GetAngle();
     // compute event distance from center
     QPoint distance = widgetPosition;
     distance -= QPoint(widgetDimension.width() / 2, widgetDimension.height() / 2);
@@ -334,6 +352,8 @@ bool MoveHandler::move(QVector2D move)
 {
     startMapView = view;
     targetMagnification = view.magnification;
+    targetAngle = view.GetAngle();
+
     _move.setX(move.x());
     _move.setY(move.y());
 
@@ -352,7 +372,7 @@ bool MoveHandler::moveNow(QVector2D move)
 
     //qDebug() << "move: " << QString::fromStdString(view.center.GetDisplayText()) << "   by: " << move;
 
-    if (!projection.Set(view.center, view.magnification, dpi, 1000, 1000)) {
+    if (!projection.Set(view.center, view.angle, view.magnification, view.mapDpi, 1000, 1000)) {
         return false;
     }
 
@@ -375,22 +395,47 @@ bool MoveHandler::moveNow(QVector2D move)
     emit viewChanged(view);
     return true;
 }
-bool MoveHandler::rotateBy(double /*angleStep*/, double /*angleChange*/)
+
+bool MoveHandler::rotateTo(double angle)
 {
-    return false; // FIXME: rotation is broken in current version. discard rotation for now
-    /*
-    view.angle=round(view.angle/angleStep)*angleStep + angleStep;
+    startMapView = view;
+    targetMagnification = view.magnification;
 
-    if (view.angle < 0) {
-        view.angle+=2*M_PI;
-    }
-    if (view.angle <= 2*M_PI) {
-        view.angle-=2*M_PI;
+    targetAngle = angle;
+    if (std::abs(targetAngle-view.angle)>M_PI){
+        targetAngle+=2*M_PI;
     }
 
-    emit viewChanged(view);
+    _move.setX(0);
+    _move.setY(0);
+
+    animationDuration = ROTATE_ANIMATION_DURATION;
+    animationStart.restart();
+    timer.setInterval(ANIMATION_TICK);
+    timer.start();
+    onTimeout();
+
     return true;
-    */
+}
+
+bool MoveHandler::rotateBy(double angleChange)
+{
+
+    startMapView = view;
+    targetMagnification = view.magnification;
+
+    targetAngle = view.angle+angleChange;
+
+    _move.setX(0);
+    _move.setY(0);
+
+    animationDuration = ROTATE_ANIMATION_DURATION;
+    animationStart.restart();
+    timer.setInterval(ANIMATION_TICK);
+    timer.start();
+    onTimeout();
+
+    return true;
 }
 
 
@@ -439,7 +484,7 @@ bool JumpHandler::animationInProgress()
 bool JumpHandler::showCoordinates(osmscout::GeoCoord coord, osmscout::Magnification magnification)
 {
     startMapView = view;
-    targetMapView = MapView(coord, view.angle, magnification);
+    targetMapView = MapView(coord, view.angle, magnification, view.mapDpi);
 
     animationStart.restart();
     timer.setInterval(ANIMATION_TICK);
@@ -449,8 +494,8 @@ bool JumpHandler::showCoordinates(osmscout::GeoCoord coord, osmscout::Magnificat
     return true;
 }
 
-DragHandler::DragHandler(MapView view, double dpi):
-        MoveHandler(view, dpi), moving(true), startView(view), fingerId(-1),
+DragHandler::DragHandler(MapView view):
+        MoveHandler(view), moving(true), startView(view), fingerId(-1),
         startX(-1), startY(-1), ended(false)
 {
 }
@@ -505,7 +550,7 @@ bool DragHandler::move(QVector2D /*move*/)
 {
     return false; // finger on screen discard move
 }
-bool DragHandler::rotateBy(double /*angleStep*/, double /*angleChange*/)
+bool DragHandler::rotateBy(double /*angleChange*/)
 {
     return false; // finger on screen discard rotation ... TODO like zoom
 }
@@ -515,8 +560,8 @@ bool DragHandler::animationInProgress()
 }
 
 
-MultitouchHandler::MultitouchHandler(MapView view, double dpi):
-    MoveHandler(view, dpi), moving(true), startView(view), initialized(false), ended(false)
+MultitouchHandler::MultitouchHandler(MapView view):
+    MoveHandler(view), moving(true), startView(view), initialized(false), ended(false)
 {
 }
 
@@ -536,7 +581,7 @@ bool MultitouchHandler::move(QVector2D /*vector*/)
 {
     return false;
 }
-bool MultitouchHandler::rotateBy(double /*angleStep*/, double /*angleChange*/)
+bool MultitouchHandler::rotateBy(double /*angleChange*/)
 {
     return false;
 }
@@ -638,12 +683,12 @@ bool MultitouchHandler::touch(QTouchEvent *event)
     return true;
 }
 
-bool LockHandler::currentPosition(bool locationValid, osmscout::GeoCoord currentPosition)
+bool LockHandler::currentPosition(bool locationValid, osmscout::GeoCoord currentPosition, double moveTolerance)
 {
     if (locationValid){
         osmscout::MercatorProjection projection;
 
-        if (!projection.Set(view.center, view.magnification, dpi, 1000, 1000)) {
+        if (!projection.Set(view.center, view.magnification, view.mapDpi, 1000, 1000)) {
             return false;
         }
 
@@ -666,7 +711,7 @@ bool LockHandler::isLockedToPosition()
 {
     return true;
 }
-bool LockHandler::focusOutEvent(QFocusEvent */*event*/)
+bool LockHandler::focusOutEvent(QFocusEvent* /*event*/)
 {
     return true;
 }

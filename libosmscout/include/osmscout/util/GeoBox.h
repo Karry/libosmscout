@@ -101,11 +101,12 @@ namespace osmscout {
      *    True, if there is intersection, else false.
      */
     template<typename P> inline bool Includes(const P& coord,
-                                              bool openInterval=true) const
+                             bool openInterval=true) const
     {
       if (!valid){
         return false;
       }
+
       if (openInterval) {
         return minCoord.GetLat()<=coord.GetLat() &&
                maxCoord.GetLat()>coord.GetLat() &&
@@ -134,9 +135,10 @@ namespace osmscout {
     inline bool Intersects(const GeoBox& other,
                            bool openInterval=true) const
     {
-      if (!valid || !other.valid){
+      if (!valid || !other.valid) {
         return false;
       }
+
       if (openInterval) {
         return !(other.GetMaxLon()<minCoord.GetLon() ||
                  other.GetMinLon()>=maxCoord.GetLon() ||
@@ -239,8 +241,31 @@ namespace osmscout {
      *
      * @return GetWidth()*GetHeight()
      */
-    inline double GetSize() const {
+    inline double GetSize() const
+    {
       return GetWidth()*GetHeight();
+    }
+
+    inline GeoCoord GetBottomLeft() const
+    {
+      return minCoord;
+    }
+
+    inline GeoCoord GetBottomRight() const
+    {
+      return GeoCoord(minCoord.GetLat(),
+                      maxCoord.GetLon());
+    }
+
+    inline GeoCoord GetTopLeft() const
+    {
+      return GeoCoord(maxCoord.GetLat(),
+                      minCoord.GetLon());
+    }
+
+    inline GeoCoord GetTopRight() const
+    {
+      return maxCoord;
     }
 
     /**
@@ -248,6 +273,10 @@ namespace osmscout {
      */
     std::string GetDisplayText() const;
 
+    /**
+     * Return an GeoBox based on the center and the radius [meters] of a circle around the center.
+     * The resulting box will cross the circle in its corners.
+     */
     static GeoBox BoxByCenterAndRadius(const GeoCoord& center,double radius);
   };
 }

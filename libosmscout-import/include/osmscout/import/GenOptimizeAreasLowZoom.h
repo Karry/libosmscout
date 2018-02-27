@@ -111,7 +111,8 @@ namespace osmscout {
                      const TypeInfoSet& types,
                      std::list<TypeData>& typesData);
 
-    void OptimizeAreas(const std::list<AreaRef>& areas,
+    void OptimizeAreas(Progress& progress,
+                       const std::list<AreaRef>& areas,
                        std::list<AreaRef>& optimizedAreas,
                        size_t width,
                        size_t height,
@@ -122,11 +123,11 @@ namespace osmscout {
 
   public:
     void GetDescription(const ImportParameter& parameter,
-                        ImportModuleDescription& description) const;
+                        ImportModuleDescription& description) const override;
 
     bool Import(const TypeConfigRef& typeConfig,
                 const ImportParameter& parameter,
-                Progress& progress);
+                Progress& progress) override;
   };
 }
 

@@ -63,12 +63,13 @@ namespace osmscout {
                       TagId polygonTagId);
 
   public:
-    PreprocessPoly(PreprocessorCallback& callback);
-    virtual ~PreprocessPoly();
+    explicit PreprocessPoly(PreprocessorCallback& callback);
+    ~PreprocessPoly() override;
+
     bool Import(const TypeConfigRef& typeConfig,
                 const ImportParameter& parameter,
                 Progress& progress,
-                const std::string& filename);
+                const std::string& filename) override;
   };
 }
 

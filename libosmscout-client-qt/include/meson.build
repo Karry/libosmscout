@@ -6,6 +6,11 @@ osmscoutclientqtHeader = [
             'osmscout/DBInstance.h',
             'osmscout/RoutingModel.h',
             'osmscout/Router.h',
+            'osmscout/RouteDescriptionBuilder.h',
+            'osmscout/RouteStep.h',
+            'osmscout/QtRouteData.h',
+            'osmscout/NavigationModule.h',
+            'osmscout/NavigationModel.h',
             'osmscout/InputHandler.h',
             'osmscout/OnlineTileProvider.h',
             'osmscout/OnlineTileProviderModel.h',
@@ -29,10 +34,16 @@ osmscoutclientqtHeader = [
             'osmscout/DBJob.h',
             'osmscout/LookupModule.h',
             'osmscout/SearchModule.h',
+            'osmscout/StyleModule.h',
             'osmscout/MapRenderer.h',
             'osmscout/PlaneMapRenderer.h',
             'osmscout/TiledMapRenderer.h',
-            'osmscout/OverlayWay.h'
+            'osmscout/OverlayObject.h',
+            'osmscout/MapOverlay.h',
+            'osmscout/TiledMapOverlay.h',
+            'osmscout/TiledRenderingHelper.h',
+            'osmscout/NearPOIModel.h',
+            'osmscout/POILookupModule.h',
           ]
 
 install_headers(osmscoutclientqtHeader)

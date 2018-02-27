@@ -41,7 +41,6 @@ int main(int argc, char* argv[])
 #endif
 
   QGuiApplication app(argc,argv);
-  MainWindow      *window;
   int             result;
 
   app.setOrganizationName("libosmscout");
@@ -51,6 +50,7 @@ int main(int argc, char* argv[])
   // register OSMScout library QML types
   OSMScoutQt::RegisterQmlTypes();
 
+  qRegisterMetaType<QSet<int>>("QSet<int>");
   qmlRegisterType<FileIO, 1>("FileIO", 1, 0, "FileIO");
 
   OSMScoutQtBuilder builder=OSMScoutQt::NewInstance();
@@ -88,23 +88,25 @@ int main(int argc, char* argv[])
   builder
     .WithIconDirectory(iconDirectory)
     .WithMapLookupDirectories(mapLookupDirectories)
-    .WithOnlineTileProviders(":/resources/online-tile-providers.json");
+    .WithOnlineTileProviders(":/resources/online-tile-providers.json")
+    .WithUserAgent("OSMScoutStyleEditor", "v?");
 
   if (!builder.Init()){
     osmscout::log.Error() << "Cannot initialize OSMScout library";
     return 1;
   }
 
-  DBThreadRef dbThread=OSMScoutQt::GetInstance().GetDBThread();
-  window=new MainWindow(dbThread);
 
-  result=app.exec();
+  {
+    DBThreadRef dbThread=OSMScoutQt::GetInstance().GetDBThread();
 
-  delete window;
+    MainWindow window(dbThread);
+    result = app.exec();
 
-  QString tmpStylesheet(dbThread->GetStylesheetFilename()+TMP_SUFFIX);
-  if(QFile::exists(tmpStylesheet)){
+    QString tmpStylesheet(dbThread->GetStylesheetFilename()+TMP_SUFFIX);
+    if(QFile::exists(tmpStylesheet)){
       QFile::remove(tmpStylesheet);
+    }
   }
 
   OSMScoutQt::FreeInstance();

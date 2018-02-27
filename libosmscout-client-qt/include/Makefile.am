@@ -18,8 +18,13 @@ nobase_include_HEADERS= osmscout/private/Config.h \
                         osmscout/DBJob.h \
                         osmscout/LookupModule.h \
                         osmscout/SearchModule.h \
+                        osmscout/StyleModule.h \
                         osmscout/MapRenderer.h \
                         osmscout/PlaneMapRenderer.h \
                         osmscout/TiledMapRenderer.h \
-                        osmscout/OverlayWay.h
+                        osmscout/OverlayObject.h \
+                        osmscout/MapOverlay.h \
+                        osmscout/TiledMapOverlay.h \
+                        osmscout/TiledRenderingHelper.h
+
 

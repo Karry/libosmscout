@@ -31,7 +31,6 @@
 
 #include <osmscout/util/File.h>
 #include <osmscout/util/FileScanner.h>
-#include <osmscout/util/String.h>
 #include <osmscout/util/Geometry.h>
 
 #include <osmscout/import/Preprocess.h>
@@ -101,7 +100,7 @@ namespace osmscout {
 
       scanner.Read(coastlineCount);
 
-      progress.Info(NumberToString(coastlineCount)+" coastlines");
+      progress.Info(std::to_string(coastlineCount)+" coastlines");
 
       for (uint32_t c=1; c<=coastlineCount; c++) {
         progress.SetProgress(c,coastlineCount);
@@ -166,9 +165,9 @@ namespace osmscout {
             processingError=true;
 
             progress.Error("Cannot resolve node with id "+
-                           NumberToString(coastline->GetNodeId(n))+
+                           std::to_string(coastline->GetNodeId(n))+
                            " for coastline "+
-                           NumberToString(coastline->GetId()));
+                           std::to_string(coastline->GetId()));
 
             break;
           }
@@ -197,7 +196,7 @@ namespace osmscout {
         }
       }
 
-      progress.Info(NumberToString(wayCoastCount)+" way coastline(s), "+NumberToString(areaCoastCount)+" area coastline(s)");
+      progress.Info(std::to_string(wayCoastCount)+" way coastline(s), "+std::to_string(areaCoastCount)+" area coastline(s)");
 
       scanner.Close();
     }
@@ -340,7 +339,7 @@ namespace osmscout {
     double cellWidth=360.0;
     double cellHeight=180.0;
 
-    for (size_t zoomLevel=0; zoomLevel<=parameter.GetWaterIndexMaxMag(); zoomLevel++) {
+    for (uint32_t zoomLevel=0; zoomLevel<=parameter.GetWaterIndexMaxMag(); zoomLevel++) {
       if (zoomLevel>=parameter.GetWaterIndexMinMag() &&
           zoomLevel<=parameter.GetWaterIndexMaxMag()) {
         WaterIndexProcessor::Level level;
@@ -395,7 +394,7 @@ namespace osmscout {
 
       processor.DumpIndexHeader(writer,
                                 levels);
-      progress.Info("Generating index for level "+NumberToString(parameter.GetWaterIndexMinMag())+" to "+NumberToString(parameter.GetWaterIndexMaxMag()));
+      progress.Info("Generating index for level "+std::to_string(parameter.GetWaterIndexMinMag())+" to "+std::to_string(parameter.GetWaterIndexMaxMag()));
 
       for (auto& level : levels) {
         Magnification                          magnification;
@@ -406,7 +405,7 @@ namespace osmscout {
 
         projection.Set(GeoCoord(0.0,0.0),magnification,72,640,480);
 
-        progress.SetAction("Building tiles for level "+NumberToString(level.level));
+        progress.SetAction("Building tiles for level "+std::to_string(level.level));
 
         if (!coastlines.empty()) {
           WaterIndexProcessor::Data data;

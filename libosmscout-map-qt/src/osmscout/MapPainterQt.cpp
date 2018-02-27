@@ -38,9 +38,8 @@ namespace osmscout {
 
   MapPainterQt::MapPainterQt(const StyleConfigRef& styleConfig)
   : MapPainter(styleConfig,
-               new CoordBufferImpl<Vertex2D>()),
-    coordBuffer((CoordBufferImpl<Vertex2D>*)transBuffer.buffer),
-    painter(NULL)
+               new CoordBuffer()),
+    painter(nullptr)
   {
     sin.resize(360*10);
 
@@ -185,45 +184,40 @@ namespace osmscout {
     return false;
   }
 
-  void MapPainterQt::GetFontHeight(const Projection& projection,
+  double MapPainterQt::GetFontHeight(const Projection& projection,
                                    const MapParameter& parameter,
-                                   double fontSize,
-                                   double& height)
+                                   double fontSize)
   {
     QFont        font(GetFont(projection,
                               parameter,
                               fontSize));
     QFontMetrics metrics=QFontMetrics(font);
 
-    height=metrics.height();
+    return metrics.height();
   }
 
-  void MapPainterQt::GetTextDimension(const Projection& projection,
-                                      const MapParameter& parameter,
-                                      double objectWidth,
-                                      double fontSize,
-                                      const std::string& text,
-                                      double& xOff,
-                                      double& yOff,
-                                      double& width,
-                                      double& height)
+  MapPainter::TextDimension MapPainterQt::GetTextDimension(const Projection& projection,
+                                                           const MapParameter& parameter,
+                                                           double objectWidth,
+                                                           double fontSize,
+                                                           const std::string& text)
   {
-    QFont        font(GetFont(projection,
-                              parameter,
-                              fontSize));
-    QFontMetrics fontMetrics=QFontMetrics(font);
-    QString      string=QString::fromUtf8(text.c_str());
-    QTextLayout  textLayout(string,font);
-    qreal        leading=fontMetrics.leading() ;
+    QFont         font(GetFont(projection,
+                               parameter,
+                               fontSize));
+    QFontMetrics  fontMetrics=QFontMetrics(font);
+    QString       string=QString::fromUtf8(text.c_str());
+    QTextLayout   textLayout(string,font);
+    qreal         leading=fontMetrics.leading() ;
 
-    qreal        proposedWidth=proposedLabelWidth(parameter,
-                                                  fontMetrics.averageCharWidth(),
-                                                  objectWidth,
-                                                  string.length()
-                                                  );
+    qreal         proposedWidth=GetProposedLabelWidth(parameter,
+                                                      fontMetrics.averageCharWidth(),
+                                                      objectWidth,
+                                                      string.length());
+    TextDimension  dimension;
 
-    width=0;
-    height=0;
+    dimension.width=0;
+    dimension.height=0;
 
     textLayout.beginLayout();
     while (true) {
@@ -232,17 +226,19 @@ namespace osmscout {
         break;
 
       line.setLineWidth(proposedWidth);
-      height+=leading;
-      line.setPosition(QPointF(0.0,height));
-      width=std::max(width,(double)line.naturalTextWidth());
-      height+=line.height();
+      dimension.height+=leading;
+      line.setPosition(QPointF(0.0,dimension.height));
+      dimension.width=std::max(dimension.width,(double)line.naturalTextWidth());
+      dimension.height+=line.height();
     }
     textLayout.endLayout();
 
     QRectF boundingBox=textLayout.boundingRect();
 
-    xOff=boundingBox.x();
-    yOff=boundingBox.y();
+    dimension.xOff=boundingBox.x();
+    dimension.yOff=boundingBox.y();
+
+    return dimension;
   }
 
   void LayoutTextLayout(const QFontMetrics& fontMetrics,
@@ -294,15 +290,15 @@ namespace osmscout {
     QString      string=QString::fromUtf8(label.text.c_str());
     QFontMetrics fontMetrics=QFontMetrics(font);
     QTextLayout  textLayout(string,font);
-    qreal        proposedWidth=std::floor(label.bx2-label.bx1)+1; // try to make word wrapping more stable
+    qreal        proposedWidth=std::ceil(label.bx2-label.bx1); // try to make word wrapping more stable
 
     textLayout.setCacheEnabled(true);
 
-    if (dynamic_cast<const TextStyle*>(label.style.get())!=NULL) {
-      const TextStyle* style=dynamic_cast<const TextStyle*>(label.style.get());
-      double           r=style->GetTextColor().GetR();
-      double           g=style->GetTextColor().GetG();
-      double           b=style->GetTextColor().GetB();
+    if (dynamic_cast<const TextStyle*>(label.style.get())!=nullptr) {
+      const auto *style=dynamic_cast<const TextStyle*>(label.style.get());
+      double      r=style->GetTextColor().GetR();
+      double      g=style->GetTextColor().GetG();
+      double      b=style->GetTextColor().GetB();
 
       if (style->GetStyle()==TextStyle::normal) {
         QColor                          textColor=QColor::fromRgbF(r,g,b,label.alpha);
@@ -369,12 +365,12 @@ namespace osmscout {
                                 label.y+boundingBox.y()));
       }
     }
-    else if (dynamic_cast<const ShieldStyle*>(label.style.get())!=NULL) {
-      const ShieldStyle *style=dynamic_cast<const ShieldStyle*>(label.style.get());
-      QColor             textColor=QColor::fromRgbF(style->GetTextColor().GetR(),
-                                                    style->GetTextColor().GetG(),
-                                                    style->GetTextColor().GetB(),
-                                                    style->GetTextColor().GetA());
+    else if (dynamic_cast<const ShieldStyle*>(label.style.get())!=nullptr) {
+      const auto *style=dynamic_cast<const ShieldStyle*>(label.style.get());
+      QColor     textColor=QColor::fromRgbF(style->GetTextColor().GetR(),
+                                            style->GetTextColor().GetG(),
+                                            style->GetTextColor().GetB(),
+                                            style->GetTextColor().GetA());
       QRectF             boundingBox;
 
       // Shield background
@@ -422,7 +418,7 @@ namespace osmscout {
     }
   }
 
-  void MapPainterQt::setupTransformation(QPainter *painter,
+  void MapPainterQt::SetupTransformation(QPainter* painter,
                                          const QPointF center,
                                          const qreal angle,
                                          const qreal baseline) const
@@ -457,29 +453,32 @@ namespace osmscout {
                                       const MapParameter& parameter,
                                       const PathTextStyle& style,
                                       const std::string& text,
-                                      size_t transStart, size_t transEnd)
+                                      size_t transStart,
+                                      size_t transEnd,
+                                      ContourLabelHelper& helper)
   {
-    double fontSize=style.GetSize();
-    double r=style.GetTextColor().GetR();
-    double g=style.GetTextColor().GetG();
-    double b=style.GetTextColor().GetB();
-    double a=style.GetTextColor().GetA();
+    double  fontSize=style.GetSize();
+    double  r=style.GetTextColor().GetR();
+    double  g=style.GetTextColor().GetG();
+    double  b=style.GetTextColor().GetB();
+    double  a=style.GetTextColor().GetA();
 
-    QPen          pen;
-    QFont         font(GetFont(projection,
-                               parameter,
-                               fontSize));
-    QString       string=QString::fromUtf8(text.c_str());
+    QPen    pen;
+    QFont   font(GetFont(projection,
+                         parameter,
+                         fontSize));
+    int     fontPixelSize=font.pixelSize();
+    QString string=QString::fromUtf8(text.c_str());
 
     QTextLayout textLayout(string,font,painter->device());
     // evaluate layout
     textLayout.beginLayout();
     while (textLayout.createLine().isValid()){};
     textLayout.endLayout();
-    int fontPixelSize=font.pixelSize();
+
+    double textWidth=textLayout.boundingRect().width();
 
     QList<QGlyphRun> glyphs=textLayout.glyphRuns();
-    double stringWidth=textLayout.boundingRect().width();
 
     pen.setColor(QColor::fromRgbF(r,g,b,a));
     painter->setPen(pen);
@@ -487,12 +486,15 @@ namespace osmscout {
 
     // build path
     SimplifiedPath p;
+
+    // Path has direction left => right
     if (coordBuffer->buffer[transStart].GetX()<coordBuffer->buffer[transEnd].GetX()) {
       for (size_t j=transStart; j<=transEnd; j++) {
         p.AddPoint(coordBuffer->buffer[j].GetX(),
                    coordBuffer->buffer[j].GetY());
       }
     }
+    // Path has direction right => left
     else {
       for (size_t j=0; j<=transEnd-transStart; j++) {
         size_t idx=transEnd-j;
@@ -501,60 +503,66 @@ namespace osmscout {
       }
     }
 
-    qreal pLength=p.GetLength();
-    qreal spaceLeft=pLength-stringWidth-2*contourLabelOffset;
+    // Length of path in pixel
+    qreal pathLength=p.GetLength();
 
-    // If space around labels left is < offset on both sides, do not render at all
-    if (spaceLeft<0.0) {
+    if (!helper.Init(pathLength,
+                     textWidth)) {
       return;
     }
 
-    spaceLeft=fmod(spaceLeft,stringWidth+contourLabelSpace);
-
-    qreal labelInstanceOffset=spaceLeft/2+contourLabelOffset;
-    qreal offset=labelInstanceOffset;
-
     QVector<quint32> indexes(1);
     QVector<QPointF> positions(1);
-    while (offset<pLength) {
 
+    // While we have not reached the end of the path...
+    while (helper.ContinueDrawing()) {
+      double offset=helper.GetCurrentOffset();
       // skip string rendering when path is too much squiggly at this offset
-      if (!p.TestAngleVariance(offset,offset+stringWidth,M_PI/4)){
-        offset+=stringWidth+contourLabelSpace;
+      if (!p.TestAngleVariance(offset,offset+textWidth,M_PI/4)){
+        // skip drawing current label and let offset point to the next instance
+        helper.AdvanceText();
+        helper.AdvanceSpace();
         continue;
       }
 
+      // direction of path at the label drawing starting point
       qreal initialAngle=std::abs(p.AngleAtLengthDeg(offset));
       bool upwards=initialAngle>90 && initialAngle<270;
 
       // draw glyphs
-      for (const QGlyphRun &glypRun: glyphs){
-        for (int g=0; g<glypRun.glyphIndexes().size(); g++){
-          auto index=glypRun.glyphIndexes().at(g);
-          auto pos=glypRun.positions().at(g);
+      for (const QGlyphRun& glypRun: glyphs) {
+        for (int idx=0; idx<glypRun.glyphIndexes().size(); idx++) {
+          auto index=glypRun.glyphIndexes().at(idx);
+          auto pos=glypRun.positions().at(idx);
+
           indexes[0]=index;
           positions[0]=QPointF(0,pos.y());
+
           QRectF boundingRect=glypRun.rawFont().boundingRect(index);
 
-          qreal glyphOffset=upwards? (offset+stringWidth-pos.x()) : offset+pos.x();
-          if (glyphOffset>pLength)
+          qreal glyphOffset=upwards? (offset+textWidth-pos.x()) : offset+pos.x();
+
+          if (glyphOffset>pathLength)
             continue;
 
           QPointF point=p.PointAtLength(glyphOffset);
-          // check if current glyph can be visible
           qreal diagonal=boundingRect.width()+boundingRect.height(); // it is little bit longer than correct sqrt(w^2+h^2)
+
+          // check if current glyph can be visible
           if (!painter->viewport().intersects(QRect(QPoint(point.x()-diagonal, point.y()-diagonal),
                                                     QPoint(point.x()+diagonal, point.y()+diagonal)))){
             continue;
           }
+
           qreal angle=p.AngleAtLengthDeg(glyphOffset);
-          if (upwards){
+          if (upwards) {
             angle-=180;
           }
 
-          setupTransformation(painter, point, angle, fontPixelSize*-0.7);
+          SetupTransformation(painter,point,angle,fontPixelSize*-0.7);
 
           QGlyphRun orphanGlyph;
+
           orphanGlyph.setBoundingRect(boundingRect);
           orphanGlyph.setFlags(glypRun.flags());
           orphanGlyph.setGlyphIndexes(indexes);
@@ -569,7 +577,8 @@ namespace osmscout {
         }
       }
 
-      offset+=stringWidth+contourLabelSpace;
+      helper.AdvanceText();
+      helper.AdvanceSpace();
     }
 
     painter->resetTransform();
@@ -742,10 +751,10 @@ namespace osmscout {
     for (const auto& primitive : symbol.GetPrimitives()) {
       const DrawPrimitive *primitivePtr=primitive.get();
 
-      if (dynamic_cast<const PolygonPrimitive*>(primitivePtr)!=NULL) {
-        const PolygonPrimitive *polygon=dynamic_cast<const PolygonPrimitive*>(primitivePtr);
-        FillStyleRef           fillStyle=polygon->GetFillStyle();
-        BorderStyleRef         borderStyle=polygon->GetBorderStyle();
+      if (dynamic_cast<const PolygonPrimitive*>(primitivePtr)!=nullptr) {
+        const auto     *polygon=dynamic_cast<const PolygonPrimitive*>(primitivePtr);
+        FillStyleRef   fillStyle=polygon->GetFillStyle();
+        BorderStyleRef borderStyle=polygon->GetBorderStyle();
 
         if (fillStyle) {
           SetFill(projection,
@@ -768,7 +777,7 @@ namespace osmscout {
         QPainterPath path;
 
         if (polygon->GetProjectionMode()==DrawPrimitive::ProjectionMode::MAP) {
-          for (std::list<Vertex2D>::const_iterator pixel=polygon->GetCoords().begin();
+          for (auto pixel=polygon->GetCoords().begin();
                pixel!=polygon->GetCoords().end();
                ++pixel) {
             if (pixel==polygon->GetCoords().begin()) {
@@ -782,7 +791,7 @@ namespace osmscout {
           }
         }
         else {
-          for (std::list<Vertex2D>::const_iterator pixel=polygon->GetCoords().begin();
+          for (auto pixel=polygon->GetCoords().begin();
                pixel!=polygon->GetCoords().end();
                ++pixel) {
             if (pixel==polygon->GetCoords().begin()) {
@@ -799,10 +808,10 @@ namespace osmscout {
 
         painter->drawPath(path);
       }
-      else if (dynamic_cast<const RectanglePrimitive*>(primitivePtr)!=NULL) {
-        const RectanglePrimitive *rectangle=dynamic_cast<const RectanglePrimitive*>(primitivePtr);
-        FillStyleRef             fillStyle=rectangle->GetFillStyle();
-        BorderStyleRef           borderStyle=rectangle->GetBorderStyle();
+      else if (dynamic_cast<const RectanglePrimitive*>(primitivePtr)!=nullptr) {
+        const auto     *rectangle=dynamic_cast<const RectanglePrimitive*>(primitivePtr);
+        FillStyleRef   fillStyle=rectangle->GetFillStyle();
+        BorderStyleRef borderStyle=rectangle->GetBorderStyle();
 
         if (fillStyle) {
           SetFill(projection,
@@ -839,12 +848,12 @@ namespace osmscout {
 
         painter->drawPath(path);
       }
-      else if (dynamic_cast<const CirclePrimitive*>(primitivePtr)!=NULL) {
-        const CirclePrimitive *circle=dynamic_cast<const CirclePrimitive*>(primitivePtr);
-        FillStyleRef          fillStyle=circle->GetFillStyle();
-        BorderStyleRef        borderStyle=circle->GetBorderStyle();
-        QPointF               center;
-        double                radius;
+      else if (dynamic_cast<const CirclePrimitive*>(primitivePtr)!=nullptr) {
+        const auto     *circle=dynamic_cast<const CirclePrimitive*>(primitivePtr);
+        FillStyleRef   fillStyle=circle->GetFillStyle();
+        BorderStyleRef borderStyle=circle->GetBorderStyle();
+        QPointF        center;
+        double         radius;
 
         if (circle->GetProjectionMode()==DrawPrimitive::ProjectionMode::MAP) {
           center=QPointF(x+projection.ConvertWidthToPixel(circle->GetCenter().GetX()-centerX),
@@ -913,16 +922,14 @@ namespace osmscout {
                               LineStyle::CapStyle endCap,
                               size_t transStart, size_t transEnd)
   {
-    QPen pen;
-
-    pen.setColor(QColor::fromRgbF(color.GetR(),
-                                  color.GetG(),
-                                  color.GetB(),
-                                  color.GetA()));
+    QPen pen(QColor::fromRgbF(color.GetR(),
+                              color.GetG(),
+                              color.GetB(),
+                              color.GetA()));
     pen.setWidthF(width);
     pen.setJoinStyle(Qt::RoundJoin);
 
-   if (startCap==LineStyle::capButt ||
+    if (startCap==LineStyle::capButt ||
        endCap==LineStyle::capButt) {
       pen.setCapStyle(Qt::FlatCap);
     }
@@ -947,23 +954,6 @@ namespace osmscout {
       pen.setDashPattern(dashes);
     }
 
-/*
-    painter->setPen(pen);
-    size_t last=0;
-    bool start=true;
-    for (size_t i=0; i<nodes.size(); i++) {
-      if (drawNode[i]) {
-        if (start) {
-          start=false;
-        }
-        else {
-          painter->drawLine(QPointF(nodeX[last],nodeY[last]),QPointF(nodeX[i],nodeY[i]));
-        }
-
-        last=i;
-      }
-    }*/
-
     QPainterPath p;
 
     p.moveTo(coordBuffer->buffer[transStart].GetX(),
@@ -974,16 +964,6 @@ namespace osmscout {
     }
 
     painter->strokePath(p,pen);
-/*
-    QPolygonF polygon;
-    for (size_t i=0; i<nodes.size(); i++) {
-      if (drawNode[i]) {
-        polygon << QPointF(nodeX[i],nodeY[i]);
-      }
-    }
-
-    painter->setPen(pen);
-    painter->drawPolyline(polygon);*/
 
     if (dash.empty() &&
         startCap==LineStyle::capRound &&
@@ -999,8 +979,8 @@ namespace osmscout {
     }
 
     if (dash.empty() &&
-      endCap==LineStyle::capRound &&
-      startCap!=LineStyle::capRound) {
+        endCap==LineStyle::capRound &&
+        startCap!=LineStyle::capRound) {
       painter->setBrush(QBrush(QColor::fromRgbF(color.GetR(),
                                                 color.GetG(),
                                                 color.GetB(),
@@ -1092,35 +1072,6 @@ namespace osmscout {
                                               1)));
   }
 
-  void MapPainterQt::SetPen(const LineStyle& style,
-                            double lineWidth)
-  {
-    QPen pen;
-
-    pen.setColor(QColor::fromRgbF(style.GetLineColor().GetR(),
-                                  style.GetLineColor().GetG(),
-                                  style.GetLineColor().GetB(),
-                                  style.GetLineColor().GetA()));
-    pen.setWidthF(lineWidth);
-
-    if (style.GetDash().empty()) {
-      pen.setStyle(Qt::SolidLine);
-      pen.setCapStyle(Qt::RoundCap);
-    }
-    else {
-      QVector<qreal> dashes;
-
-      for (size_t i=0; i<style.GetDash().size(); i++) {
-        dashes << style.GetDash()[i];
-      }
-
-      pen.setDashPattern(dashes);
-      pen.setCapStyle(Qt::FlatCap);
-    }
-
-    painter->setPen(pen);
-  }
-
   void MapPainterQt::SetFill(const Projection& projection,
                              const MapParameter& parameter,
                              const FillStyle& fillStyle)
@@ -1165,8 +1116,8 @@ namespace osmscout {
       else {
         QVector<qreal> dashes;
 
-        for (size_t i=0; i<borderStyle.GetDash().size(); i++) {
-          dashes << borderStyle.GetDash()[i];
+        for (double i : borderStyle.GetDash()) {
+          dashes << i;
         }
 
         pen.setDashPattern(dashes);
@@ -1195,11 +1146,7 @@ namespace osmscout {
     painter->setRenderHint(QPainter::Antialiasing);
     painter->setRenderHint(QPainter::TextAntialiasing);
 
-    FillStyleRef      landFill;
-
-
-    styleConfig->GetLandFillStyle(projection,
-                                  landFill);
+    FillStyleRef landFill=styleConfig->GetLandFillStyle(projection);
 
     if (!landFill) {
       return;
@@ -1211,22 +1158,15 @@ namespace osmscout {
                  *landFill);
     }
 
-    FillStyleRef       seaFill;
-    FillStyleRef       coastFill;
-    FillStyleRef       unknownFill;
-    LineStyleRef       coastlineLine;
+    FillStyleRef       seaFill=styleConfig->GetSeaFillStyle(projection);
+    FillStyleRef       coastFill=styleConfig->GetCoastFillStyle(projection);
+    FillStyleRef       unknownFill=styleConfig->GetUnknownFillStyle(projection);
+    LineStyleRef       coastlineLine=styleConfig->GetCoastlineLineStyle(projection);
     std::vector<Point> points;
     size_t             start=0; // Make the compiler happy
     size_t             end=0;   // Make the compiler happy
 
-    styleConfig->GetSeaFillStyle(projection,
-                                 seaFill);
-    styleConfig->GetCoastFillStyle(projection,
-                                   coastFill);
-    styleConfig->GetUnknownFillStyle(projection,
-                                     unknownFill);
-    styleConfig->GetCoastlineLineStyle(projection,
-                                       coastlineLine);
+    ;
 
     if (!seaFill) {
       return;
@@ -1269,7 +1209,8 @@ namespace osmscout {
         areaData.fillStyle=unknownFill;
         break;
       }
-      if (!areaData.fillStyle){
+
+      if (!areaData.fillStyle) {
         continue;
       }
 
@@ -1495,6 +1436,28 @@ namespace osmscout {
     return Draw(projection,
                 parameter,
                 data);
+  }
+
+  MapPainterBatchQt::MapPainterBatchQt(size_t expectedCount):
+    MapPainterBatch(expectedCount) {}
+
+  MapPainterBatchQt::~MapPainterBatchQt(){}
+
+  bool MapPainterBatchQt::paint(const Projection& projection,
+                                const MapParameter& parameter,
+                                QPainter* qPainter)
+  {
+    qPainter->setRenderHint(QPainter::Antialiasing);
+    qPainter->setRenderHint(QPainter::TextAntialiasing);
+
+    // prepare map painters - lock and setup Qt painter
+    std::vector<std::unique_lock<std::mutex>> locks(data.size());
+    for (MapPainterQt* painter: painters){
+      locks.push_back(std::move(std::unique_lock<std::mutex>(painter->mutex)));
+      painter->painter = qPainter;
+    }
+
+    return batchPaintInternal(projection,parameter);
   }
 }
 

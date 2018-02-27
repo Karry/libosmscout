@@ -67,8 +67,15 @@ namespace osmscout {
    */
   void GeoBox::Include(const GeoBox& other)
   {
-    assert(valid);
-    assert(other.valid);
+    if (!other.valid){
+      return;
+    }
+    if(!valid){
+      minCoord=other.GetMinCoord();
+      maxCoord=other.GetMaxCoord();
+      valid=true;
+      return;
+    }
 
     minCoord.Set(std::min(minCoord.GetLat(),
                           other.GetMinCoord().GetLat()),
@@ -109,10 +116,6 @@ namespace osmscout {
     return "[" + minCoord.GetDisplayText() + " - " + maxCoord.GetDisplayText() + "]";
   }
 
-  /**
-   * Return an GeoBox based on the center and the radius of a circle around the center.
-   * The resulting box will cross the circle in its corners.
-   */
   GeoBox GeoBox::BoxByCenterAndRadius(const GeoCoord& center,
                                       double radius)
   {

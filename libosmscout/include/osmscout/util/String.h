@@ -24,6 +24,7 @@
 #include <list>
 #include <memory>
 #include <string>
+#include <chrono>
 
 #include <osmscout/CoreFeatures.h>
 
@@ -92,89 +93,6 @@ namespace osmscout {
     }
 
     return res;
-  }
-
-  template<typename N>
-  std::string NumberToStringSigned(const N& number)
-  {
-    std::string res;
-    N           value(number);
-    bool        negative=false;
-
-    if (value<0) {
-      negative=true;
-      value=-value;
-    }
-
-    res.reserve(20);
-
-    while (value!=0) {
-      res.insert(0,1,(char)('0'+value%10));
-      value=value/10;
-    }
-
-    if (res.empty()) {
-      res.insert(0,1,'0');
-    }
-    else if (negative) {
-      res.insert(0,1,'-');
-    }
-
-    return res;
-  }
-
-  template<typename N>
-  std::string NumberToStringUnsigned(const N& number)
-  {
-    std::string res;
-    N           value(number);
-
-    res.reserve(20);
-
-    while (value!=0) {
-      res.insert(0,1,(char)('0'+value%10));
-      value=value/10;
-    }
-
-    if (res.empty()) {
-      res.insert(0,1,'0');
-    }
-
-    return res;
-  }
-
-  template<bool is_signed, typename N>
-  struct NumberToStringTemplated
-  {
-  };
-
-  template<typename N>
-  struct NumberToStringTemplated<true, N>
-  {
-    static inline std::string f(const N& number)
-    {
-      return NumberToStringSigned<N>(number);
-    }
-  };
-
-  template<typename N>
-  struct NumberToStringTemplated<false, N>
-  {
-    static inline std::string f(const N& number)
-    {
-      return NumberToStringUnsigned<N>(number);
-    }
-  };
-
-  /**
-   * \ingroup Util
-   * Converts the given (possibly negative) decimal number to a std::string.
-   */
-  template<typename N>
-  inline std::string NumberToString(const N& number)
-  {
-    return NumberToStringTemplated<std::numeric_limits<N>::is_signed, N>
-      ::f(number);
   }
 
   template<typename N>
@@ -322,7 +240,7 @@ namespace osmscout {
   template<typename N>
   struct StringToNumberTemplated<true, N>
   {
-    static inline unsigned int f(const std::string& string,
+    static inline bool f(const std::string& string,
                                  N& number,
                                  size_t base=10)
     {
@@ -333,7 +251,7 @@ namespace osmscout {
   template<typename N>
   struct StringToNumberTemplated<false, N>
   {
-    static inline unsigned int f(const std::string& string,
+    static inline bool f(const std::string& string,
                                  N& number,
                                  size_t base=10)
     {
@@ -350,9 +268,9 @@ namespace osmscout {
    *  "-13" => -13
    */
   template<typename N>
-  inline unsigned int StringToNumber(const std::string& string,
-                                     N& number,
-                                     size_t base=10)
+  inline bool StringToNumber(const std::string& string,
+                             N& number,
+                             size_t base=10)
   {
     return StringToNumberTemplated<std::numeric_limits<N>::is_signed, N>
       ::f(string,number,base);
@@ -372,8 +290,6 @@ namespace osmscout {
    * \ingroup Util
    *
    */
-  extern OSMSCOUT_API std::string StringListToString(const std::list<std::string>& list,
-                                                     const std::string& separator="/");
 
   extern OSMSCOUT_API size_t CountWords(const std::string& text);
 
@@ -564,6 +480,30 @@ namespace osmscout {
    * @note that a global C++ locale must be set for more than simple ASCII conversions to work.
    */
   extern OSMSCOUT_API std::string UTF8NormForLookup(const std::string& text);
+
+  typedef std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> Timestamp;
+
+  /**
+   * Parse time string in ISO 8601 format "2017-11-26T13:46:12.124Z" (UTC timezone)
+   * to Timestamp (std::chrono::time_point with millisecond accuracy).
+   *
+   * Note that format is not locale specific
+   *
+   * @param timeStr
+   * @param timestamp
+   * @return true on success
+   */
+  extern OSMSCOUT_API bool ParseISO8601TimeString(const std::string &timeStr, Timestamp &timestamp);
+
+  /**
+   * Format Timestamp to string in ISO8601 format "2017-11-26T13:46:12.124Z"
+   * for UTC timezone.
+   *
+   * @param timestamp
+   * @return time string
+   */
+  extern OSMSCOUT_API std::string TimestampToISO8601TimeString(const Timestamp &timestamp);
+
 }
 
 #endif

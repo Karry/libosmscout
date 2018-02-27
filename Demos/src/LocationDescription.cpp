@@ -23,6 +23,7 @@
 
 #include <osmscout/Database.h>
 #include <osmscout/LocationService.h>
+#include <osmscout/LocationDescriptionService.h>
 #include <osmscout/TypeFeatures.h>
 
 #include <osmscout/util/CmdLineParsing.h>
@@ -56,9 +57,9 @@ struct Arguments
  * src/LocationDescription ../maps/nordrhein-westfalen 51.49300 7.48255
  */
 
-void DumpFeatures(const osmscout::FeatureValueBuffer &features, std::string indent="  ")
+void DumpFeatures(const osmscout::FeatureValueBuffer &features, const std::string& indent="  ")
 {
-    for (auto featureInstance :features.GetType()->GetFeatures()) {
+    for (const auto& featureInstance :features.GetType()->GetFeatures()) {
       if (features.HasFeature(featureInstance.GetIndex())) {
         osmscout::FeatureRef feature=featureInstance.GetFeature();
         std::cout << indent << "+ feature " << feature->GetName();
@@ -73,7 +74,7 @@ void DumpFeatures(const osmscout::FeatureValueBuffer &features, std::string inde
           else {
             // print other values without defined label
             const auto *adminLevel=dynamic_cast<const osmscout::AdminLevelFeatureValue*>(value);
-            if (adminLevel!=NULL) {
+            if (adminLevel!=nullptr) {
               std::cout << ": " << (int)adminLevel->GetAdminLevel();
             }
           }
@@ -126,6 +127,25 @@ void DumpLocationAtPlaceDescription(const std::string& label,
   if (place.GetObjectFeatures()) {
     DumpFeatures(*place.GetObjectFeatures());
   }
+}
+
+void DumpWayDescription(const std::string& label,
+                        osmscout::LocationWayDescription& description)
+{
+  std::cout << label << ":" << std::endl;
+
+  std::cout.precision(1);
+  std::cout << "  * Your are "  << std::fixed << description.GetDistance() << "m";
+  std::cout << " away from way:"  << std::endl;
+
+  std::cout << "  - " << description.GetWay().GetDisplayString() << " " << description.GetWay().GetObject().GetName() << std::endl;
+
+  // print all features of this place
+  std::cout << std::endl;
+  if (description.GetWay().GetObjectFeatures()) {
+    DumpFeatures(*description.GetWay().GetObjectFeatures());
+  }
+
 }
 
 void DumpCrossingDescription(const std::string& label,
@@ -234,10 +254,11 @@ int main(int argc, char* argv[])
   }
 
   osmscout::LocationServiceRef locationService(std::make_shared<osmscout::LocationService>(database));
+  osmscout::LocationDescriptionServiceRef locationDescriptionService(std::make_shared<osmscout::LocationDescriptionService>(database));
 
   osmscout::LocationDescription description;
 
-  if (!locationService->DescribeLocation(args.location,
+  if (!locationDescriptionService->DescribeLocation(args.location,
                                          description)) {
     std::cerr << "Error during generation of location description" << std::endl;
     database->Close();
@@ -249,6 +270,7 @@ int main(int argc, char* argv[])
   osmscout::LocationAtPlaceDescriptionRef  atNameDescription=description.GetAtNameDescription();
   osmscout::LocationAtPlaceDescriptionRef  atAddressDescription=description.GetAtAddressDescription();
   osmscout::LocationAtPlaceDescriptionRef  atPOIDescription=description.GetAtPOIDescription();
+  osmscout::LocationWayDescriptionRef      wayDescription=description.GetWayDescription();
   osmscout::LocationCrossingDescriptionRef crossingDescription=description.GetCrossingDescription();
 
   if (coordDescription) {
@@ -271,6 +293,12 @@ int main(int argc, char* argv[])
     std::cout << std::endl;
     DumpLocationAtPlaceDescription("Nearest POI",*atPOIDescription);
     DumpParentAdminRegions(locationService, database, atPOIDescription->GetPlace().GetAdminRegion());
+  }
+
+  if (wayDescription) {
+    std::cout << std::endl;
+    DumpWayDescription("Nearest way",*wayDescription);
+    DumpParentAdminRegions(locationService, database, wayDescription->GetWay().GetAdminRegion());
   }
 
   if (crossingDescription) {

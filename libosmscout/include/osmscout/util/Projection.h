@@ -45,7 +45,7 @@ namespace osmscout {
   protected:
     double        lon;            //!< Longitude coordinate of the center of the image
     double        lat;            //!< Latitude coordinate of the center of the image
-    double        angle;          //!< Display rotation angle
+    double        angle;          //!< Display rotation angle in radians
     Magnification magnification;  //!< Current magnification
     double        dpi;            //!< Screen DPI
     size_t        width;          //!< Width of image
@@ -170,7 +170,7 @@ namespace osmscout {
     }
 
     /**
-     * Returns the angle ([0..2*PI[) of the display in relation to the north. A degree of 0 means
+     * Returns the angle in radians ([0..2*PI[) of the display in relation to the north. A degree of 0 means
      * north is to the top, a degree of PI, renders with the south to the top of the display).
      */
     inline double GetAngle() const
@@ -228,6 +228,12 @@ namespace osmscout {
                lonMax<this->lonMin ||
                latMin>this->latMax ||
                latMax<this->latMin);
+    }
+
+    inline GeoBox GetDimensions() const
+    {
+      return GeoBox(GeoCoord(latMin,lonMin),
+                    GeoCoord(latMax,lonMax));
     }
 
     /**
@@ -393,7 +399,9 @@ namespace osmscout {
      *
      * Return true on success,
      * false if arguments are not valid for Mercator projection,
-     * projection parameters are unchnaged in such case.
+     * projection parameters are unchanged in such case.
+     *
+     * Angle is in radians ([0..2*PI[)
      *
      * Note that coord (center) have to be valid coordinate
      * in Mercator projection. But it is possible setup dimensions
@@ -416,6 +424,17 @@ namespace osmscout {
 
     bool PixelToGeo(double x, double y,
                     double& lon, double& lat) const;
+
+    inline bool PixelToGeo(double x, double y,
+                           GeoCoord &coord) const
+    {
+      double lat,lon;
+      if (PixelToGeo(x,y,lon,lat)){
+        coord.Set(lat,lon);
+        return true;
+      }
+      return false;
+    }
 
     bool GeoToPixel(const GeoCoord& coord,
                     double& x, double& y) const;
