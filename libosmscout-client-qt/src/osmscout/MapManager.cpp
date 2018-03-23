@@ -84,12 +84,15 @@ void MapDownloadJob::start()
             << "intersections.idx"
             << "router.dat"
             << "router2.dat"
-            << "router.idx"
             << "textloc.dat"
             << "textother.dat"
             << "textpoi.dat"
             << "textregion.dat"
             << "coverage.idx";
+
+  if (map.getVersion()<17){
+    fileNames << "router.idx";
+  }
 
   // types.dat should be last, when download is interrupted,
   // directory is not recognized as valid map
@@ -188,13 +191,13 @@ MapDirectory::MapDirectory(QDir dir):
             << "intersections.idx"
             << "router.dat"
             << "router2.dat"
-            << "router.idx"
             << "textloc.dat"
             << "textother.dat"
             << "textpoi.dat"
             << "textregion.dat"
             << "types.dat";
   // coverage.idx is optional, introduced after database version 16
+  // router.idx is optional, it was removed with database version 17
 
   valid=true;
   for (const auto &fileName: fileNames) {

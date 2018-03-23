@@ -866,7 +866,7 @@ namespace osmscout {
     if (buffer!=NULL) {
       if (offset+2-1>=size) {
         hasError=true;
-        throw IOException(filename,"Cannot read int16_t","Cannot read beyond end of file");
+        throw IOException(filename,"Cannot read uint16_t","Cannot read beyond end of file");
       }
 
       char     *dataPtr=&buffer[offset];
@@ -892,7 +892,7 @@ namespace osmscout {
     hasError=fread(&buffer,1,2,file)!=2;
 
     if (hasError) {
-      throw IOException(filename,"Cannot read int16_t");
+      throw IOException(filename,"Cannot read uint16_t");
     }
 
     unsigned char *dataPtr=buffer;
@@ -920,7 +920,7 @@ namespace osmscout {
     if (buffer!=NULL) {
       if (offset+4-1>=size) {
         hasError=true;
-        throw IOException(filename,"Cannot read int32_t","Cannot read beyond end of file");
+        throw IOException(filename,"Cannot read uint32_t","Cannot read beyond end of file");
       }
 
       char     *dataPtr=&buffer[offset];
@@ -956,7 +956,7 @@ namespace osmscout {
     hasError=fread(&buffer,1,4,file)!=4;
 
     if (hasError) {
-      throw IOException(filename,"Cannot read int32_t");
+      throw IOException(filename,"Cannot read uint32_t");
     }
 
     unsigned char *dataPtr=buffer;
@@ -994,7 +994,7 @@ namespace osmscout {
     if (buffer!=NULL) {
       if (offset+8-1>=size) {
         hasError=true;
-        throw IOException(filename,"Cannot read int64_t","Cannot read beyond end of file");
+        throw IOException(filename,"Cannot read uint64_t","Cannot read beyond end of file");
       }
 
       char     *dataPtr=&buffer[offset];
@@ -1050,7 +1050,7 @@ namespace osmscout {
     hasError=fread(&buffer,1,8,file)!=8;
 
     if (hasError) {
-      throw IOException(filename,"Cannot read int64_t");
+      throw IOException(filename,"Cannot read uint64_t");
     }
 
     unsigned char *dataPtr=buffer;
