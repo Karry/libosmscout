@@ -1134,7 +1134,7 @@ namespace osmscout {
   {
   public:
     static const char* FILE_TYPES_DAT;
-    static const uint32_t MIN_FORMAT_VERSION = FILE_FORMAT_VERSION;
+    static const uint32_t MIN_FORMAT_VERSION = FILE_FORMAT_MIN_VERSION;
     static const uint32_t MAX_FORMAT_VERSION = FILE_FORMAT_VERSION;
 
   private:
