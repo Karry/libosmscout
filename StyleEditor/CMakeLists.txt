@@ -61,14 +61,7 @@ set(RESOURCE_FILES
 
 add_executable(StyleEditor ${SOURCE_FILES} ${HEADER_FILES} ${RESOURCE_FILES})
 
-target_include_directories(StyleEditor PRIVATE
-		${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout/include
-		${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout-map/include
-		${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout-map-qt/include
-		${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout-client-qt/include
-)
-
-if(APPLE)
+if(APPLE AND BUILD_FRAMEWORKS)
 	target_link_libraries(StyleEditor
 		OSMScout
         	OSMScoutMap

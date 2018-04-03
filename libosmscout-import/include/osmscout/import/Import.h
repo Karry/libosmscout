@@ -24,9 +24,9 @@
 #include <mutex>
 #include <string>
 
-#include <osmscout/ImportFeatures.h>
+#include <osmscout/import/ImportFeatures.h>
 
-#include <osmscout/private/ImportImportExport.h>
+#include <osmscout/import/ImportImportExport.h>
 
 #include <osmscout/TypeConfig.h>
 
@@ -45,10 +45,7 @@ namespace osmscout {
   class OSMSCOUT_IMPORT_API PreprocessorFactory
   {
   public:
-    virtual ~PreprocessorFactory()
-    {
-
-    }
+    virtual ~PreprocessorFactory();
 
     virtual std::unique_ptr<Preprocessor> GetProcessor(const std::string& filename,
                                                        PreprocessorCallback& callback) const = 0;

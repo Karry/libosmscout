@@ -252,8 +252,8 @@ namespace osmscout
           NameFeatureValue    *nameValue=nameReader.GetValue(node.GetFeatureValueBuffer());
           NameAltFeatureValue *nameAltValue=nameAltReader.GetValue(node.GetFeatureValueBuffer());
 
-          if (nameValue==NULL &&
-              nameAltValue==NULL) {
+          if (nameValue==nullptr &&
+              nameAltValue==nullptr) {
             continue;
           }
 
@@ -274,7 +274,7 @@ namespace osmscout
             keyset = &keysetOther;
           }
 
-          if(nameValue!=NULL) {
+          if(nameValue!=nullptr) {
             std::string keyString;
             if(BuildKeyStr(nameValue->GetName(),
                            node.GetFileOffset(),
@@ -285,7 +285,7 @@ namespace osmscout
                                 keyString.length());
             }
           }
-          if(nameAltValue!=NULL) {
+          if(nameAltValue!=nullptr) {
             std::string keyString;
             if(BuildKeyStr(nameAltValue->GetNameAlt(),
                            node.GetFileOffset(),
@@ -352,9 +352,9 @@ namespace osmscout
         NameAltFeatureValue *nameAltValue=nameAltReader.GetValue(way.GetFeatureValueBuffer());
         RefFeatureValue     *refValue=refReader.GetValue(way.GetFeatureValueBuffer());
 
-        if (nameValue==NULL &&
-            nameAltValue==NULL &&
-            refValue==NULL) {
+        if (nameValue==nullptr &&
+            nameAltValue==nullptr &&
+            refValue==nullptr) {
           continue;
         }
 
@@ -376,7 +376,7 @@ namespace osmscout
           keyset = &keysetOther;
         }
 
-        if(nameValue!=NULL) {
+        if(nameValue!=nullptr) {
           std::string keyString;
           if(BuildKeyStr(nameValue->GetName(),
                          way.GetFileOffset(),
@@ -388,7 +388,7 @@ namespace osmscout
           }
         }
 
-        if(nameAltValue!=NULL) {
+        if(nameAltValue!=nullptr) {
           std::string keyString;
           if(BuildKeyStr(nameAltValue->GetNameAlt(),
                          way.GetFileOffset(),
@@ -400,7 +400,7 @@ namespace osmscout
           }
         }
 
-        if(refValue!=NULL) {
+        if(refValue!=nullptr) {
           std::string keyString;
           if(BuildKeyStr(refValue->GetRef(),
                          way.GetFileOffset(),
@@ -467,8 +467,8 @@ namespace osmscout
           NameFeatureValue    *nameValue=nameReader.GetValue(area.rings[r].GetFeatureValueBuffer());
           NameAltFeatureValue *nameAltValue=nameAltReader.GetValue(area.rings[r].GetFeatureValueBuffer());
 
-          if (nameValue==NULL &&
-              nameAltValue==NULL) {
+          if (nameValue==nullptr &&
+              nameAltValue==nullptr) {
             continue;
           }
 
@@ -488,7 +488,7 @@ namespace osmscout
             keyset = &keysetOther;
           }
 
-          if (nameValue!=NULL) {
+          if (nameValue!=nullptr) {
             std::string keyString;
             if(BuildKeyStr(nameValue->GetName(),
                            area.GetFileOffset(),
@@ -499,7 +499,7 @@ namespace osmscout
                                 keyString.length());
             }
           }
-          if (nameAltValue!=NULL) {
+          if (nameAltValue!=nullptr) {
             std::string keyString;
             if(BuildKeyStr(nameAltValue->GetNameAlt(),
                            area.GetFileOffset(),

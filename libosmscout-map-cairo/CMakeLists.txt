@@ -9,10 +9,8 @@ if(NOT ${OSMSCOUT_BUILD_MAP})
 endif()
 
 set(HEADER_FILES
-    #include/osmscout/private/Config.h
-    include/osmscout/private/MapCairoImportExport.h
+    include/osmscout/MapCairoImportExport.h
     include/osmscout/LoaderPNG.h
-    #include/osmscout/MapCairoFeatures.h
     include/osmscout/MapPainterCairo.h
 )
 
@@ -21,10 +19,10 @@ set(SOURCE_FILES
     src/osmscout/MapPainterCairo.cpp
 )
 
-if(APPLE)
-  set(THE_TARGET_NAME "OSMScoutMapCairo") 
+if(APPLE AND BUILD_FRAMEWORKS)
+  set(THE_TARGET_NAME "OSMScoutMapCairo")
 else()
-  set(THE_TARGET_NAME "osmscout_map_cairo") 
+  set(THE_TARGET_NAME "osmscout_map_cairo")
 endif()
 
 if(IOS)
@@ -34,16 +32,21 @@ else()
 endif()
 
 set_property(TARGET ${THE_TARGET_NAME} PROPERTY CXX_STANDARD 11)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/include/osmscout/MapCairoFeatures.h.cmake ${OSMSCOUT_BASE_DIR_BUILD}/include/osmscout/MapCairoFeatures.h)
-create_private_config("${CMAKE_CURRENT_BINARY_DIR}/include/osmscout/private/Config.h" "${THE_TARGET_NAME}")
-target_include_directories(${THE_TARGET_NAME} PRIVATE 
-		include
-		${CMAKE_CURRENT_BINARY_DIR}/include
-		${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout/include
-		${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout-map/include
+
+target_include_directories(${THE_TARGET_NAME} PUBLIC
+		${CMAKE_CURRENT_SOURCE_DIR}/include
 		${CAIRO_INCLUDE_DIRS}
 		${PNG_INCLUDE_DIRS})
-if(APPLE)
+
+# Public features Header
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/include/osmscout/MapCairoFeatures.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/include/osmscout/MapCairoFeatures.h)
+target_include_directories(${THE_TARGET_NAME} PUBLIC include ${CMAKE_CURRENT_BINARY_DIR}/include)
+
+# Private config header
+create_private_config("${CMAKE_CURRENT_BINARY_DIR}/privateinclude/osmscout/private/Config.h" "${THE_TARGET_NAME}")
+target_include_directories(${THE_TARGET_NAME} PRIVATE include ${CMAKE_CURRENT_BINARY_DIR}/privateinclude)
+
+if(APPLE AND BUILD_FRAMEWORKS)
 target_link_libraries(${THE_TARGET_NAME}
 		OSMScout
 		OSMScoutMap
@@ -56,8 +59,9 @@ target_link_libraries(${THE_TARGET_NAME}
 		${CAIRO_LIBRARIES}
 		${PNG_LIBRARIES})
 endif()
+
 if(PANGOCAIRO_FOUND)
-  target_include_directories(${THE_TARGET_NAME} PRIVATE ${PANGO_INCLUDE_DIRS})
+  target_include_directories(${THE_TARGET_NAME} PUBLIC ${PANGO_INCLUDE_DIRS})
   target_link_libraries(${THE_TARGET_NAME} ${PANGO_LIBRARIES})
 endif()
 
@@ -65,7 +69,7 @@ if(${IOS})
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fembed-bitcode")
 endif()
 
-if(APPLE)
+if(APPLE AND BUILD_FRAMEWORKS)
 set_target_properties(${THE_TARGET_NAME} PROPERTIES
   FRAMEWORK TRUE
   FRAMEWORK_VERSION C

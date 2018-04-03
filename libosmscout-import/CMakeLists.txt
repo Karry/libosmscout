@@ -44,7 +44,7 @@ set(HEADER_FILES
     include/osmscout/import/SortNodeDat.h
     include/osmscout/import/SortWayDat.h
     #include/osmscout/private/Config.h
-    include/osmscout/private/ImportImportExport.h
+        include/osmscout/import/ImportImportExport.h
     #include/osmscout/ImportFeatures.h
 )
 
@@ -111,7 +111,7 @@ if (PROTOBUF_FOUND)
     list(APPEND SOURCE_FILES ${PROTO_SRCS})
 endif()
 
-if(APPLE)
+if(APPLE AND BUILD_FRAMEWORKS)
   set(THE_TARGET_NAME "OSMScoutImport")
 else()
   set(THE_TARGET_NAME "osmscout_import")
@@ -124,17 +124,20 @@ else()
 endif()
 
 set_property(TARGET ${THE_TARGET_NAME} PROPERTY CXX_STANDARD 11)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/include/osmscout/ImportFeatures.h.cmake ${OSMSCOUT_BASE_DIR_BUILD}/include/osmscout/ImportFeatures.h)
-create_private_config("${CMAKE_CURRENT_BINARY_DIR}/include/osmscout/private/Config.h" "${THE_TARGET_NAME}")
 
-target_include_directories(${THE_TARGET_NAME} PRIVATE
-		include
-		include/osmscout/import/pbf
-		${CMAKE_CURRENT_BINARY_DIR}/include
-		${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout/include
-		)
+target_include_directories(${THE_TARGET_NAME} PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/osmscout/import/pbf)
 
-if(APPLE)
+# Public features Header
+configure_file(include/osmscout/import/ImportFeatures.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/include/osmscout/import/ImportFeatures.h)
+target_include_directories(${THE_TARGET_NAME} PUBLIC include ${CMAKE_CURRENT_BINARY_DIR}/include)
+
+# Private config header
+create_private_config("${CMAKE_CURRENT_BINARY_DIR}/privateinclude/osmscout/private/Config.h" "${THE_TARGET_NAME}")
+target_include_directories(${THE_TARGET_NAME} PRIVATE include ${CMAKE_CURRENT_BINARY_DIR}/privateinclude)
+
+if(APPLE AND BUILD_FRAMEWORKS)
   target_link_libraries(${THE_TARGET_NAME} OSMScout)
 else()
   target_link_libraries(${THE_TARGET_NAME} osmscout)
@@ -179,7 +182,7 @@ endif()
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fembed-bitcode")
 #endif()
 
-if(APPLE)
+if(APPLE AND BUILD_FRAMEWORKS)
 set_target_properties(${THE_TARGET_NAME} PROPERTIES
   FRAMEWORK TRUE
   FRAMEWORK_VERSION C

@@ -19,9 +19,9 @@
 
 #include <osmscout/import/GenCoverageIndex.h>
 
+#include <osmscout/AreaDataFile.h>
 #include <osmscout/NodeDataFile.h>
 #include <osmscout/WayDataFile.h>
-#include <osmscout/AreaDataFile.h>
 
 #include <osmscout/CoverageIndex.h>
 
@@ -214,7 +214,6 @@ namespace osmscout {
       size_t bitInByte=bitInMap%8;
 
       bitmap[byteInMap]=bitmap[byteInMap] | ((uint8_t)1 << bitInByte);
-
     }
 
     writer.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
@@ -231,14 +230,11 @@ namespace osmscout {
     }
 
     writer.Close();
-
   }
 
   CoverageIndexGenerator::CoverageIndexGenerator()
   : tileCalculator(std::pow(2,cellLevel))
-  {
-
-  }
+  {}
 
   void CoverageIndexGenerator::GetDescription(const ImportParameter& /*parameter*/,
                                               ImportModuleDescription& description) const
@@ -299,10 +295,10 @@ namespace osmscout {
       WriteIndex(parameter,
                  progress,
                  cells);
-
     }
     catch (IOException& e) {
       progress.Error(e.GetDescription());
+
       return false;
     }
 

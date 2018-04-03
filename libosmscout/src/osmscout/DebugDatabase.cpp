@@ -39,7 +39,7 @@ namespace osmscout {
   }
 
   DebugDatabase::DebugDatabase(const DebugDatabaseParameter& /*parameter*/)
-   : isOpen(false)
+  : isOpen(false)
   {
     // no code
   }
@@ -59,6 +59,7 @@ namespace osmscout {
 
     if (!typeConfig->LoadFromDataFile(path)) {
       log.Error() << "Cannot load 'types.dat'!";
+
       return false;
     }
 
@@ -71,7 +72,6 @@ namespace osmscout {
   {
     return isOpen;
   }
-
 
   void DebugDatabase::Close()
   {
@@ -100,7 +100,7 @@ namespace osmscout {
     }
 
     return dataFile.Close();
-   }
+  }
 
   bool DebugDatabase::ResolveReferences(const std::string& mapName,
                                         RefType fileType,
@@ -111,6 +111,7 @@ namespace osmscout {
   {
     FileScanner scanner;
     uint32_t    entryCount;
+
     std::string filename=AppendFileToDir(path,mapName);
 
     try {
@@ -144,6 +145,7 @@ namespace osmscout {
     catch (IOException& e) {
       log.Error() << e.GetDescription();
       scanner.CloseFailsafe();
+
       return false;
     }
   }
@@ -157,14 +159,12 @@ namespace osmscout {
     bool haveToScanAreas=false;
     bool haveToScanWays=false;
 
-    for (std::set<ObjectOSMRef>::const_iterator ref=ids.begin();
-         ref!=ids.end();
-         ++ref) {
+    for (const auto& id : ids) {
       if (haveToScanNodes && haveToScanAreas && haveToScanWays) {
         break;
       }
 
-      switch (ref->GetType()) {
+      switch (id.GetType()) {
       case osmRefNone:
         break;
       case osmRefNode:
@@ -178,17 +178,14 @@ namespace osmscout {
         haveToScanAreas=true;
         break;
       }
-
     }
 
-    for (std::set<ObjectFileRef>::const_iterator ref=fileOffsets.begin();
-         ref!=fileOffsets.end();
-         ++ref) {
+    for (const auto& fileOffset : fileOffsets) {
       if (haveToScanNodes && haveToScanAreas && haveToScanWays) {
         break;
       }
 
-      switch (ref->GetType()) {
+      switch (fileOffset.GetType()) {
       case refNone:
         break;
       case refNode:

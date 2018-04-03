@@ -25,7 +25,7 @@
 namespace osmscout {
 
   ObjectVariantDataFile::ObjectVariantDataFile()
-    : isLoaded(false)
+  : isLoaded(false)
   {
     // no code
   }
@@ -79,6 +79,7 @@ namespace osmscout {
     catch (IOException& e) {
       log.Error() << e.GetDescription();
       scanner.CloseFailsafe();
+
       return false;
     }
 

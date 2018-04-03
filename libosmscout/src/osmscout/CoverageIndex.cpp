@@ -81,6 +81,7 @@ namespace osmscout {
     }
     catch (IOException& e) {
       log.Error() << e.GetDescription();
+
       return false;
     }
   }
@@ -111,6 +112,4 @@ namespace osmscout {
   {
     return IsCovered(GetTile(coord));
   }
-
 }
-

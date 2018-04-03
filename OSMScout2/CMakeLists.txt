@@ -87,9 +87,7 @@ qt5_create_translation(TRANSLATION_QM_FILES
 		${TRANSLATION_SOURCE_FILES}
 		${TRANSLATION_TS_FILES})
 
-qt5_add_resources(RESOURCE_FILES
-    res.qrc
-)
+qt5_add_resources(RESOURCE_FILES res.qrc)
 
 set_property(SOURCE qrc_res.cpp PROPERTY SKIP_AUTOMOC ON)
 
@@ -97,15 +95,7 @@ add_executable(OSMScout2 ${SOURCE_FILES} ${HEADER_FILES} ${RESOURCE_FILES})
 
 target_sources(OSMScout2 PRIVATE ${TRANSLATION_TS_FILES} ${TRANSLATION_QM_FILES})
 
-target_include_directories(OSMScout2 PRIVATE
-    ${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout/include
-    ${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout-map/include
-    ${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout-map-qt/include
-    ${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout-client-qt/include
-    ${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout-gpx/include
-)
-
-if(APPLE)
+if(APPLE AND BUILD_FRAMEWORKS)
 	target_link_libraries(OSMScout2
         OSMScout
         OSMScoutMap

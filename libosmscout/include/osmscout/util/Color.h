@@ -20,7 +20,7 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307  USA
 */
 
-#include <osmscout/private/CoreImportExport.h>
+#include <osmscout/CoreImportExport.h>
 
 #include <string>
 
@@ -57,7 +57,7 @@ namespace osmscout {
     inline Color(double r,
                  double g,
                  double b,
-                 double a)
+                 double a) noexcept
     : r(r),
       g(g),
       b(b),
@@ -71,7 +71,7 @@ namespace osmscout {
 
     inline Color(double r,
                  double g,
-                 double b)
+                 double b) noexcept
     : r(r),
       g(g),
       b(b),
