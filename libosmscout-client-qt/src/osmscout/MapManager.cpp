@@ -27,6 +27,8 @@
 #include <osmscout/util/Logger.h>
 #include <osmscout/DBThread.h>
 
+namespace osmscout {
+
 const char* MapDownloadJob::FILE_METADATA = "metadata.json";
 
 MapDownloadJob::MapDownloadJob(QNetworkAccessManager *webCtrl,
@@ -389,4 +391,5 @@ void MapManager::onJobFinished()
     delete job;
   }
   downloadNext();
+}
 }
