@@ -101,7 +101,7 @@ set(HEADER_FILES
     include/osmscout/Tag.h
     include/osmscout/TypeConfig.h
     include/osmscout/TypeFeatures.h
-        include/osmscout/OSMScoutTypes.h
+    include/osmscout/OSMScoutTypes.h
     include/osmscout/WaterIndex.h
     include/osmscout/WaterIndex6.h
     include/osmscout/WaterIndex9.h
