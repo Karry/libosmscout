@@ -23,6 +23,7 @@
 #include <list>
 #include <memory>
 #include <set>
+#include <map>
 #include <unordered_set>
 
 #include <osmscout/Location.h>

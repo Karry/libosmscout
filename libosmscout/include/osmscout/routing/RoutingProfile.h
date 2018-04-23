@@ -20,12 +20,14 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307  USA
 */
 
+#include <map>
 #include <memory>
 #include <vector>
 
 #include <osmscout/OSMScoutTypes.h>
 #include <osmscout/TypeConfig.h>
 #include <osmscout/TypeFeatures.h>
+#include <osmscout/FeatureReader.h>
 
 #include <osmscout/Way.h>
 #include <osmscout/Area.h>
