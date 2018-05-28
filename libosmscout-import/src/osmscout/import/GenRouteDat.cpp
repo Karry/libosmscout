@@ -1058,7 +1058,7 @@ namespace osmscout {
   {
     const Area::Ring& ring=area.rings.front();
     size_t            currentNode;
-    double            distance;
+    Distance          distance;
 
     if (!ring.GetNodeIndexByNodeId(routeNode.GetId(),
                                    currentNode)) {
@@ -1162,7 +1162,7 @@ namespace osmscout {
                                                      const RouteNodeIdSet& routeNodeIdSet)
   {
     size_t currentNode;
-    double distance;
+    Distance distance;
 
     if (!way.GetNodeIndexByNodeId(routeNode.GetId(),
                                   currentNode)) {
@@ -1297,7 +1297,7 @@ namespace osmscout {
         //path.bearing=CalculateEncodedBearing(way,i,j,false);
         path.flags=CopyFlagsBackward(way);
 
-        path.distance=0.0;
+        path.distance=Distance::Of<Meter>(0.0);
         for (size_t d=j;d<currentNode; d++) {
           path.distance+=GetSphericalDistance(way.nodes[d].GetCoord(),
                                               way.nodes[d+1].GetCoord());
@@ -1331,7 +1331,7 @@ namespace osmscout {
         //path.bearing=CalculateEncodedBearing(way,i,j,true);
         path.flags=CopyFlagsForward(way);
 
-        path.distance=0.0;
+        path.distance=Distance::Of<Meter>(0.0);
         for (size_t d=currentNode;d<j; d++) {
           path.distance+=GetSphericalDistance(way.nodes[d].GetCoord(),
                                               way.nodes[d+1].GetCoord());
