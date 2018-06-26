@@ -1781,15 +1781,14 @@ namespace osmscout {
     }
 
     Magnification    magnification(std::pow(2,parameter.GetRouteNodeTileMag()));
-    TileCalculator   tileCalculator(magnification);
     RawRouteNodeList rawRouteNodes;
 
     std::transform(nodeObjectsMap.begin(),
                    nodeObjectsMap.end(),
                    std::back_inserter(rawRouteNodes),
-                   [&tileCalculator](NodeIdObjectsMap::value_type& entry) {
+                   [&magnification](NodeIdObjectsMap::value_type& entry) {
       return RawRouteNode{entry.first,
-                          tileCalculator.GetTileId(Point::GetCoordFromId(entry.first)),
+                          TileId::GetTile(magnification,Point::GetCoordFromId(entry.first)).AsPixel(),
                           std::move(entry.second)};
     });
 

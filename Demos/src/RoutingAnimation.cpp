@@ -347,7 +347,7 @@ struct Arguments
     endStep(-1),
     startFrame(0)
   {
-    zoom.SetMagnification(osmscout::Magnification::magVeryClose);
+    zoom.SetLevel(osmscout::Magnification::magVeryClose);
   }
 };
 
@@ -423,7 +423,7 @@ int main(int argc, char* argv[])
                       false);
 
   argParser.AddOption(osmscout::CmdLineUIntOption([&args](const unsigned int& value) {
-                        args.zoom.SetLevel(value);
+                        args.zoom.SetLevel(osmscout::MagnificationLevel(value));
                       }),
                       "zoom",
                       "zoom level of animation frames (default 16)",

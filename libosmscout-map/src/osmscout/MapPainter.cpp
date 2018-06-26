@@ -1323,10 +1323,10 @@ namespace osmscout {
 
     projection.GetDimensions(boundingBox);
 
-    osmscout::OSMTileId     tileA(OSMTileId::GetOSMTile(boundingBox.GetMinCoord(),
-                                                        magnification));
-    osmscout::OSMTileId     tileB(OSMTileId::GetOSMTile(boundingBox.GetMaxCoord(),
-                                                        magnification));
+    osmscout::OSMTileId     tileA(OSMTileId::GetOSMTile(magnification,
+                                                        boundingBox.GetMinCoord()));
+    osmscout::OSMTileId     tileB(OSMTileId::GetOSMTile(magnification,
+                                                        boundingBox.GetMaxCoord()));
     uint32_t                startTileX=std::min(tileA.GetX(),tileB.GetX());
     uint32_t                endTileX=std::max(tileA.GetX(),tileB.GetX());
     uint32_t                startTileY=std::min(tileA.GetY(),tileB.GetY());
@@ -2206,7 +2206,7 @@ namespace osmscout {
     if (osmSubTileLine) {
       Magnification magnification=projection.GetMagnification();
 
-      magnification.SetLevel(magnification.GetLevel()+1);
+      ++magnification;
 
       DrawOSMTileGrid(projection,
                       parameter,
@@ -2218,8 +2218,6 @@ namespace osmscout {
 
     if (osmTileLine) {
       Magnification magnification=projection.GetMagnification();
-
-      magnification.SetLevel(magnification.GetLevel());
 
       DrawOSMTileGrid(projection,
                       parameter,

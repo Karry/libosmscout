@@ -1574,13 +1574,9 @@ namespace osmscout {
         }
 
         PostalCodeFeatureValue *postalCodeValue=postalCodeReader.GetValue(way.GetFeatureValueBuffer());
-
-        GeoBox boundingBox;
-
-        way.GetBoundingBox(boundingBox);
-
-        RegionRef region=regionIndex.GetRegionForNode(rootRegion,
-                                                      boundingBox.GetCenter());
+        GeoBox                 boundingBox=way.GetBoundingBox();
+        RegionRef              region=regionIndex.GetRegionForNode(rootRegion,
+                                                                   boundingBox.GetCenter());
 
         AddLocationWayToRegion(*region,
                                way,
