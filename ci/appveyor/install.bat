@@ -63,22 +63,78 @@ IF %COMPILER%==msvc2015 (
   @echo on
   echo MSVC2015 build...
 
-  echo Installing wget...
-  cinst wget -x86
+  IF %BUILDTOOL%==cmake (
+    echo Downloading vcpkg...
 
-  IF %PLATFORM%==x64 (
-    echo Downloading library dependencies...
-    wget http://xmlsoft.org/sources/win32/64bit/zlib-1.2.8-win32-x86_64.7z -O zlib-1.2.8-win32-x86_64.7z
-    wget http://xmlsoft.org/sources/win32/64bit/iconv-1.14-win32-x86_64.7z -O iconv-1.14-win32-x86_64.7z
-    wget http://xmlsoft.org/sources/win32/64bit/libxml2-2.9.3-win32-x86_64.7z -O libxml2-2.9.3-win32-x86_64.7z
+    cd c:\tools\vcpkg
 
-    echo Unpacking library dependencies...
-    7z x zlib-1.2.8-win32-x86_64.7z -ozlib -y > nul
-    7z x iconv-1.14-win32-x86_64.7z -oiconv -y > nul
-    7z x libxml2-2.9.3-win32-x86_64.7z -olibxml2 -y > nul
+    echo Installing zlib...
+    .\vcpkg install zlib:x64-windows
     echo ...done
-  )
 
+    echo Installing libiconv...
+    .\vcpkg install libiconv:x64-windows
+    echo ...done
+
+    echo Installing libxml2...
+    .\vcpkg install libxml2:x64-windows
+    echo ...done
+
+    echo Installing protobuf...
+    .\vcpkg install protobuf:x64-windows
+    echo ...done
+
+    echo Installing cairo...
+    .\vcpkg install cairo:x64-windows
+    echo ...done
+
+    echo Installing pango...
+    .\vcpkg install pango:x64-windows
+    echo ...done
+
+    echo Installing qt5-base...
+    .\vcpkg install qt5-base:x64-windows
+    echo ...done
+
+    echo Installing qt5-declarative...
+    .\vcpkg install qt5-declarative:x64-windows
+    echo ...done
+	
+    echo Installing qt5-svg...
+    .\vcpkg install qt5-svg:x64-windows
+    echo ...done
+
+    echo Installing qt5-tools...
+    .\vcpkg install qt5-tools:x64-windows
+    echo ...done
+	
+    echo Installing OpenGL...
+    .\vcpkg install opengl:x64-windows
+    echo ...done
+
+    echo Installing freeglut...
+    .\vcpkg install freeglut:x64-windows
+    echo ...done
+
+    echo Installing glm...
+    .\vcpkg install glm:x64-windows
+    echo ...done
+
+    echo Installing glew...
+    .\vcpkg install glew:x64-windows
+    echo ...done
+
+    echo Installing glfw3...
+    .\vcpkg install glfw3:x64-windows
+    echo ...done
+	
+    echo System-wide integrating vcpkg...
+    .\vcpkg integrate install
+    echo ...done
+  
+    cd %APPVEYOR_BUILD_FOLDER%
+  )	
+  
   IF %BUILDTOOL%==meson (
     echo Installing meson build tool...
     set "PATH=C:\Python36-x64;C:\Python36-x64\Scripts;%PATH%"
