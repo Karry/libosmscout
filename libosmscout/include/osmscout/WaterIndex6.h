@@ -28,6 +28,7 @@
 #include <cstdint>
 
 #include <osmscout/GroundTile.h>
+#include <osmscout/OSMScoutTypes.h>
 
 #include <osmscout/util/FileScanner.h>
 #include <osmscout/util/Magnification.h>

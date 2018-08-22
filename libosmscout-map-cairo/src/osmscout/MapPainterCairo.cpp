@@ -812,13 +812,12 @@ namespace osmscout {
     cairo_get_matrix(draw, &matrix);
 
     cairo_set_source_rgba(draw,
-                         style->GetTextColor().GetR(),
-                         style->GetTextColor().GetG(),
-                         style->GetTextColor().GetB(),
-                         style->GetTextColor().GetA());
+                          style->GetTextColor().GetR(),
+                          style->GetTextColor().GetG(),
+                          style->GetTextColor().GetB(),
+                          style->GetTextColor().GetA());
 
     for (auto const &glyph:glyphs) {
-
       cairo_set_matrix(draw, &matrix);
       cairo_translate(draw, glyph.position.GetX(), glyph.position.GetY());
       cairo_rotate(draw, glyph.angle);
@@ -976,7 +975,8 @@ namespace osmscout {
         pango_cairo_show_layout(draw,
                                 layout.get());
         cairo_stroke(draw);
-      } else /* emphasize */ {
+      }
+      else /* emphasize */ {
         pango_cairo_layout_path(draw,
                                 layout.get());
 
@@ -993,7 +993,6 @@ namespace osmscout {
                     labelRectangle.y+layout.fontExtents.ascent);
 
       if (style->GetStyle()==TextStyle::normal) {
-
         cairo_show_text(draw,label.text.c_str());
         cairo_stroke(draw);
       }
@@ -1362,4 +1361,3 @@ namespace osmscout {
                 data);
   }
 }
-

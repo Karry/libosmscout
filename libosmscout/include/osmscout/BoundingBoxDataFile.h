@@ -45,7 +45,7 @@ namespace osmscout {
     GeoBox      boundingBox; //!< Bounding box
 
   public:
-  BoundingBoxDataFile();
+    BoundingBoxDataFile();
     virtual ~BoundingBoxDataFile();
 
     bool Load(const std::string& path,

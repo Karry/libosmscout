@@ -195,7 +195,9 @@ MapDirectory::MapDirectory(QDir dir):
             << "router2.dat"
             << "types.dat";
   // coverage.idx is optional, introduced after database version 16
+
   // router.idx is optional, it was removed with database version 17
+
   // text*.dat files are optional, these files are missing
   // when database is build without Marisa support
 

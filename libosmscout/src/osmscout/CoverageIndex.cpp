@@ -21,6 +21,7 @@
 
 #include <algorithm>
 
+#include <osmscout/TypeConfig.h>
 #include <osmscout/util/File.h>
 #include <osmscout/util/Geometry.h>
 #include <osmscout/util/Logger.h>

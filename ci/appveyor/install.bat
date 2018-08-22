@@ -13,10 +13,11 @@ echo Target: %TARGET%
 echo Start updating build dependencies...
 
 IF %COMPILER%==msys2 (
-  @echo on
-  echo Installtion MSYS2 build preconditions...
+  echo Installing MSYS2 build preconditions...
 
-  echo Extending path to MSYS...
+  @echo on
+
+  echo Extending path to MSYS and MINGW...
   SET "PATH=C:\%MSYS2_DIR%\%MSYSTEM%\bin;C:\%MSYS2_DIR%\usr\bin;%PATH%"
 
   echo Updating pacman...
@@ -27,8 +28,8 @@ IF %COMPILER%==msys2 (
   bash -lc "pacman -S --needed --noconfirm git"
 
   IF %BUILDTOOL%==meson (
-    echo Installing meson build tool...
-    bash -lc "pacman -S --needed --noconfirm mingw-w64-%MSYS2_ARCH%-ninja mingw-w64-%MSYS2_ARCH%-meson"
+    echo Installing ninja and meson build tool...
+    bash -lc "pacman -S --needed --noconfirm mingw-w64-%MSYS2_ARCH%-ninja mingw-w64-%MSYS2_ARCH%-python2 mingw-w64-%MSYS2_ARCH%-python3 mingw-w64-%MSYS2_ARCH%-meson"
   )
 
   IF %BUILDTOOL%==cmake (
@@ -99,7 +100,7 @@ IF %COMPILER%==msvc2015 (
     echo Installing qt5-declarative...
     .\vcpkg install qt5-declarative:x64-windows
     echo ...done
-	
+
     echo Installing qt5-svg...
     .\vcpkg install qt5-svg:x64-windows
     echo ...done
@@ -107,7 +108,7 @@ IF %COMPILER%==msvc2015 (
     echo Installing qt5-tools...
     .\vcpkg install qt5-tools:x64-windows
     echo ...done
-	
+
     echo Installing OpenGL...
     .\vcpkg install opengl:x64-windows
     echo ...done
@@ -127,14 +128,14 @@ IF %COMPILER%==msvc2015 (
     echo Installing glfw3...
     .\vcpkg install glfw3:x64-windows
     echo ...done
-	
+
     echo System-wide integrating vcpkg...
     .\vcpkg integrate install
     echo ...done
-  
+
     cd %APPVEYOR_BUILD_FOLDER%
-  )	
-  
+  )
+
   IF %BUILDTOOL%==meson (
     echo Installing meson build tool...
     set "PATH=C:\Python36-x64;C:\Python36-x64\Scripts;%PATH%"

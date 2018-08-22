@@ -64,7 +64,9 @@ namespace osmscout {
       pinWay(false),
       mergeAreas(false),
       ignoreSeaLand(false),
-      ignore(false)
+      ignore(false),
+      lanes(1),
+      onewayLanes(1)
   {
 
   }
@@ -743,7 +745,7 @@ namespace osmscout {
   {
     log.Debug() << "TypeConfig::TypeConfig()";
   }
-  
+
   void TypeConfig::RegisterInternalTags()
   {
     featureName=std::make_shared<NameFeature>();
@@ -815,6 +817,9 @@ namespace osmscout {
 
     RegisterFeature(std::make_shared<SidewayFeature>());
 
+    featureLanes = std::make_shared<LanesFeature>();
+    RegisterFeature(featureLanes);
+
     // Make sure, that this is always registered first.
     // It assures that id 0 is always reserved for typeIgnore
     typeInfoIgnore=std::make_shared<TypeInfo>("");
@@ -880,44 +885,6 @@ namespace osmscout {
     assert(tagRestriction!=tagIgnore);
     assert(tagJunction!=tagIgnore);
   }
-
-  /*
-  TagId TypeConfig::RegisterTag(const std::string& tagName)
-  {
-    auto mapping=stringToTagMap.find(tagName);
-
-    if (mapping!=stringToTagMap.end()) {
-      return mapping->second;
-    }
-
-    TagInfo tagInfo(nextTagId,tagName);
-
-    nextTagId++;
-
-    tags.push_back(tagInfo);
-    stringToTagMap[tagInfo.GetName()]=tagInfo.GetId();
-
-    return tagInfo.GetId();
-  }
-
-  TagId TypeConfig::RegisterNameTag(const std::string& tagName, uint32_t priority)
-  {
-    TagId tagId=RegisterTag(tagName);
-
-    nameTagIdToPrioMap.insert(std::make_pair(tagId,priority));
-
-    return tagId;
-  }
-
-  TagId TypeConfig::RegisterNameAltTag(const std::string& tagName, uint32_t priority)
-  {
-    TagId tagId=RegisterTag(tagName);
-
-    nameAltTagIdToPrioMap.insert(std::make_pair(tagId,priority));
-
-    return tagId;
-  }
-  */
 
   TypeConfig::~TypeConfig()
   {
@@ -992,6 +959,11 @@ namespace osmscout {
       }
       if (!typeInfo->HasFeature(RoundaboutFeature::NAME)) {
         typeInfo->AddFeature(featureRoundabout);
+      }
+      if (fileFormatVersion >= 18) {
+        if (!typeInfo->HasFeature(LanesFeature::NAME)) {
+          typeInfo->AddFeature(featureLanes);
+        }
       }
     }
 
@@ -1458,7 +1430,6 @@ namespace osmscout {
 
       if (fileFormatVersion < 9){
         // skip tags for old database formats
-        
 
         uint32_t tagCount;
 
@@ -1472,7 +1443,7 @@ namespace osmscout {
           scanner.ReadNumber(requestedId);
           scanner.Read(name);
 
-          actualId=tagRegistry.RegisterTag(name);
+          actualId=GetTagRegistry().RegisterTag(name);
 
           if (actualId!=requestedId) {
             log.Warn() << "Requested and actual tag id do not match";
@@ -1496,7 +1467,7 @@ namespace osmscout {
           scanner.Read(name);
           scanner.ReadNumber(priority);
 
-          actualId=tagRegistry.RegisterNameTag(name,priority);
+          actualId=GetTagRegistry().RegisterNameTag(name,priority);
 
           if (actualId!=requestedId) {
             log.Warn() << "Requested and actual name tag id do not match";
@@ -1520,7 +1491,7 @@ namespace osmscout {
           scanner.Read(name);
           scanner.ReadNumber(priority);
 
-          actualId=tagRegistry.RegisterNameAltTag(name,priority);
+          actualId=GetTagRegistry().RegisterNameAltTag(name,priority);
 
           if (actualId!=requestedId) {
             log.Warn() << "Requested and actual name alt tag id do not match";
@@ -1586,6 +1557,8 @@ namespace osmscout {
         bool        mergeAreas;
         bool        ignore;
         bool        ignoreSeaLand;
+        uint8_t     lanes{1};
+        uint8_t     onewayLanes{1};
 
         scanner.Read(name);
         scanner.Read(canBeNode);
@@ -1606,6 +1579,10 @@ namespace osmscout {
         scanner.Read(mergeAreas);
         scanner.Read(ignoreSeaLand);
         scanner.Read(ignore);
+        if (fileFormatVersion >= 18) {
+          scanner.Read(lanes);
+          scanner.Read(onewayLanes);
+        }
 
         TypeInfoRef typeInfo=std::make_shared<TypeInfo>(name);
 
@@ -1627,6 +1604,8 @@ namespace osmscout {
         typeInfo->SetMergeAreas(mergeAreas);
         typeInfo->SetIgnoreSeaLand(ignoreSeaLand);
         typeInfo->SetIgnore(ignore);
+        typeInfo->SetLanes(lanes);
+        typeInfo->SetOnewayLanes(onewayLanes);
 
         // Type Features
 
@@ -1723,6 +1702,7 @@ namespace osmscout {
         log.Error() << "StoreToDataFile is not supported for database format " << fileFormatVersion;
         return false;
       }
+
       uint32_t typeCount=0;
       uint32_t featureCount=0;
 
@@ -1779,6 +1759,8 @@ namespace osmscout {
         writer.Write(type->GetMergeAreas());
         writer.Write(type->GetIgnoreSeaLand());
         writer.Write(type->GetIgnore());
+        writer.Write(type->GetLanes());
+        writer.Write(type->GetOnewayLanes());
 
         writer.WriteNumber((uint32_t)type->GetFeatures().size());
         for (const auto& feature : type->GetFeatures()) {
