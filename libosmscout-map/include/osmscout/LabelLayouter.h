@@ -35,6 +35,7 @@
 #if defined(LABEL_LAYOUTER_DEBUG)
 #include <iostream>
 #endif
+#include <iostream>
 
 namespace osmscout {
 
@@ -193,6 +194,7 @@ namespace osmscout {
     size_t priority;
     std::vector<Glyph<NativeGlyph>> glyphs;
     osmscout::PathTextStyleRef style;    //!< Style for drawing
+    std::string text;
   };
 
   class Mask
@@ -215,7 +217,7 @@ namespace osmscout {
     Mask &operator=(const Mask &m) = delete;
     Mask &operator=(Mask &&m) = delete;
 
-	OSMSCOUT_MAP_API void prepare(const IntRectangle &rect);
+    OSMSCOUT_MAP_API void prepare(const IntRectangle &rect);
 
     inline int64_t size() const
     { return d.size(); };
@@ -235,6 +237,12 @@ namespace osmscout {
     if (a.priority == b.priority) {
       assert(!a.elements.empty());
       assert(!b.elements.empty());
+      if (a.elements[0].x == b.elements[0].x){
+        if (a.elements[0].y == b.elements[0].y){
+          return a.elements[0].labelData.text < b.elements[0].labelData.text;
+        }
+        return a.elements[0].y < b.elements[0].y;
+      }
       return a.elements[0].x < b.elements[0].x;
     }
     return a.priority < b.priority;
@@ -347,7 +355,8 @@ namespace osmscout {
       return labelData.alpha < 0.8;
     }
 
-    void Layout()
+    template <class Drawer>
+    void Layout(Drawer &d)
     {
       std::vector<ContourLabelType> allSortedContourLabels;
       std::vector<LabelInstanceType> allSortedLabels;
@@ -362,6 +371,14 @@ namespace osmscout {
       std::stable_sort(allSortedContourLabels.begin(),
                        allSortedContourLabels.end(),
                        ContourLabelSorter<NativeGlyph>);
+
+      std::cout << "-------------------------------------------------" << std::endl;
+      for (const auto &l:allSortedLabels) {
+        std::cout << "sl: " << l.priority << ": " << l.elements[0].labelData.text << std::endl;
+      }
+      for (const auto &l:allSortedContourLabels) {
+        std::cout << "cl: " << l.priority << ": " << l.text << std::endl;
+      }
 
       // compute collisions, hide some labels
       int64_t rowSize = (layoutViewport.width / 64)+1;
@@ -474,6 +491,11 @@ namespace osmscout {
           contourLabelIter++;
         }
       }
+
+      d.drawCanvas(rowSize*64, layoutViewport.height,
+                   (visibleViewport.width - layoutViewport.width) / 2, (visibleViewport.height - layoutViewport.height) / 2,
+                   labelCanvas.data());
+
     }
 
     /**
@@ -650,6 +672,7 @@ namespace osmscout {
         ContourLabelType cLabel;
         cLabel.priority = labelData.priority;
         cLabel.style = labelData.style;
+        cLabel.text = labelData.text;
 
         // do the magic to make sure that we don't render label upside-down
 

@@ -33,6 +33,7 @@
 #include <osmscout/util/File.h>
 #include <osmscout/util/Geometry.h>
 #include <osmscout/util/Logger.h>
+#include <QtGui/QBitmap>
 
 namespace osmscout {
 
@@ -922,11 +923,20 @@ namespace osmscout {
     labelLayouter.RegisterContourLabel(projection, parameter, label, labelPath);
   }
 
+  void MapPainterQt::drawCanvas(int64_t w, int64_t h,
+                                int64_t x, int64_t y,
+                                const uint64_t *data)
+  {
+    QBitmap bitmap = QBitmap::fromData(QSize(w,h), (const uchar *)data);
+    painter->setPen(QColor(Qt::red));
+    painter->drawPixmap(x, y, bitmap);
+  }
+
   void MapPainterQt::DrawLabels(const Projection& projection,
                                 const MapParameter& parameter,
                                 const MapData& /*data*/)
   {
-    labelLayouter.Layout();
+    labelLayouter.Layout(*this);
 
     labelLayouter.DrawLabels(projection,
                              parameter,

@@ -179,6 +179,10 @@ namespace osmscout {
                             const MapParameter& parameter,
                             const MapData& data) override;
 
+    void drawCanvas(int64_t w, int64_t h,
+                    int64_t x, int64_t y,
+                    const uint64_t *data);
+
     void DrawIcon(const IconStyle* style,
                   double x, double y) override;
 
