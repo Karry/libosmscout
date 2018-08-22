@@ -51,8 +51,10 @@
 #include <QNetworkCookieJar>
 #include <QNetworkCookie>
 
-#include <osmscout/private/ClientQtImportExport.h>
+#include <osmscout/ClientQtImportExport.h>
 #include <osmscout/OSMScoutQt.h>
+
+namespace osmscout {
 
 class OSMSCOUT_CLIENT_QT_API PersistentCookieJar : public QNetworkCookieJar {
 public:
@@ -99,5 +101,6 @@ private:
     SettingsRef settings;
 };
 
-#endif	/* PERSISTENTCOOKIEJAR_H */
+}
 
+#endif	/* PERSISTENTCOOKIEJAR_H */

@@ -24,14 +24,14 @@
 #include <string>
 #include <vector>
 
-#include <osmscout/private/CoreImportExport.h>
+#include <osmscout/CoreImportExport.h>
 
 #include <osmscout/CoreFeatures.h>
 
 #include <osmscout/GeoCoord.h>
 #include <osmscout/ObjectRef.h>
 #include <osmscout/Point.h>
-#include <osmscout/Types.h>
+#include <osmscout/OSMScoutTypes.h>
 
 #include <osmscout/util/Exception.h>
 #include <osmscout/util/GeoBox.h>

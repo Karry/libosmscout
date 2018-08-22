@@ -27,29 +27,20 @@
 #include <utility>
 #include <vector>
 
-#include <osmscout/private/CoreImportExport.h>
+#include <osmscout/CoreImportExport.h>
 
 #include <osmscout/system/Assert.h>
 #include <osmscout/system/Math.h>
-#include <osmscout/system/Types.h>
+#include <osmscout/system/OSMScoutTypes.h>
 
 #include <osmscout/GeoCoord.h>
 #include <osmscout/Point.h>
-#include <osmscout/Types.h>
+#include <osmscout/OSMScoutTypes.h>
 
 #include <osmscout/util/GeoBox.h>
+#include <osmscout/util/Distance.h>
 
 namespace osmscout {
-
-  inline double DegToRad(double deg)
-  {
-    return deg*M_PI/180.0;
-  }
-
-  inline double RadToDeg(double rad)
-  {
-    return rad*180.0/M_PI;
-  }
 
   /**
    * \defgroup Geometry Geometric helper
@@ -57,6 +48,44 @@ namespace osmscout {
    * Collection of classes and methods releated to low level geometric
    * stuff.
    */
+
+
+  /**
+   * \ingroup Geometry
+   * @param deg angl ein degrees
+   * @return angle in radians
+   */
+  inline double DegToRad(double deg)
+  {
+    return deg*M_PI/180.0;
+  }
+
+  /**
+   * \ingroup Geometry
+   * @param rad angle in radians
+   * @return angle in degrees
+   */
+  inline double RadToDeg(double rad)
+  {
+    return rad*180.0/M_PI;
+  }
+
+  /**
+   * \ingroup Geometry
+   * compute difference of two angles
+   *
+   * @param a angle in radians in range - M_PI .. + M_PI
+   * @param b angle in radians in range - M_PI .. + M_PI
+   * @return angle in radians in range 0 .. M_PI
+   */
+  inline double AngleDiff(double a, double b)
+  {
+    double diff = std::abs(a - b);
+
+    if (diff > M_PI)
+      return 2 * M_PI - diff;
+    return diff;
+  }
 
   /**
    * \ingroup Geometry
@@ -990,26 +1019,26 @@ namespace osmscout {
   /**
    * \ingroup Geometry
    * Calculates the spherical distance between the two given points
-   * on the sphere [km].
+   * on the sphere.
    */
-  extern OSMSCOUT_API double GetSphericalDistance(const GeoCoord& a,
-                                                  const GeoCoord& b);
-
-  /**
-   * \ingroup Geometry
-   * Calculates the ellipsoidal (WGS-84) distance between the two given points
-   * on the ellipsoid [km].
-   */
-  extern OSMSCOUT_API double GetEllipsoidalDistance(double aLon, double aLat,
-                                                    double bLon, double bLat);
-
-  /**
-   * \ingroup Geometry
-   * Calculates the ellipsoidal (WGS-84) distance between the two given points
-   * on the ellipsoid [km].
-   */
-  extern OSMSCOUT_API double GetEllipsoidalDistance(const GeoCoord& a,
+  extern OSMSCOUT_API Distance GetSphericalDistance(const GeoCoord& a,
                                                     const GeoCoord& b);
+
+  /**
+   * \ingroup Geometry
+   * Calculates the ellipsoidal (WGS-84) distance between the two given points
+   * on the ellipsoid.
+   */
+  extern OSMSCOUT_API Distance GetEllipsoidalDistance(double aLon, double aLat,
+                                                      double bLon, double bLat);
+
+  /**
+   * \ingroup Geometry
+   * Calculates the ellipsoidal (WGS-84) distance between the two given points
+   * on the ellipsoid.
+   */
+  extern OSMSCOUT_API Distance GetEllipsoidalDistance(const GeoCoord& a,
+                                                      const GeoCoord& b);
 
   /**
    * \ingroup Geometry
@@ -1017,7 +1046,7 @@ namespace osmscout {
    * coordinates of the resulting point in the (WGS-84) ellipsoid.
    */
   extern OSMSCOUT_API void GetEllipsoidalDistance(double lat1, double lon1,
-                                                  double bearing, double distance,
+                                                  double bearing, const Distance &distance,
                                                   double& lat2, double& lon2);
 
   /**
@@ -1065,6 +1094,18 @@ namespace osmscout {
       return x==other.x && y==other.y;
     }
 
+    inline bool operator<(const ScanCell& other) const
+    {
+      if (y<other.y) {
+        return true;
+      }
+      else if (y==other.y) {
+        return x<other.x;
+      }
+
+      return false;
+    }
+
     inline bool IsEqual(const ScanCell& other) const
     {
       return x==other.x && y==other.y;
@@ -1091,7 +1132,7 @@ namespace osmscout {
 
   /**
    * \ingroup Geometry
-   * Return de distance of the point (px,py) to the segment [(p1x,p1y),(p2x,p2y)],
+   * Return the distance of the point (px,py) to the segment [(p1x,p1y),(p2x,p2y)],
    * r the abscissa on the line of (qx,qy) the orthogonal projected point from (px,py).
    * 0 <= r <= 1 if q is between p1 and p2.
    */
@@ -1100,6 +1141,24 @@ namespace osmscout {
                                                double p2x, double p2y,
                                                double& r,
                                                double& qx, double& qy);
+
+  extern OSMSCOUT_API double DistanceToSegment(const GeoCoord& point,
+                                               const GeoCoord& segmentStart,
+                                               const GeoCoord& segmentEnd,
+                                               double& r,
+                                               GeoCoord& intersection);
+
+  extern OSMSCOUT_API double DistanceToSegment(const std::vector<Point>& points,
+                                               const GeoCoord& segmentStart,
+                                               const GeoCoord& segmentEnd,
+                                               GeoCoord& location,
+                                               GeoCoord& intersection);
+
+  extern OSMSCOUT_API double DistanceToSegment(const GeoBox& boundingBox,
+                                               const GeoCoord& segmentStart,
+                                               const GeoCoord& segmentEnd,
+                                               GeoCoord& location,
+                                               GeoCoord& intersection);
 
   /**
    * \ingroup Geometry
@@ -1253,7 +1312,7 @@ namespace osmscout {
 
   /**
    * \ingroup Geometry
-   * Find next intersetion on way (with itself) from node index i.
+   * Find next intersection on way (with itself) from node index i.
    * Return true if some intersection was found (way is not simple),
    * i and j indexes are setup to start possition of intesections lines.
    */

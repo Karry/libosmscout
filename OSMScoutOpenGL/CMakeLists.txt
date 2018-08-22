@@ -14,38 +14,25 @@ set(SOURCE_FILES
 add_executable(OSMScoutOpenGL ${SOURCE_FILES})
 
 target_include_directories(OSMScoutOpenGL PRIVATE
-		${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout/include
-		${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout-map/include
-		${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout-map-opengl/include
 		${OPENGL_INCLUDE_DIR}
 		${GLEW_INCLUDE_DIRS}
 		${GLFW_INCLUDE_DIR}
-		${FREETYPE_INCLUDE_DIRS}
-		)
+		${FREETYPE_INCLUDE_DIRS})
 
 if(MSVS OR MSYS OR MINGW)
-	target_link_libraries(OSMScoutOpenGL
-			osmscout
-			osmscout_map
-			osmscout_map_opengl
-			${OPENGL_LIBRARIES}
-			glfw3 # TODO: check if ${GLFW_LIBRARIES} is setup correctly on Windows
-			${FREETYPE_LIBRARIES}
-			)
-elseif(APPLE)
 	target_link_libraries(OSMScoutOpenGL
 			OSMScout
 			OSMScoutMap
 			OSMScoutMapOpenGL
 			${OPENGL_LIBRARIES}
-			${GLFW_LIBRARIES}
+			glfw3 # TODO: check if ${GLFW_LIBRARIES} is setup correctly on Windows
 			${FREETYPE_LIBRARIES}
 			)
 else()
 	target_link_libraries(OSMScoutOpenGL
-			osmscout
-			osmscout_map
-			osmscout_map_opengl
+			OSMScout
+			OSMScoutMap
+			OSMScoutMapOpenGL
 			${OPENGL_LIBRARIES}
 			${GLFW_LIBRARIES}
 			${FREETYPE_LIBRARIES}

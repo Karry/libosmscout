@@ -1,5 +1,5 @@
-#ifndef DBOPERATION_H
-#define DBOPERATION_H
+#ifndef OSMSCOUT_CLIENT_QT_DBOPERATION_H
+#define OSMSCOUT_CLIENT_QT_DBOPERATION_H
 
 /*
  OSMScout - a Qt backend for libosmscout and libosmscout-map
@@ -30,7 +30,9 @@
 #include <osmscout/DBInstance.h>
 #include <osmscout/DataTileCache.h>
 
-#include <osmscout/private/ClientQtImportExport.h>
+#include <osmscout/ClientQtImportExport.h>
+
+namespace osmscout {
 
 /**
  * \ingroup QtAPI
@@ -62,9 +64,9 @@ protected:
   osmscout::AreaSearchParameter                   searchParameter;
   QMap<QString,osmscout::MapService::CallbackId>  callbacks;
 
-  QMap<QString,QMap<osmscout::TileId,osmscout::TileRef>> allTiles;
-  QMap<QString,QMap<osmscout::TileId,osmscout::TileRef>> loadingTiles;
-  QMap<QString,QMap<osmscout::TileId,osmscout::TileRef>> loadedTiles;
+  QMap<QString,QMap<osmscout::TileKey,osmscout::TileRef>> allTiles;
+  QMap<QString,QMap<osmscout::TileKey,osmscout::TileRef>> loadingTiles;
+  QMap<QString,QMap<osmscout::TileKey,osmscout::TileRef>> loadedTiles;
 
 protected slots:
   void onTileStateChanged(QString dbPath,const osmscout::TileRef tile);
@@ -77,7 +79,7 @@ signals:
 
   void databaseLoaded(QString dbPath,QList<osmscout::TileRef> tiles);
 
-  void finished(QMap<QString,QMap<osmscout::TileId,osmscout::TileRef>> tiles);
+  void finished(QMap<QString,QMap<osmscout::TileKey,osmscout::TileRef>> tiles);
 
 public:
   DBLoadJob(osmscout::MercatorProjection lookupProjection,
@@ -92,7 +94,7 @@ public:
   virtual void Close();
 
   bool IsFinished() const;
-  QMap<QString,QMap<osmscout::TileId,osmscout::TileRef>> GetAllTiles() const;
+  QMap<QString,QMap<osmscout::TileKey,osmscout::TileRef>> GetAllTiles() const;
 
   /**
    * Add tile data to map data.
@@ -108,4 +110,6 @@ public:
                             osmscout::MapData &data);
 };
 
-#endif /* DBOPERATION_H */
+}
+
+#endif /* OSMSCOUT_CLIENT_QT_DBOPERATION_H */

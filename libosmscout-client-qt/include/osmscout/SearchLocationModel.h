@@ -30,7 +30,9 @@
 #include <osmscout/LocationService.h>
 #include <osmscout/SearchModule.h>
 
-#include <osmscout/private/ClientQtImportExport.h>
+#include <osmscout/ClientQtImportExport.h>
+
+namespace osmscout {
 
 /**
  * Model for searching objects in osmscout databases by pattern written by human.
@@ -194,7 +196,7 @@ public:
 
   virtual QHash<int, QByteArray> roleNames() const;
 
-  Q_INVOKABLE LocationEntry* get(int row) const;
+  Q_INVOKABLE QObject* get(int row) const;
 
   inline bool isSearching() const {
     return searching;
@@ -238,5 +240,7 @@ private:
   void lookupRegion();
 
 };
+
+}
 
 #endif

@@ -1,5 +1,5 @@
-#ifndef MAPWIDGET_H
-#define MAPWIDGET_H
+#ifndef OSMSCOUT_CLIENT_QT_MAPWIDGET_H
+#define OSMSCOUT_CLIENT_QT_MAPWIDGET_H
 
 /*
   OSMScout - a Qt backend for libosmscout and libosmscout-map
@@ -26,7 +26,7 @@
 #include <osmscout/GeoCoord.h>
 #include <osmscout/util/GeoBox.h>
 
-#include <osmscout/private/ClientQtImportExport.h>
+#include <osmscout/ClientQtImportExport.h>
 
 #include <osmscout/DBThread.h>
 #include <osmscout/MapRenderer.h>
@@ -34,6 +34,8 @@
 #include <osmscout/InputHandler.h>
 #include <osmscout/OSMScoutQt.h>
 #include <osmscout/OverlayObject.h>
+
+namespace osmscout {
 
 /**
  * \defgroup QtAPI Qt API
@@ -192,7 +194,7 @@ private:
    * @param dimension in kilometers
    * @return approximated magnification by object dimension
    */
-  osmscout::Magnification magnificationByDimension(double dimension);
+  osmscout::Magnification magnificationByDimension(const Distance &dimension);
   
 public:
   MapWidget(QQuickItem* parent = 0);
@@ -312,4 +314,6 @@ public:
   void SetRenderingType(QString type);
 };
 
-#endif
+}
+
+#endif // OSMSCOUT_CLIENT_QT_MAPWIDGET_H

@@ -197,6 +197,13 @@ namespace osmscout {
     // no code
   }
 
+  FeatureFilterData::FeatureFilterData(size_t featureFilterIndex,
+                                       size_t flagIndex)
+  : featureFilterIndex(featureFilterIndex),
+    flagIndex(flagIndex)
+  {
+  }
+
   StyleFilter::StyleFilter(const StyleFilter& other)
   {
     this->filtersByType=other.filtersByType;
@@ -244,9 +251,10 @@ namespace osmscout {
     return *this;
   }
 
-  StyleFilter& StyleFilter::AddFeature(size_t featureFilterIndex)
+  StyleFilter& StyleFilter::AddFeature(size_t featureFilterIndex,
+                                       size_t flagIndex)
   {
-    features.insert(featureFilterIndex);
+    features.emplace_back(featureFilterIndex,flagIndex);
 
     return *this;
   }
@@ -290,10 +298,21 @@ namespace osmscout {
                               double meterInPixel,
                               double meterInMM) const
   {
-    if (!features.empty()) {
-      for (size_t index : features) {
-        if (!context.HasFeature(index,
-                                buffer)) {
+    for (const auto& feature : features) {
+      if (!context.HasFeature(feature.featureFilterIndex,
+                              buffer)) {
+        return false;
+      }
+
+      if (feature.flagIndex!=std::numeric_limits<size_t>::max()) {
+        FeatureValue *value=context.GetFeatureValue(feature.featureFilterIndex,
+                                                    buffer);
+
+        if (value==nullptr) {
+          return false;
+        }
+
+        if (!value->IsFlagSet(feature.flagIndex)) {
           return false;
         }
       }
@@ -471,27 +490,6 @@ namespace osmscout {
     }
     else {
       return emptySymbol;
-    }
-  }
-
-  void StyleConfig::GetAllNodeTypes(std::list<TypeId>& types)
-  {
-    for (const auto& type : typeConfig->GetNodeTypes()) {
-      types.push_back(type->GetNodeId());
-    }
-  }
-
-  void StyleConfig::GetAllWayTypes(std::list<TypeId>& types)
-  {
-    for (const auto& type : typeConfig->GetWayTypes()) {
-      types.push_back(type->GetWayId());
-    }
-  }
-
-  void StyleConfig::GetAllAreaTypes(std::list<TypeId>& types)
-  {
-    for (const auto& type : typeConfig->GetAreaTypes()) {
-      types.push_back(type->GetAreaId());
     }
   }
 
@@ -1177,6 +1175,8 @@ namespace osmscout {
     lineStyles.clear();
     lineStyles.reserve(wayLineStyleSelectors.size());
 
+    bool requireSort=false;
+
     for (const auto& wayLineStyleSelector : wayLineStyleSelectors) {
       LineStyleRef style=GetFeatureStyle(styleResolveContext,
                                          wayLineStyleSelector[buffer.GetType()->GetIndex()],
@@ -1184,8 +1184,21 @@ namespace osmscout {
                                          projection);
 
       if (style) {
+        if (style->GetOffsetRel()!=LineStyle::base) {
+          requireSort=true;
+        }
+
         lineStyles.push_back(style);
       }
+    }
+
+    if (requireSort &&
+        lineStyles.size()>1) {
+      std::sort(lineStyles.begin(),
+                lineStyles.end(),
+                [](const LineStyleRef& a, const LineStyleRef& b) -> bool {
+                  return a->GetSlot()<b->GetSlot();
+      });
     }
   }
 
@@ -1447,12 +1460,14 @@ namespace osmscout {
     }
   }
 
-  bool StyleConfig::LoadContent(const std::string& content)
+  bool StyleConfig::LoadContent(const std::string& content,
+                                ColorPostprocessor colorPostprocessor)
   {
     oss::Scanner *scanner=new oss::Scanner((const unsigned char *)content.c_str(),
                                            content.length());
     oss::Parser  *parser=new oss::Parser(scanner,
-                                         *this);
+                                         *this,
+                                         colorPostprocessor);
     parser->Parse();
 
     bool success=!parser->errors->hasErrors;
@@ -1486,7 +1501,8 @@ namespace osmscout {
     return success;
   }
 
-  bool StyleConfig::Load(const std::string& styleFile)
+  bool StyleConfig::Load(const std::string& styleFile,
+                         ColorPostprocessor colorPostprocessor)
   {
     StopClock  timer;
     bool       success=false;
@@ -1518,7 +1534,8 @@ namespace osmscout {
 
       fclose(file);
 
-      success=LoadContent(std::string((const char *)content, fileSize));
+      success=LoadContent(std::string((const char *)content,fileSize),
+                          colorPostprocessor);
 
       delete [] content;
 

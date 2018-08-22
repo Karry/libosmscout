@@ -38,11 +38,13 @@ bool success=OSMScoutQt::NewInstance()
 
 if (!success){
   // terminate program, or just report error - something is really bad
+  
 }
 
 // now it is possible to create QML window that is using the library
 
 // release resources
+
 OSMScoutQt::FreeInstance();
 ```
 For detailed description see [OSMScoutQtBuilder class](/api-doc/html/classOSMScoutQtBuilder.html)
@@ -176,6 +178,46 @@ Map{
 Overlay types that don't exists in database, should be defined on library startup 
 by `OSMScoutQtBuilder::AddCustomPoiType` method.
 
+### Custom map overlays
+
+For some kind of applications, custom map objects don't cover all requirements. 
+For example when you want to display hill shades, traffic intensity or some kinds of heatmap, 
+you can create own QML component with [`MapOverlay`](/api-doc/html/classMapOverlay.html) 
+as base class and implement `void paint(QPainter *painter)` method to access full Qt rendering api.
+
+*Note: `paint` method is called in context of UI thread, execute CPU intensive tasks in 
+this thread will cause UI lags!*
+
+You can take inspiration in [`TiledMapOverlay`](/api-doc/html/classTiledMapOverlay.html) 
+class that provides simple overlay based on online tile services. 
+For example pre-rendered hill shades.
+
+```qml
+Map {
+  id: map
+  
+  TiledMapOverlay {
+      anchors.fill: parent
+      view: map.view
+      enabled: true
+      opacity: 0.6
+      // If you intend to use tiles from OpenMapSurfer services in your own applications please contact us.
+      // https://korona.geog.uni-heidelberg.de/contact.html
+      provider: {
+            "id": "ASTER_GDEM",
+            "name": "Hillshade",
+            "servers": [
+              "https://korona.geog.uni-heidelberg.de/tiles/asterh/x=%2&y=%3&z=%1"
+            ],
+            "maximumZoomLevel": 18,
+            "copyright": "© IAT, METI, NASA, NOAA",
+          }
+  }
+}
+```
+
+  <a href="/images/qt-hill-shades.png"><img src="/images/qt-hill-shades.png" width="460" alt="OSM Scout map with OpenMapSurfer hill shades overlay"/></a>
+
 ## Location info
 
 `LocationInfoModel` provides description for place on map based on nearest POI object 
@@ -214,7 +256,7 @@ Detailed description in [LocationInfoModel class](/api-doc/html/classLocationInf
 ## Search place
 
 `LocationListModel` provides search in location (address) index and "fulltext" index of named objects.
-It is usual Qt model that may presented by some `ListView`.
+It is usual Qt model that may be presented by some `ListView`.
 
 ```qml
 LocationListModel {
@@ -234,9 +276,31 @@ SilicaListView {
 
 Detailed description in [LocationListModel class](/api-doc/html/classLocationListModel.html).
 
+## Search POI
+
+`NearPOIModel` provide lookup of database objects (not limited to POI) by given coordinates and types.
+It is usual Qt model that may be presented by some `ListView`.
+
+```qml
+NearPOIModel {
+  id: poiModel
+  lat: 50.0923
+  lon: 14.4827
+  maxDistance: 1000
+  types: ["amenity_restaurant", "amenity_restaurant_building"]
+}
+SilicaListView {
+  id: suggestionView
+  model: poiModel
+  delegate: Label {
+    text: label
+  }
+}
+```
+
+Detailed description in [NearPOIModel class](/api-doc/html/classNearPOIModel.html).
+
 ## Routing
-
-
 
 ```qml
 RoutingListModel{

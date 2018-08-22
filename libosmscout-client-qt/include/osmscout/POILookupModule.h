@@ -21,9 +21,11 @@
 
 #include <osmscout/DBThread.h>
 
-#include <osmscout/private/ClientQtImportExport.h>
+#include <osmscout/ClientQtImportExport.h>
 
 #include <QObject>
+
+namespace osmscout {
 
 /**
  * \ingroup QtAPI
@@ -60,5 +62,7 @@ private:
                                         QStringList types);
 
 };
+
+}
 
 #endif //OSMSCOUT_CLIENT_QT_POILOOKUPSERVICE_H

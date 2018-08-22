@@ -436,10 +436,10 @@ namespace osmscout {
 
     for (auto way: ways) {
       //*wayIt;
-      double length=0.0;
+      Distance length;
       bool split = way->GetNodeCount() > 300;
       if ((!split) && way->GetNodeCount() >= 2){
-        // check real length (in km)
+        // check real length
         auto osmIdIt = way->GetNodes().begin();
         auto endIt = way->GetNodes().end();
         auto prev = coordsMap.find(*osmIdIt);
@@ -455,7 +455,7 @@ namespace osmscout {
           prev = current;
           osmIdIt ++;
         }
-        split = length > 30.0;
+        split = length.As<Kilometer>() > 30.0;
       }
 
       progress.SetProgress(currentWay,wayCount);
@@ -468,12 +468,12 @@ namespace osmscout {
 
       std::string msg = "Splitting long way " + std::to_string(way->GetId()) +
         " with " + std::to_string(way->GetNodeCount()) + " nodes";
-      if (length > 0.0) {
-        msg += " and real length " + std::to_string(length) + " km";
+      if (length.AsMeter() > 0.0) {
+        msg += " and real length " + std::to_string(length.As<Kilometer>()) + " km";
       }
       progress.Debug(msg);
 
-      double segmentLength=0.0;
+      Distance segmentLength;
       size_t segmentNodeCnt=1;
       RawWayRef segment = std::make_shared<RawWay>();
 
@@ -514,7 +514,7 @@ namespace osmscout {
           segmentNodeCnt ++;
         }
 
-        if (segmentNodeCnt >= 300 || segmentLength > 30.0 || current==coordsMap.end()) {
+        if (segmentNodeCnt >= 300 || segmentLength.As<Kilometer>() > 30.0 || current==coordsMap.end()) {
           auto currentSegmentStart = segmentStart;
           segmentStart=osmIdIt;
           prev = current;
@@ -540,7 +540,7 @@ namespace osmscout {
             }
           }
           // reset segment
-          segmentLength=0.0;
+          segmentLength=Distance::Of<Meter>(0.0);
           segmentNodeCnt=1;
           segment = std::make_shared<RawWay>();
 

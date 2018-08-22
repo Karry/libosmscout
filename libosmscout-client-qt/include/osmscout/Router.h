@@ -1,3 +1,6 @@
+#ifndef OSMSCOUT_CLIENT_QT_ROUTER_H
+#define OSMSCOUT_CLIENT_QT_ROUTER_H
+
 /*
  OSMScout - a Qt backend for libosmscout and libosmscout-map
  Copyright (C) 2010 Tim Teulings
@@ -18,9 +21,6 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307  USA
  */
 
-#ifndef ROUTER_H
-#define ROUTER_H
-
 #include <osmscout/RouteDescriptionBuilder.h>
 
 #include <osmscout/DataTileCache.h>
@@ -30,14 +30,14 @@
 #include <osmscout/routing/RoutingProfile.h>
 #include <osmscout/routing/DBFileOffset.h>
 
-#include <osmscout/private/ClientQtImportExport.h>
+#include <osmscout/ClientQtImportExport.h>
 
 #include <memory>
 
 #include <QObject>
 #include <QSettings>
 
-Q_DECLARE_METATYPE(osmscout::Vehicle)
+namespace osmscout {
 
 /**
  * \ingroup QtAPI
@@ -70,10 +70,10 @@ private:
       maxPercent=0.0;
     }
 
-    void Progress(double currentMaxDistance,
-                  double overallDistance)
+    void Progress(const Distance &currentMaxDistance,
+                  const Distance &overallDistance)
     {
-      double currentPercent=(currentMaxDistance*100.0)/overallDistance;
+      double currentPercent=(currentMaxDistance.AsMeter()*100.0)/overallDistance.AsMeter();
 
       std::chrono::system_clock::time_point now=std::chrono::system_clock::now();
 
@@ -164,4 +164,8 @@ public:
 
 };
 
-#endif /* ROUTER_H */
+}
+
+Q_DECLARE_METATYPE(osmscout::Vehicle)
+
+#endif /* OSMSCOUT_CLIENT_QT_ROUTER_H */

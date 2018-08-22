@@ -17,15 +17,13 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307  USA
 */
 
-#include <algorithm>
-
 #include <osmscout/TypeFeatures.h>
 
-#include <osmscout/util/Logger.h>
+#include <algorithm>
+
 #include <osmscout/util/String.h>
 
-#include <osmscout/system/Assert.h>
-
+#include <iostream>
 namespace osmscout {
 
   void NameFeatureValue::Read(FileScanner& scanner)
@@ -39,10 +37,10 @@ namespace osmscout {
   }
 
 
-  FeatureValue& NameFeatureValue::operator=(const FeatureValue& other)
+  NameFeatureValue& NameFeatureValue::operator=(const FeatureValue& other)
   {
     if (this!=&other) {
-      const NameFeatureValue& otherValue=static_cast<const NameFeatureValue&>(other);
+      const auto& otherValue=static_cast<const NameFeatureValue&>(other);
 
       name=otherValue.name;
     }
@@ -52,7 +50,7 @@ namespace osmscout {
 
   bool NameFeatureValue::operator==(const FeatureValue& other) const
   {
-    const NameFeatureValue& otherValue=static_cast<const NameFeatureValue&>(other);
+    const auto& otherValue=static_cast<const NameFeatureValue&>(other);
 
     return name==otherValue.name;
   }
@@ -64,11 +62,11 @@ namespace osmscout {
 
   NameFeature::NameFeature()
   {
-    RegisterLabel(NAME_LABEL,
-                  NAME_LABEL_INDEX);
+    RegisterLabel(NAME_LABEL_INDEX,
+                  NAME_LABEL);
   }
 
-  void NameFeature::Initialize(TypeConfig& /*typeConfig*/)
+  void NameFeature::Initialize(TagRegistry& /*tagRegistry*/)
   {
     // no code
   }
@@ -89,7 +87,7 @@ namespace osmscout {
   }
 
   void NameFeature::Parse(TagErrorReporter& /*errorReporter*/,
-                          const TypeConfig& typeConfig,
+                          const TagRegistry& tagRegistry,
                           const FeatureInstance& feature,
                           const ObjectOSMRef& /*object*/,
                           const TagMap& tags,
@@ -100,7 +98,7 @@ namespace osmscout {
 
     for (const auto &tag : tags) {
       uint32_t ntPrio;
-      bool     isNameTag=typeConfig.IsNameTag(tag.first,ntPrio);
+      bool     isNameTag=tagRegistry.IsNameTag(tag.first,ntPrio);
 
       if (isNameTag &&
           (name.empty() || ntPrio>namePriority)) {
@@ -110,7 +108,7 @@ namespace osmscout {
     }
 
     if (!name.empty()) {
-      NameFeatureValue* value=static_cast<NameFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
+      auto* value=static_cast<NameFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
 
       value->SetName(name);
     }
@@ -126,10 +124,10 @@ namespace osmscout {
     writer.Write(nameAlt);
   }
 
-  FeatureValue& NameAltFeatureValue::operator=(const FeatureValue& other)
+  NameAltFeatureValue& NameAltFeatureValue::operator=(const FeatureValue& other)
   {
     if (this!=&other) {
-      const NameAltFeatureValue& otherValue=static_cast<const NameAltFeatureValue&>(other);
+      const auto& otherValue=static_cast<const NameAltFeatureValue&>(other);
 
       nameAlt=otherValue.nameAlt;
     }
@@ -139,7 +137,7 @@ namespace osmscout {
 
   bool NameAltFeatureValue::operator==(const FeatureValue& other) const
   {
-    const NameAltFeatureValue& otherValue=static_cast<const NameAltFeatureValue&>(other);
+    const auto& otherValue=static_cast<const NameAltFeatureValue&>(other);
 
     return nameAlt==otherValue.nameAlt;
   }
@@ -148,15 +146,15 @@ namespace osmscout {
   const char* const NameAltFeature::NAME_LABEL       = "name";
   const size_t      NameAltFeature::NAME_LABEL_INDEX = 0;
 
-  void NameAltFeature::Initialize(TypeConfig& /*typeConfig*/)
+  void NameAltFeature::Initialize(TagRegistry& /*tagRegistry*/)
   {
     // no code
   }
 
   NameAltFeature::NameAltFeature()
   {
-    RegisterLabel(NAME_LABEL,
-                  NAME_LABEL_INDEX);
+    RegisterLabel(NAME_LABEL_INDEX,
+                  NAME_LABEL);
   }
 
   std::string NameAltFeature::GetName() const
@@ -175,7 +173,7 @@ namespace osmscout {
   }
 
   void NameAltFeature::Parse(TagErrorReporter& /*errorReporter*/,
-                             const TypeConfig& typeConfig,
+                             const TagRegistry& tagRegistry,
                              const FeatureInstance& feature,
                              const ObjectOSMRef& /*object*/,
                              const TagMap& tags,
@@ -186,7 +184,7 @@ namespace osmscout {
 
     for (const auto &tag : tags) {
       uint32_t natPrio;
-      bool     isNameAltTag=typeConfig.IsNameAltTag(tag.first,natPrio);
+      bool     isNameAltTag=tagRegistry.IsNameAltTag(tag.first,natPrio);
 
       if (isNameAltTag &&
           (nameAlt.empty() || natPrio>nameAltPriority)) {
@@ -196,7 +194,7 @@ namespace osmscout {
     }
 
     if (!nameAlt.empty()) {
-      NameAltFeatureValue* value=static_cast<NameAltFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
+      auto* value=static_cast<NameAltFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
 
       value->SetNameAlt(nameAlt);
     }
@@ -212,10 +210,10 @@ namespace osmscout {
     writer.Write(ref);
   }
 
-  FeatureValue& RefFeatureValue::operator=(const FeatureValue& other)
+  RefFeatureValue& RefFeatureValue::operator=(const FeatureValue& other)
   {
     if (this!=&other) {
-      const RefFeatureValue& otherValue=static_cast<const RefFeatureValue&>(other);
+      const auto& otherValue=static_cast<const RefFeatureValue&>(other);
 
       ref=otherValue.ref;
     }
@@ -225,7 +223,7 @@ namespace osmscout {
 
   bool RefFeatureValue::operator==(const FeatureValue& other) const
   {
-    const RefFeatureValue& otherValue=static_cast<const RefFeatureValue&>(other);
+    const auto& otherValue=static_cast<const RefFeatureValue&>(other);
 
     return ref==otherValue.ref;
   }
@@ -237,13 +235,13 @@ namespace osmscout {
   RefFeature::RefFeature()
   : tagRef(0)
   {
-    RegisterLabel(NAME_LABEL,
-                  NAME_LABEL_INDEX);
+    RegisterLabel(NAME_LABEL_INDEX,
+                  NAME_LABEL);
   }
 
-  void RefFeature::Initialize(TypeConfig& typeConfig)
+  void RefFeature::Initialize(TagRegistry& tagRegistry)
   {
-    tagRef=typeConfig.RegisterTag("ref");
+    tagRef=tagRegistry.RegisterTag("ref");
   }
 
   std::string RefFeature::GetName() const
@@ -262,7 +260,7 @@ namespace osmscout {
   }
 
   void RefFeature::Parse(TagErrorReporter& /*errorReporter*/,
-                         const TypeConfig& /*typeConfig*/,
+                         const TagRegistry& /*tagRegistry*/,
                          const FeatureInstance& feature,
                          const ObjectOSMRef& /*object*/,
                          const TagMap& tags,
@@ -272,7 +270,7 @@ namespace osmscout {
 
     if (ref!=tags.end() &&
         !ref->second.empty()) {
-      RefFeatureValue* value=static_cast<RefFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
+      auto* value=static_cast<RefFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
 
       value->SetRef(ref->second);
     }
@@ -288,10 +286,10 @@ namespace osmscout {
     writer.Write(location);
   }
 
-  FeatureValue& LocationFeatureValue::operator=(const FeatureValue& other)
+  LocationFeatureValue& LocationFeatureValue::operator=(const FeatureValue& other)
   {
     if (this!=&other) {
-      const LocationFeatureValue& otherValue=static_cast<const LocationFeatureValue&>(other);
+      const auto& otherValue=static_cast<const LocationFeatureValue&>(other);
 
       location=otherValue.location;
     }
@@ -301,18 +299,18 @@ namespace osmscout {
 
   bool LocationFeatureValue::operator==(const FeatureValue& other) const
   {
-    const LocationFeatureValue& otherValue=static_cast<const LocationFeatureValue&>(other);
+    const auto& otherValue=static_cast<const LocationFeatureValue&>(other);
 
     return location==otherValue.location;
   }
 
   const char* const LocationFeature::NAME = "Location";
 
-  void LocationFeature::Initialize(TypeConfig& typeConfig)
+  void LocationFeature::Initialize(TagRegistry& tagRegistry)
   {
-    tagAddrHouseNr=typeConfig.RegisterTag("addr:housenumber");
-    tagAddrStreet=typeConfig.RegisterTag("addr:street");
-    tagAddrPlace=typeConfig.RegisterTag("addr:place");
+    tagAddrHouseNr=tagRegistry.RegisterTag("addr:housenumber");
+    tagAddrStreet=tagRegistry.RegisterTag("addr:street");
+    tagAddrPlace=tagRegistry.RegisterTag("addr:place");
   }
 
   std::string LocationFeature::GetName() const
@@ -331,7 +329,7 @@ namespace osmscout {
   }
 
   void LocationFeature::Parse(TagErrorReporter& /*errorReporter*/,
-                              const TypeConfig& /*typeConfig*/,
+                              const TagRegistry& /*tagRegistry*/,
                               const FeatureInstance& feature,
                               const ObjectOSMRef& /*object*/,
                               const TagMap& tags,
@@ -356,7 +354,7 @@ namespace osmscout {
 
     if (!street->second.empty() &&
         !houseNr->second.empty()) {
-      LocationFeatureValue* value=static_cast<LocationFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
+      auto* value=static_cast<LocationFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
 
       value->SetLocation(street->second);
     }
@@ -372,10 +370,10 @@ namespace osmscout {
     writer.Write(address);
   }
 
-  FeatureValue& AddressFeatureValue::operator=(const FeatureValue& other)
+  AddressFeatureValue& AddressFeatureValue::operator=(const FeatureValue& other)
   {
     if (this!=&other) {
-      const AddressFeatureValue& otherValue=static_cast<const AddressFeatureValue&>(other);
+      const auto& otherValue=static_cast<const AddressFeatureValue&>(other);
 
       address=otherValue.address;
     }
@@ -385,7 +383,7 @@ namespace osmscout {
 
   bool AddressFeatureValue::operator==(const FeatureValue& other) const
   {
-    const AddressFeatureValue& otherValue=static_cast<const AddressFeatureValue&>(other);
+    const auto& otherValue=static_cast<const AddressFeatureValue&>(other);
 
     return address==otherValue.address;
   }
@@ -400,15 +398,15 @@ namespace osmscout {
     tagAddrStreet(0),
     tagAddrPlace(0)
   {
-    RegisterLabel(NAME_LABEL,
-                  NAME_LABEL_INDEX);
+    RegisterLabel(NAME_LABEL_INDEX,
+                  NAME_LABEL);
   }
 
-  void AddressFeature::Initialize(TypeConfig& typeConfig)
+  void AddressFeature::Initialize(TagRegistry& tagRegistry)
   {
-    tagAddrHouseNr=typeConfig.RegisterTag("addr:housenumber");
-    tagAddrStreet=typeConfig.RegisterTag("addr:street");
-    tagAddrPlace=typeConfig.RegisterTag("addr:place");
+    tagAddrHouseNr=tagRegistry.RegisterTag("addr:housenumber");
+    tagAddrStreet=tagRegistry.RegisterTag("addr:street");
+    tagAddrPlace=tagRegistry.RegisterTag("addr:place");
   }
 
   std::string AddressFeature::GetName() const
@@ -427,7 +425,7 @@ namespace osmscout {
   }
 
   void AddressFeature::Parse(TagErrorReporter& /*errorReporter*/,
-                             const TypeConfig& /*typeConfig*/,
+                             const TagRegistry& /*tagRegistry*/,
                              const FeatureInstance& feature,
                              const ObjectOSMRef& /*object*/,
                              const TagMap& tags,
@@ -452,7 +450,7 @@ namespace osmscout {
 
     if (!street->second.empty() &&
         !houseNr->second.empty()) {
-      AddressFeatureValue* value=static_cast<AddressFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
+      auto* value=static_cast<AddressFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
 
       value->SetAddress(houseNr->second);
     }
@@ -468,10 +466,10 @@ namespace osmscout {
     writer.Write(access);
   }
 
-  FeatureValue& AccessFeatureValue::operator=(const FeatureValue& other)
+  AccessFeatureValue& AccessFeatureValue::operator=(const FeatureValue& other)
   {
     if (this!=&other) {
-      const AccessFeatureValue& otherValue=static_cast<const AccessFeatureValue&>(other);
+      const auto& otherValue=static_cast<const AccessFeatureValue&>(other);
 
       access=otherValue.access;
     }
@@ -481,37 +479,37 @@ namespace osmscout {
 
   bool AccessFeatureValue::operator==(const FeatureValue& other) const
   {
-    const AccessFeatureValue& otherValue=static_cast<const AccessFeatureValue&>(other);
+    const auto& otherValue=static_cast<const AccessFeatureValue&>(other);
 
     return access==otherValue.access;
   }
 
   const char* const AccessFeature::NAME = "Access";
 
-  void AccessFeature::Initialize(TypeConfig& typeConfig)
+  void AccessFeature::Initialize(TagRegistry& tagRegistry)
   {
-    tagOneway=typeConfig.RegisterTag("oneway");
-    tagJunction=typeConfig.RegisterTag("junction");
+    tagOneway=tagRegistry.RegisterTag("oneway");
+    tagJunction=tagRegistry.RegisterTag("junction");
 
-    tagAccess=typeConfig.RegisterTag("access");
-    tagAccessForward=typeConfig.RegisterTag("access:forward");
-    tagAccessBackward=typeConfig.RegisterTag("access:backward");
+    tagAccess=tagRegistry.RegisterTag("access");
+    tagAccessForward=tagRegistry.RegisterTag("access:forward");
+    tagAccessBackward=tagRegistry.RegisterTag("access:backward");
 
-    tagFoot=typeConfig.RegisterTag("foot");
-    tagFootForward=typeConfig.RegisterTag("foot:forward");
-    tagFootBackward=typeConfig.RegisterTag("foot:backward");
+    tagFoot=tagRegistry.RegisterTag("foot");
+    tagFootForward=tagRegistry.RegisterTag("foot:forward");
+    tagFootBackward=tagRegistry.RegisterTag("foot:backward");
 
-    tagBicycle=typeConfig.RegisterTag("bicycle");
-    tagBicycleForward=typeConfig.RegisterTag("bicycle:forward");
-    tagBicycleBackward=typeConfig.RegisterTag("bicycle:backward");
+    tagBicycle=tagRegistry.RegisterTag("bicycle");
+    tagBicycleForward=tagRegistry.RegisterTag("bicycle:forward");
+    tagBicycleBackward=tagRegistry.RegisterTag("bicycle:backward");
 
-    tagMotorVehicle=typeConfig.RegisterTag("motor_vehicle");
-    tagMotorVehicleForward=typeConfig.RegisterTag("motor_vehicle:forward");
-    tagMotorVehicleBackward=typeConfig.RegisterTag("motor_vehicle:backward");
+    tagMotorVehicle=tagRegistry.RegisterTag("motor_vehicle");
+    tagMotorVehicleForward=tagRegistry.RegisterTag("motor_vehicle:forward");
+    tagMotorVehicleBackward=tagRegistry.RegisterTag("motor_vehicle:backward");
 
-    tagMotorcar=typeConfig.RegisterTag("motorcar");
-    tagMotorcarForward=typeConfig.RegisterTag("motorcar:forward");
-    tagMotorcarBackward=typeConfig.RegisterTag("motorcar:backward");
+    tagMotorcar=tagRegistry.RegisterTag("motorcar");
+    tagMotorcarForward=tagRegistry.RegisterTag("motorcar:forward");
+    tagMotorcarBackward=tagRegistry.RegisterTag("motorcar:backward");
   }
 
   std::string AccessFeature::GetName() const
@@ -530,7 +528,7 @@ namespace osmscout {
   }
 
   void AccessFeature::Parse(TagErrorReporter& /*errorReporter*/,
-                            const TypeConfig& /*typeConfig*/,
+                            const TagRegistry& /*tagRegistry*/,
                             const FeatureInstance& feature,
                             const ObjectOSMRef& /*object*/,
                             const TagMap& tags,
@@ -732,7 +730,7 @@ namespace osmscout {
     }
 
     if (access!=defaultAccess) {
-      AccessFeatureValue* value=static_cast<AccessFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
+      auto* value=static_cast<AccessFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
 
       value->SetAccess(access);
     }
@@ -748,10 +746,10 @@ namespace osmscout {
     writer.Write(access);
   }
 
-  FeatureValue& AccessRestrictedFeatureValue::operator=(const FeatureValue& other)
+  AccessRestrictedFeatureValue& AccessRestrictedFeatureValue::operator=(const FeatureValue& other)
   {
     if (this!=&other) {
-      const AccessRestrictedFeatureValue& otherValue=static_cast<const AccessRestrictedFeatureValue&>(other);
+      const auto& otherValue=static_cast<const AccessRestrictedFeatureValue&>(other);
 
       access=otherValue.access;
     }
@@ -761,19 +759,19 @@ namespace osmscout {
 
   bool AccessRestrictedFeatureValue::operator==(const FeatureValue& other) const
   {
-    const AccessRestrictedFeatureValue& otherValue=static_cast<const AccessRestrictedFeatureValue&>(other);
+    const auto& otherValue=static_cast<const AccessRestrictedFeatureValue&>(other);
 
     return access==otherValue.access;
   }
 
   const char* const AccessRestrictedFeature::NAME = "AccessRestricted";
 
-  void AccessRestrictedFeature::Initialize(TypeConfig& typeConfig)
+  void AccessRestrictedFeature::Initialize(TagRegistry& tagRegistry)
   {
-    tagAccess=typeConfig.RegisterTag("access");
-    tagFoot=typeConfig.RegisterTag("foot");
-    tagBicycle=typeConfig.RegisterTag("bicycle");
-    tagMotorVehicle=typeConfig.RegisterTag("motor_vehicle");
+    tagAccess=tagRegistry.RegisterTag("access");
+    tagFoot=tagRegistry.RegisterTag("foot");
+    tagBicycle=tagRegistry.RegisterTag("bicycle");
+    tagMotorVehicle=tagRegistry.RegisterTag("motor_vehicle");
   }
 
   std::string AccessRestrictedFeature::GetName() const
@@ -792,7 +790,7 @@ namespace osmscout {
   }
 
   void AccessRestrictedFeature::Parse(TagErrorReporter& /*errorReporter*/,
-                                      const TypeConfig& /*typeConfig*/,
+                                      const TagRegistry& /*tagRegistry*/,
                                       const FeatureInstance& feature,
                                       const ObjectOSMRef& /*object*/,
                                       const TagMap& tags,
@@ -852,7 +850,7 @@ namespace osmscout {
     }
 
     if (access!=defaultAccess) {
-      AccessRestrictedFeatureValue* value=static_cast<AccessRestrictedFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
+      auto* value=static_cast<AccessRestrictedFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
 
       value->SetAccess(access);
     }
@@ -868,10 +866,10 @@ namespace osmscout {
     writer.Write(layer);
   }
 
-  FeatureValue& LayerFeatureValue::operator=(const FeatureValue& other)
+  LayerFeatureValue& LayerFeatureValue::operator=(const FeatureValue& other)
   {
     if (this!=&other) {
-      const LayerFeatureValue& otherValue=static_cast<const LayerFeatureValue&>(other);
+      const auto& otherValue=static_cast<const LayerFeatureValue&>(other);
 
       layer=otherValue.layer;
     }
@@ -881,16 +879,16 @@ namespace osmscout {
 
   bool LayerFeatureValue::operator==(const FeatureValue& other) const
   {
-    const LayerFeatureValue& otherValue=static_cast<const LayerFeatureValue&>(other);
+    const auto& otherValue=static_cast<const LayerFeatureValue&>(other);
 
     return layer==otherValue.layer;
   }
 
   const char* const LayerFeature::NAME = "Layer";
 
-  void LayerFeature::Initialize(TypeConfig& typeConfig)
+  void LayerFeature::Initialize(TagRegistry& tagRegistry)
   {
-    tagLayer=typeConfig.RegisterTag("layer");
+    tagLayer=tagRegistry.RegisterTag("layer");
   }
 
   std::string LayerFeature::GetName() const
@@ -909,7 +907,7 @@ namespace osmscout {
   }
 
   void LayerFeature::Parse(TagErrorReporter& errorReporter,
-                           const TypeConfig& /*typeConfig*/,
+                           const TagRegistry& /*tagRegistry*/,
                            const FeatureInstance& feature,
                            const ObjectOSMRef& object,
                            const TagMap& tags,
@@ -922,7 +920,7 @@ namespace osmscout {
 
       if (StringToNumber(layer->second,layerValue)) {
         if (layerValue!=0) {
-          LayerFeatureValue* value=static_cast<LayerFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
+          auto* value=static_cast<LayerFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
 
           value->SetLayer(layerValue);
         }
@@ -943,10 +941,10 @@ namespace osmscout {
     writer.Write(width);
   }
 
-  FeatureValue& WidthFeatureValue::operator=(const FeatureValue& other)
+  WidthFeatureValue& WidthFeatureValue::operator=(const FeatureValue& other)
   {
     if (this!=&other) {
-      const WidthFeatureValue& otherValue=static_cast<const WidthFeatureValue&>(other);
+      const auto& otherValue=static_cast<const WidthFeatureValue&>(other);
 
       width=otherValue.width;
     }
@@ -956,16 +954,16 @@ namespace osmscout {
 
   bool WidthFeatureValue::operator==(const FeatureValue& other) const
   {
-    const WidthFeatureValue& otherValue=static_cast<const WidthFeatureValue&>(other);
+    const auto& otherValue=static_cast<const WidthFeatureValue&>(other);
 
     return width==otherValue.width;
   }
 
   const char* const WidthFeature::NAME = "Width";
 
-  void WidthFeature::Initialize(TypeConfig& typeConfig)
+  void WidthFeature::Initialize(TagRegistry& tagRegistry)
   {
-    tagWidth=typeConfig.RegisterTag("width");
+    tagWidth=tagRegistry.RegisterTag("width");
   }
 
   std::string WidthFeature::GetName() const
@@ -984,7 +982,7 @@ namespace osmscout {
   }
 
   void WidthFeature::Parse(TagErrorReporter& errorReporter,
-                           const TypeConfig& /*typeConfig*/,
+                           const TagRegistry& /*tagRegistry*/,
                            const FeatureInstance& feature,
                            const ObjectOSMRef& object,
                            const TagMap& tags,
@@ -1033,11 +1031,11 @@ namespace osmscout {
     if (!StringToNumber(widthString,w)) {
       errorReporter.ReportTag(object,tags,std::string("Width tag value '")+width->second+"' is no double!");
     }
-    else if (w<0 && w>255.5) {
+    else if (w<0 || w>255.5) {
       errorReporter.ReportTag(object,tags,std::string("Width tag value '")+width->second+"' value is too small or too big!");
     }
     else {
-      WidthFeatureValue* value=static_cast<WidthFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
+      auto* value=static_cast<WidthFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
 
       value->SetWidth((uint8_t)floor(w+0.5));
     }
@@ -1053,10 +1051,10 @@ namespace osmscout {
     writer.Write(maxSpeed);
   }
 
-  FeatureValue& MaxSpeedFeatureValue::operator=(const FeatureValue& other)
+  MaxSpeedFeatureValue& MaxSpeedFeatureValue::operator=(const FeatureValue& other)
   {
     if (this!=&other) {
-      const MaxSpeedFeatureValue& otherValue=static_cast<const MaxSpeedFeatureValue&>(other);
+      const auto& otherValue=static_cast<const MaxSpeedFeatureValue&>(other);
 
       maxSpeed=otherValue.maxSpeed;
     }
@@ -1066,16 +1064,16 @@ namespace osmscout {
 
   bool MaxSpeedFeatureValue::operator==(const FeatureValue& other) const
   {
-    const MaxSpeedFeatureValue& otherValue=static_cast<const MaxSpeedFeatureValue&>(other);
+    const auto& otherValue=static_cast<const MaxSpeedFeatureValue&>(other);
 
     return maxSpeed==otherValue.maxSpeed;
   }
 
   const char* const MaxSpeedFeature::NAME = "MaxSpeed";
 
-  void MaxSpeedFeature::Initialize(TypeConfig& typeConfig)
+  void MaxSpeedFeature::Initialize(TagRegistry& tagRegistry)
   {
-    tagMaxSpeed=typeConfig.RegisterTag("maxspeed");
+    tagMaxSpeed=tagRegistry.RegisterTag("maxspeed");
   }
 
   std::string MaxSpeedFeature::GetName() const
@@ -1094,7 +1092,7 @@ namespace osmscout {
   }
 
   void MaxSpeedFeature::Parse(TagErrorReporter& errorReporter,
-                              const TypeConfig& typeConfig,
+                              const TagRegistry& tagRegistry,
                               const FeatureInstance& feature,
                               const ObjectOSMRef& object,
                               const TagMap& tags,
@@ -1119,7 +1117,7 @@ namespace osmscout {
     // "walk" should not be used, but we provide an estimation anyway,
     // since it is likely still better than the default
     if (valueString=="walk") {
-      MaxSpeedFeatureValue* value=static_cast<MaxSpeedFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
+      auto* value=static_cast<MaxSpeedFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
 
       value->SetMaxSpeed(10);
 
@@ -1151,7 +1149,7 @@ namespace osmscout {
                         valueNumeric)) {
       uint8_t maxSpeedValue;
 
-      if (typeConfig.GetMaxSpeedFromAlias(valueString,
+      if (tagRegistry.GetMaxSpeedFromAlias(valueString,
                                           maxSpeedValue)) {
         valueNumeric=maxSpeedValue;
       }
@@ -1161,7 +1159,7 @@ namespace osmscout {
       }
     }
 
-    MaxSpeedFeatureValue* value=static_cast<MaxSpeedFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
+    auto* value=static_cast<MaxSpeedFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
 
     if (isMph) {
       if (valueNumeric>std::numeric_limits<uint8_t>::max()/1.609+0.5) {
@@ -1192,10 +1190,10 @@ namespace osmscout {
     writer.Write(grade);
   }
 
-  FeatureValue& GradeFeatureValue::operator=(const FeatureValue& other)
+  GradeFeatureValue& GradeFeatureValue::operator=(const FeatureValue& other)
   {
     if (this!=&other) {
-      const GradeFeatureValue& otherValue=static_cast<const GradeFeatureValue&>(other);
+      const auto& otherValue=static_cast<const GradeFeatureValue&>(other);
 
       grade=otherValue.grade;
     }
@@ -1205,17 +1203,17 @@ namespace osmscout {
 
   bool GradeFeatureValue::operator==(const FeatureValue& other) const
   {
-    const GradeFeatureValue& otherValue=static_cast<const GradeFeatureValue&>(other);
+    const auto& otherValue=static_cast<const GradeFeatureValue&>(other);
 
     return grade==otherValue.grade;
   }
 
   const char* const GradeFeature::NAME = "Grade";
 
-  void GradeFeature::Initialize(TypeConfig& typeConfig)
+  void GradeFeature::Initialize(TagRegistry& tagRegistry)
   {
-    tagSurface=typeConfig.RegisterTag("surface");
-    tagTrackType=typeConfig.RegisterTag("tracktype");
+    tagSurface=tagRegistry.RegisterTag("surface");
+    tagTrackType=tagRegistry.RegisterTag("tracktype");
   }
 
   std::string GradeFeature::GetName() const
@@ -1234,7 +1232,7 @@ namespace osmscout {
   }
 
   void GradeFeature::Parse(TagErrorReporter& errorReporter,
-                           const TypeConfig& typeConfig,
+                           const TagRegistry& tagRegistry,
                            const FeatureInstance& feature,
                            const ObjectOSMRef& object,
                            const TagMap& tags,
@@ -1244,35 +1242,35 @@ namespace osmscout {
 
     if (tracktype!=tags.end()) {
       if (tracktype->second=="grade1") {
-        GradeFeatureValue* value=static_cast<GradeFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
+        auto* value=static_cast<GradeFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
 
         value->SetGrade(1);
 
         return;
       }
       else if (tracktype->second=="grade2") {
-        GradeFeatureValue* value=static_cast<GradeFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
+        auto* value=static_cast<GradeFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
 
         value->SetGrade(2);
 
         return;
       }
       else if (tracktype->second=="grade3") {
-        GradeFeatureValue* value=static_cast<GradeFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
+        auto* value=static_cast<GradeFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
 
         value->SetGrade(3);
 
         return;
       }
       else if (tracktype->second=="grade4") {
-        GradeFeatureValue* value=static_cast<GradeFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
+        auto* value=static_cast<GradeFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
 
         value->SetGrade(4);
 
         return;
       }
       else if (tracktype->second=="grade5") {
-        GradeFeatureValue* value=static_cast<GradeFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
+        auto* value=static_cast<GradeFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
 
         value->SetGrade(5);
 
@@ -1288,9 +1286,9 @@ namespace osmscout {
     if (surface!=tags.end()) {
       size_t grade;
 
-      if (typeConfig.GetGradeForSurface(surface->second,
+      if (tagRegistry.GetGradeForSurface(surface->second,
                                         grade)) {
-        GradeFeatureValue* value=static_cast<GradeFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
+        auto* value=static_cast<GradeFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
 
         value->SetGrade((uint8_t)grade);
       }
@@ -1312,10 +1310,10 @@ namespace osmscout {
     writer.Write(isIn);
   }
 
-  FeatureValue& AdminLevelFeatureValue::operator=(const FeatureValue& other)
+  AdminLevelFeatureValue& AdminLevelFeatureValue::operator=(const FeatureValue& other)
   {
     if (this!=&other) {
-      const AdminLevelFeatureValue& otherValue=static_cast<const AdminLevelFeatureValue&>(other);
+      const auto& otherValue=static_cast<const AdminLevelFeatureValue&>(other);
 
       adminLevel=otherValue.adminLevel;
       isIn=otherValue.isIn;
@@ -1326,17 +1324,17 @@ namespace osmscout {
 
   bool AdminLevelFeatureValue::operator==(const FeatureValue& other) const
   {
-    const AdminLevelFeatureValue& otherValue=static_cast<const AdminLevelFeatureValue&>(other);
+    const auto& otherValue=static_cast<const AdminLevelFeatureValue&>(other);
 
     return adminLevel==otherValue.adminLevel && isIn==otherValue.isIn;
   }
 
   const char* const AdminLevelFeature::NAME = "AdminLevel";
 
-  void AdminLevelFeature::Initialize(TypeConfig& typeConfig)
+  void AdminLevelFeature::Initialize(TagRegistry& tagRegistry)
   {
-    tagAdminLevel=typeConfig.RegisterTag("admin_level");
-    tagIsIn=typeConfig.RegisterTag("is_in");
+    tagAdminLevel=tagRegistry.RegisterTag("admin_level");
+    tagIsIn=tagRegistry.RegisterTag("is_in");
   }
 
   std::string AdminLevelFeature::GetName() const
@@ -1355,7 +1353,7 @@ namespace osmscout {
   }
 
   void AdminLevelFeature::Parse(TagErrorReporter& errorReporter,
-                                const TypeConfig& /*typeConfig*/,
+                                const TagRegistry& /*tagRegistry*/,
                                 const FeatureInstance& feature,
                                 const ObjectOSMRef& object,
                                 const TagMap& tags,
@@ -1368,7 +1366,7 @@ namespace osmscout {
 
       if (StringToNumber(adminLevel->second,
                          adminLevelValue)) {
-        AdminLevelFeatureValue* value=static_cast<AdminLevelFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
+        auto* value=static_cast<AdminLevelFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
 
         value->SetAdminLevel(adminLevelValue);
 
@@ -1394,10 +1392,10 @@ namespace osmscout {
     writer.Write(postalCode);
   }
 
-  FeatureValue& PostalCodeFeatureValue::operator=(const FeatureValue& other)
+  PostalCodeFeatureValue& PostalCodeFeatureValue::operator=(const FeatureValue& other)
   {
     if (this!=&other) {
-      const PostalCodeFeatureValue& otherValue=static_cast<const PostalCodeFeatureValue&>(other);
+      const auto& otherValue=static_cast<const PostalCodeFeatureValue&>(other);
 
       postalCode=otherValue.postalCode;
     }
@@ -1407,7 +1405,7 @@ namespace osmscout {
 
   bool PostalCodeFeatureValue::operator==(const FeatureValue& other) const
   {
-    const PostalCodeFeatureValue& otherValue=static_cast<const PostalCodeFeatureValue&>(other);
+    const auto& otherValue=static_cast<const PostalCodeFeatureValue&>(other);
 
     return postalCode==otherValue.postalCode;
   }
@@ -1416,13 +1414,13 @@ namespace osmscout {
 
   PostalCodeFeature::PostalCodeFeature()
   {
-      RegisterLabel(NAME, 0);
+    RegisterLabel(0,NAME);
   }
 
-  void PostalCodeFeature::Initialize(TypeConfig& typeConfig)
+  void PostalCodeFeature::Initialize(TagRegistry& tagRegistry)
   {
-    tagPostalCode=typeConfig.RegisterTag("postal_code");
-    tagAddrPostCode=typeConfig.RegisterTag("addr:postcode");
+    tagPostalCode=tagRegistry.RegisterTag("postal_code");
+    tagAddrPostCode=tagRegistry.RegisterTag("addr:postcode");
   }
 
   std::string PostalCodeFeature::GetName() const
@@ -1441,7 +1439,7 @@ namespace osmscout {
   }
 
   void PostalCodeFeature::Parse(TagErrorReporter& errorReporter,
-                                const TypeConfig& /*typeConfig*/,
+                                const TagRegistry& /*tagRegistry*/,
                                 const FeatureInstance& feature,
                                 const ObjectOSMRef& object,
                                 const TagMap& tags,
@@ -1464,7 +1462,7 @@ namespace osmscout {
       if (!postalCodeValue.empty()) {
         size_t idx = feature.GetIndex();
         FeatureValue* fv = buffer.AllocateValue(idx);
-        PostalCodeFeatureValue* value=static_cast<PostalCodeFeatureValue*>(fv);
+        auto* value=static_cast<PostalCodeFeatureValue*>(fv);
 
         value->SetPostalCode(postalCodeValue);
       }
@@ -1484,10 +1482,10 @@ namespace osmscout {
     writer.Write(website);
   }
 
-  FeatureValue& WebsiteFeatureValue::operator=(const FeatureValue& other)
+  WebsiteFeatureValue& WebsiteFeatureValue::operator=(const FeatureValue& other)
   {
     if (this!=&other) {
-      const WebsiteFeatureValue& otherValue=static_cast<const WebsiteFeatureValue&>(other);
+      const auto& otherValue=static_cast<const WebsiteFeatureValue&>(other);
 
       website=otherValue.website;
     }
@@ -1497,7 +1495,7 @@ namespace osmscout {
 
   bool WebsiteFeatureValue::operator==(const FeatureValue& other) const
   {
-    const WebsiteFeatureValue& otherValue=static_cast<const WebsiteFeatureValue&>(other);
+    const auto& otherValue=static_cast<const WebsiteFeatureValue&>(other);
 
     return website==otherValue.website;
   }
@@ -1506,12 +1504,12 @@ namespace osmscout {
 
   WebsiteFeature::WebsiteFeature()
   {
-    RegisterLabel(NAME, 0);
+    RegisterLabel(0,NAME);
   }
 
-  void WebsiteFeature::Initialize(TypeConfig& typeConfig)
+  void WebsiteFeature::Initialize(TagRegistry& tagRegistry)
   {
-    tagWebsite=typeConfig.RegisterTag("website");
+    tagWebsite=tagRegistry.RegisterTag("website");
   }
 
   std::string WebsiteFeature::GetName() const
@@ -1530,7 +1528,7 @@ namespace osmscout {
   }
 
   void WebsiteFeature::Parse(TagErrorReporter& errorReporter,
-                             const TypeConfig& /*typeConfig*/,
+                             const TagRegistry& /*tagRegistry*/,
                              const FeatureInstance& feature,
                              const ObjectOSMRef& object,
                              const TagMap& tags,
@@ -1552,7 +1550,7 @@ namespace osmscout {
       if (!strValue.empty()) {
         size_t idx = feature.GetIndex();
         FeatureValue* fv = buffer.AllocateValue(idx);
-        WebsiteFeatureValue* value=static_cast<WebsiteFeatureValue*>(fv);
+        auto* value=static_cast<WebsiteFeatureValue*>(fv);
 
         value->SetWebsite(strValue);
       }
@@ -1572,10 +1570,10 @@ namespace osmscout {
     writer.Write(phone);
   }
 
-  FeatureValue& PhoneFeatureValue::operator=(const FeatureValue& other)
+  PhoneFeatureValue& PhoneFeatureValue::operator=(const FeatureValue& other)
   {
     if (this!=&other) {
-      const PhoneFeatureValue& otherValue=static_cast<const PhoneFeatureValue&>(other);
+      const auto& otherValue=static_cast<const PhoneFeatureValue&>(other);
 
       phone=otherValue.phone;
     }
@@ -1585,7 +1583,7 @@ namespace osmscout {
 
   bool PhoneFeatureValue::operator==(const FeatureValue& other) const
   {
-    const PhoneFeatureValue& otherValue=static_cast<const PhoneFeatureValue&>(other);
+    const auto& otherValue=static_cast<const PhoneFeatureValue&>(other);
 
     return phone==otherValue.phone;
   }
@@ -1594,12 +1592,12 @@ namespace osmscout {
 
   PhoneFeature::PhoneFeature()
   {
-    RegisterLabel(NAME, 0);
+    RegisterLabel(0,NAME);
   }
 
-  void PhoneFeature::Initialize(TypeConfig& typeConfig)
+  void PhoneFeature::Initialize(TagRegistry& tagRegistry)
   {
-    tagPhone=typeConfig.RegisterTag("phone");
+    tagPhone=tagRegistry.RegisterTag("phone");
   }
 
   std::string PhoneFeature::GetName() const
@@ -1618,7 +1616,7 @@ namespace osmscout {
   }
 
   void PhoneFeature::Parse(TagErrorReporter& errorReporter,
-                           const TypeConfig& /*typeConfig*/,
+                           const TagRegistry& /*tagRegistry*/,
                            const FeatureInstance& feature,
                            const ObjectOSMRef& object,
                            const TagMap& tags,
@@ -1646,7 +1644,7 @@ namespace osmscout {
 
         size_t idx = feature.GetIndex();
         FeatureValue* fv = buffer.AllocateValue(idx);
-        PhoneFeatureValue* value=static_cast<PhoneFeatureValue*>(fv);
+        auto* value=static_cast<PhoneFeatureValue*>(fv);
 
         value->SetPhone(strValue);
       }
@@ -1658,9 +1656,9 @@ namespace osmscout {
 
   const char* const BridgeFeature::NAME = "Bridge";
 
-  void BridgeFeature::Initialize(TypeConfig& typeConfig)
+  void BridgeFeature::Initialize(TagRegistry& tagRegistry)
   {
-    tagBridge=typeConfig.RegisterTag("bridge");
+    tagBridge=tagRegistry.RegisterTag("bridge");
   }
 
   std::string BridgeFeature::GetName() const
@@ -1669,7 +1667,7 @@ namespace osmscout {
   }
 
   void BridgeFeature::Parse(TagErrorReporter& /*errorReporter*/,
-                            const TypeConfig& /*typeConfig*/,
+                            const TagRegistry& /*tagRegistry*/,
                             const FeatureInstance& feature,
                             const ObjectOSMRef& /*object*/,
                             const TagMap& tags,
@@ -1687,9 +1685,9 @@ namespace osmscout {
 
   const char* const TunnelFeature::NAME = "Tunnel";
 
-  void TunnelFeature::Initialize(TypeConfig& typeConfig)
+  void TunnelFeature::Initialize(TagRegistry& tagRegistry)
   {
-    tagTunnel=typeConfig.RegisterTag("tunnel");
+    tagTunnel=tagRegistry.RegisterTag("tunnel");
   }
 
   std::string TunnelFeature::GetName() const
@@ -1698,7 +1696,7 @@ namespace osmscout {
   }
 
   void TunnelFeature::Parse(TagErrorReporter& /*errorReporter*/,
-                            const TypeConfig& /*typeConfig*/,
+                            const TagRegistry& /*tagRegistry*/,
                             const FeatureInstance& feature,
                             const ObjectOSMRef& /*object*/,
                             const TagMap& tags,
@@ -1716,9 +1714,9 @@ namespace osmscout {
 
   const char* const EmbankmentFeature::NAME = "Embankment";
 
-  void EmbankmentFeature::Initialize(TypeConfig& typeConfig)
+  void EmbankmentFeature::Initialize(TagRegistry& tagRegistry)
   {
-        tagEmbankment=typeConfig.RegisterTag("embankment");
+        tagEmbankment=tagRegistry.RegisterTag("embankment");
   }
 
   std::string EmbankmentFeature::GetName() const
@@ -1727,7 +1725,7 @@ namespace osmscout {
   }
 
   void EmbankmentFeature::Parse(TagErrorReporter& /*errorReporter*/,
-                                const TypeConfig& /*typeConfig*/,
+                                const TagRegistry& /*tagRegistry*/,
                                 const FeatureInstance& feature,
                                 const ObjectOSMRef& /*object*/,
                                 const TagMap& tags,
@@ -1745,9 +1743,9 @@ namespace osmscout {
 
   const char* const RoundaboutFeature::NAME = "Roundabout";
 
-  void RoundaboutFeature::Initialize(TypeConfig& typeConfig)
+  void RoundaboutFeature::Initialize(TagRegistry& tagRegistry)
   {
-    tagJunction=typeConfig.RegisterTag("junction");
+    tagJunction=tagRegistry.RegisterTag("junction");
   }
 
   std::string RoundaboutFeature::GetName() const
@@ -1756,7 +1754,7 @@ namespace osmscout {
   }
 
   void RoundaboutFeature::Parse(TagErrorReporter& /*errorReporter*/,
-                                const TypeConfig& /*typeConfig*/,
+                                const TagRegistry& /*tagRegistry*/,
                                 const FeatureInstance& feature,
                                 const ObjectOSMRef& /*object*/,
                                 const TagMap& tags,
@@ -1780,10 +1778,10 @@ namespace osmscout {
     writer.WriteNumber(ele);
   }
 
-  FeatureValue& EleFeatureValue::operator=(const FeatureValue& other)
+  EleFeatureValue& EleFeatureValue::operator=(const FeatureValue& other)
   {
     if (this!=&other) {
-      const EleFeatureValue& otherValue=static_cast<const EleFeatureValue&>(other);
+      const auto& otherValue=static_cast<const EleFeatureValue&>(other);
 
       ele=otherValue.ele;
     }
@@ -1793,7 +1791,7 @@ namespace osmscout {
 
   bool EleFeatureValue::operator==(const FeatureValue& other) const
   {
-    const EleFeatureValue& otherValue=static_cast<const EleFeatureValue&>(other);
+    const auto& otherValue=static_cast<const EleFeatureValue&>(other);
 
     return ele==otherValue.ele;
   }
@@ -1805,13 +1803,13 @@ namespace osmscout {
   EleFeature::EleFeature()
   : tagEle(0)
   {
-    RegisterLabel(NAME_LABEL,
-                  NAME_LABEL_INDEX);
+    RegisterLabel(NAME_LABEL_INDEX,
+                  NAME_LABEL);
   }
 
-  void EleFeature::Initialize(TypeConfig& typeConfig)
+  void EleFeature::Initialize(TagRegistry& tagRegistry)
   {
-    tagEle=typeConfig.RegisterTag("ele");
+    tagEle=tagRegistry.RegisterTag("ele");
   }
 
   std::string EleFeature::GetName() const
@@ -1830,7 +1828,7 @@ namespace osmscout {
   }
 
   void EleFeature::Parse(TagErrorReporter& errorReporter,
-                         const TypeConfig& /*typeConfig*/,
+                         const TagRegistry& /*tagRegistry*/,
                          const FeatureInstance& feature,
                          const ObjectOSMRef& object,
                          const TagMap& tags,
@@ -1883,7 +1881,7 @@ namespace osmscout {
       errorReporter.ReportTag(object,tags,std::string("Ele tag value '")+ele->second+"' value is too small or too big!");
     }
     else {
-      EleFeatureValue* value=static_cast<EleFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
+      auto* value=static_cast<EleFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
 
       value->SetEle((uint32_t)floor(e+0.5));
     }
@@ -1899,10 +1897,10 @@ namespace osmscout {
     writer.Write(destination);
   }
 
-  FeatureValue& DestinationFeatureValue::operator=(const FeatureValue& other)
+  DestinationFeatureValue& DestinationFeatureValue::operator=(const FeatureValue& other)
   {
     if (this!=&other) {
-      const DestinationFeatureValue& otherValue=static_cast<const DestinationFeatureValue&>(other);
+      const auto& otherValue=static_cast<const DestinationFeatureValue&>(other);
 
       destination=otherValue.destination;
     }
@@ -1912,7 +1910,7 @@ namespace osmscout {
 
   bool DestinationFeatureValue::operator==(const FeatureValue& other) const
   {
-    const DestinationFeatureValue& otherValue=static_cast<const DestinationFeatureValue&>(other);
+    const auto& otherValue=static_cast<const DestinationFeatureValue&>(other);
 
     return destination==otherValue.destination;
   }
@@ -1926,15 +1924,15 @@ namespace osmscout {
     tagDestinationRef(0),
     tagDestinationForward(0)
   {
-    RegisterLabel(NAME_LABEL,
-                  NAME_LABEL_INDEX);
+    RegisterLabel(NAME_LABEL_INDEX,
+                  NAME_LABEL);
   }
 
-  void DestinationFeature::Initialize(TypeConfig& typeConfig)
+  void DestinationFeature::Initialize(TagRegistry& tagRegistry)
   {
-    tagDestination=typeConfig.RegisterTag("destination");
-    tagDestinationRef=typeConfig.RegisterTag("destination:ref");
-    tagDestinationForward=typeConfig.RegisterTag("destination:forward");
+    tagDestination=tagRegistry.RegisterTag("destination");
+    tagDestinationRef=tagRegistry.RegisterTag("destination:ref");
+    tagDestinationForward=tagRegistry.RegisterTag("destination:forward");
   }
 
   std::string DestinationFeature::GetName() const
@@ -1953,7 +1951,7 @@ namespace osmscout {
   }
 
   void DestinationFeature::Parse(TagErrorReporter& /*errorReporter*/,
-                                 const TypeConfig& /*typeConfig*/,
+                                 const TagRegistry& /*tagRegistry*/,
                                  const FeatureInstance& feature,
                                  const ObjectOSMRef& /*object*/,
                                  const TagMap& tags,
@@ -1974,7 +1972,7 @@ namespace osmscout {
     }
 
     if (!destination->second.empty()) {
-      DestinationFeatureValue* value=static_cast<DestinationFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
+      auto* value=static_cast<DestinationFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
 
       value->SetDestination(destination->second);
     }
@@ -1982,9 +1980,9 @@ namespace osmscout {
 
   const char* const BuildingFeature::NAME = "Building";
 
-  void BuildingFeature::Initialize(TypeConfig& typeConfig)
+  void BuildingFeature::Initialize(TagRegistry& tagRegistry)
   {
-    tagBuilding=typeConfig.RegisterTag("building");
+    tagBuilding=tagRegistry.RegisterTag("building");
   }
 
   std::string BuildingFeature::GetName() const
@@ -1993,7 +1991,7 @@ namespace osmscout {
   }
 
   void BuildingFeature::Parse(TagErrorReporter& /*errorReporter*/,
-                            const TypeConfig& /*typeConfig*/,
+                            const TagRegistry& /*tagRegistry*/,
                             const FeatureInstance& feature,
                             const ObjectOSMRef& /*object*/,
                             const TagMap& tags,
@@ -2019,10 +2017,10 @@ namespace osmscout {
     writer.Write(isIn);
   }
 
-  FeatureValue& IsInFeatureValue::operator=(const FeatureValue& other)
+  IsInFeatureValue& IsInFeatureValue::operator=(const FeatureValue& other)
   {
     if (this!=&other) {
-      const IsInFeatureValue& otherValue=static_cast<const IsInFeatureValue&>(other);
+      const auto& otherValue=static_cast<const IsInFeatureValue&>(other);
 
       isIn=otherValue.isIn;
     }
@@ -2032,16 +2030,16 @@ namespace osmscout {
 
   bool IsInFeatureValue::operator==(const FeatureValue& other) const
   {
-    const IsInFeatureValue& otherValue=static_cast<const IsInFeatureValue&>(other);
+    const auto& otherValue=static_cast<const IsInFeatureValue&>(other);
 
     return isIn==otherValue.isIn;
   }
 
   const char* const IsInFeature::NAME = "IsIn";
 
-  void IsInFeature::Initialize(TypeConfig& typeConfig)
+  void IsInFeature::Initialize(TagRegistry& tagRegistry)
   {
-    tagIsIn=typeConfig.RegisterTag("is_in");
+    tagIsIn=tagRegistry.RegisterTag("is_in");
   }
 
   std::string IsInFeature::GetName() const
@@ -2060,7 +2058,7 @@ namespace osmscout {
   }
 
   void IsInFeature::Parse(TagErrorReporter& /*errorReporter*/,
-                          const TypeConfig& /*typeConfig*/,
+                          const TagRegistry& /*tagRegistry*/,
                           const FeatureInstance& feature,
                           const ObjectOSMRef& /*object*/,
                           const TagMap& tags,
@@ -2069,7 +2067,7 @@ namespace osmscout {
     auto isIn=tags.find(tagIsIn);
 
     if (isIn!=tags.end() && !isIn->second.empty()) {
-      IsInFeatureValue* value=static_cast<IsInFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
+      auto* value=static_cast<IsInFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
       value->SetIsIn(isIn->second);
     }
   }
@@ -2086,10 +2084,10 @@ namespace osmscout {
     writer.Write(endYear);
   }
 
-  FeatureValue& ConstructionYearFeatureValue::operator=(const FeatureValue& other)
+  ConstructionYearFeatureValue& ConstructionYearFeatureValue::operator=(const FeatureValue& other)
   {
     if (this!=&other) {
-      const ConstructionYearFeatureValue& otherValue=static_cast<const ConstructionYearFeatureValue&>(other);
+      const auto& otherValue=static_cast<const ConstructionYearFeatureValue&>(other);
 
       startYear=otherValue.startYear;
       endYear=otherValue.endYear;
@@ -2100,7 +2098,7 @@ namespace osmscout {
 
   bool ConstructionYearFeatureValue::operator==(const FeatureValue& other) const
   {
-    const ConstructionYearFeatureValue& otherValue=static_cast<const ConstructionYearFeatureValue&>(other);
+    const auto& otherValue=static_cast<const ConstructionYearFeatureValue&>(other);
 
     return startYear==otherValue.startYear &&
       endYear==otherValue.endYear;
@@ -2110,13 +2108,13 @@ namespace osmscout {
 
   ConstructionYearFeature::ConstructionYearFeature()
   {
-    RegisterLabel(NAME, 0);
+    RegisterLabel(0,NAME);
   }
 
-  void ConstructionYearFeature::Initialize(TypeConfig& typeConfig)
+  void ConstructionYearFeature::Initialize(TagRegistry& tagRegistry)
   {
-    tagConstructionYear=typeConfig.RegisterTag("year_of_construction");
-    tagStartDate=typeConfig.RegisterTag("start_date");
+    tagConstructionYear=tagRegistry.RegisterTag("year_of_construction");
+    tagStartDate=tagRegistry.RegisterTag("start_date");
   }
 
   std::string ConstructionYearFeature::GetName() const
@@ -2135,7 +2133,7 @@ namespace osmscout {
   }
 
   void ConstructionYearFeature::Parse(TagErrorReporter& errorReporter,
-                                      const TypeConfig& /*typeConfig*/,
+                                      const TagRegistry& /*tagRegistry*/,
                                       const FeatureInstance& feature,
                                       const ObjectOSMRef& object,
                                       const TagMap& tags,
@@ -2168,7 +2166,7 @@ namespace osmscout {
 
 
     if (osmscout::StringToNumber(strValue,startYear)) {
-      ConstructionYearFeatureValue* value=static_cast<ConstructionYearFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
+      auto* value=dynamic_cast<ConstructionYearFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
 
       value->SetStartYear(startYear);
       value->SetEndYear(startYear);
@@ -2187,7 +2185,7 @@ namespace osmscout {
           osmscout::StringToNumber(startValue,startYear) &&
           osmscout::StringToNumber(endValue,endYear)) {
 
-          ConstructionYearFeatureValue* value=static_cast<ConstructionYearFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
+          auto* value=static_cast<ConstructionYearFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
 
           value->SetStartYear(startYear);
           value->SetEndYear(endYear);
@@ -2207,7 +2205,7 @@ namespace osmscout {
             osmscout::StringToNumber(startValue,startYear) &&
             osmscout::StringToNumber(endValue,endYear)) {
 
-          ConstructionYearFeatureValue* value=static_cast<ConstructionYearFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
+          auto* value=static_cast<ConstructionYearFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
 
           value->SetStartYear(startYear);
           value->SetEndYear(endYear);
@@ -2227,7 +2225,7 @@ namespace osmscout {
             osmscout::StringToNumber(startValue,startYear) &&
             osmscout::StringToNumber(endValue,endYear)) {
 
-          ConstructionYearFeatureValue* value=static_cast<ConstructionYearFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
+          auto* value=static_cast<ConstructionYearFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
 
           value->SetStartYear(startYear);
           value->SetEndYear(endYear);
@@ -2240,7 +2238,7 @@ namespace osmscout {
         std::string startValue=strValue.substr(1);
 
         if (osmscout::StringToNumber(startValue,startYear)) {
-          ConstructionYearFeatureValue* value=static_cast<ConstructionYearFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
+          auto* value=static_cast<ConstructionYearFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
 
           value->SetStartYear(startYear*100);
           value->SetEndYear((startYear+1)*100-1);
@@ -2253,33 +2251,411 @@ namespace osmscout {
     }
   }
 
-
-  DynamicFeatureReader::DynamicFeatureReader(const TypeConfig& typeConfig,
-                                             const Feature& feature)
-  : featureName(feature.GetName())
+  void SidewayFeatureValue::Read(FileScanner& scanner)
   {
-    lookupTable.resize(typeConfig.GetTypeCount(),
-                       std::numeric_limits<size_t>::max());
+    scanner.Read(featureSet);
+  }
 
-    for (const auto &type : typeConfig.GetTypes()) {
-      size_t index;
+  void SidewayFeatureValue::Write(FileWriter& writer)
+  {
+    writer.Write(featureSet);
+  }
 
-      if (type->GetFeature(featureName,
-                           index)) {
-        lookupTable[type->GetIndex()]=index;
+  SidewayFeatureValue& SidewayFeatureValue::operator=(const FeatureValue& other)
+  {
+    if (this!=&other) {
+      const auto& otherValue=static_cast<const SidewayFeatureValue&>(other);
+
+      featureSet=otherValue.featureSet;
+    }
+
+    return *this;
+  }
+
+  bool SidewayFeatureValue::operator==(const FeatureValue& other) const
+  {
+    const auto& otherValue=static_cast<const SidewayFeatureValue&>(other);
+
+    return featureSet==otherValue.featureSet;
+  }
+
+  const char* const SidewayFeature::NAME = "Sideway";
+
+  SidewayFeature::SidewayFeature()
+  {
+    RegisterFlag((size_t)FeatureFlags::sidewalkTrackLeft,"sidewalkTrackLeft");
+    RegisterFlag((size_t)FeatureFlags::sidewalkTrackRight,"sidewalkTrackRight");
+
+    RegisterFlag((size_t)FeatureFlags::cyclewayLaneLeft,"cyclewayLaneLeft");
+    RegisterFlag((size_t)FeatureFlags::cyclewayLaneRight,"cyclewayLaneRight");
+    RegisterFlag((size_t)FeatureFlags::cyclewayTrackLeft,"cyclewayTrackLeft");
+    RegisterFlag((size_t)FeatureFlags::cyclewayTrackRight,"cyclewayTrackRight");
+  }
+
+  void SidewayFeature::Initialize(TagRegistry& tagRegistry)
+  {
+    tagSidewalk=tagRegistry.RegisterTag("sidewalk");
+    tagCyclewayLeft=tagRegistry.RegisterTag("cycleway:left");
+    tagCyclewayLeftSegregated=tagRegistry.RegisterTag("cycleway:left:segregated");
+    tagCyclewayRight=tagRegistry.RegisterTag("cycleway:right");
+    tagCyclewayRightSegregated=tagRegistry.RegisterTag("cycleway:right:segregated");
+  }
+
+  std::string SidewayFeature::GetName() const
+  {
+    return NAME;
+  }
+
+  size_t SidewayFeature::GetValueSize() const
+  {
+    return sizeof(SidewayFeatureValue);
+  }
+
+  FeatureValue* SidewayFeature::AllocateValue(void* buffer)
+  {
+    return new (buffer) SidewayFeatureValue();
+  }
+
+  void SidewayFeature::Parse(TagErrorReporter& /*errorReporter*/,
+                             const TagRegistry& /*tagRegistry*/,
+                             const FeatureInstance& feature,
+                             const ObjectOSMRef& /*object*/,
+                             const TagMap& tags,
+                             FeatureValueBuffer& buffer) const
+  {
+    uint8_t featureSet=0;
+    auto sidewalkTag=tags.find(tagSidewalk);
+    auto cyclewayLeftTag=tags.find(tagCyclewayLeft);
+    auto cyclewayRightTag=tags.find(tagCyclewayRight);
+    auto cyclewayLeftSegregatedTag=tags.find(tagCyclewayLeftSegregated);
+    auto cyclewayRightSegregatedTag=tags.find(tagCyclewayRightSegregated);
+
+    bool hasSidewalkTrackLeft=sidewalkTag!=tags.end() &&
+                              (sidewalkTag->second=="left" ||
+                               sidewalkTag->second=="both");
+
+    bool hasSidewalkTrackRight=sidewalkTag!=tags.end() &&
+                               (sidewalkTag->second=="right" ||
+                                sidewalkTag->second=="both");
+
+    bool hasCyclewayLaneLeft=cyclewayLeftTag!=tags.end() &&
+                             (cyclewayLeftTag->second=="lane" ||
+                              cyclewayLeftTag->second=="shared_lane");
+
+    bool hasCyclewayLaneRight=cyclewayRightTag!=tags.end() &&
+                              (cyclewayRightTag->second=="lane" ||
+                               cyclewayRightTag->second=="shared_lane");
+
+    bool hasCyclewayTrackLeft=cyclewayLeftTag!=tags.end() &&
+                              cyclewayLeftTag->second=="track";
+
+    bool hasCyclewayTrackRight=cyclewayRightTag!=tags.end() &&
+                               cyclewayRightTag->second=="track";
+
+    bool hasCyclewayLeftSegregated=cyclewayLeftSegregatedTag!=tags.end();
+    bool hasCyclewayRightSegregated=cyclewayRightSegregatedTag!=tags.end();
+
+    if (hasSidewalkTrackLeft) {
+      featureSet|=SidewayFeatureValue::sidewalkTrackLeft;
+    }
+    if (hasSidewalkTrackRight) {
+      featureSet|=SidewayFeatureValue::sidewalkTrackRight;
+    }
+
+    if (hasCyclewayLaneLeft) {
+      featureSet|=SidewayFeatureValue::cyclewayLaneLeft;
+    }
+    if (hasCyclewayLaneRight) {
+      featureSet|=SidewayFeatureValue::cyclewayLaneRight;
+    }
+
+    if (hasCyclewayTrackLeft) {
+      featureSet|=SidewayFeatureValue::cyclewayTrackLeft;
+
+      if (hasCyclewayLeftSegregated) {
+        featureSet|=SidewayFeatureValue::sidewalkTrackLeft;
       }
+    }
+    if (hasCyclewayTrackRight) {
+      featureSet|=SidewayFeatureValue::cyclewayTrackRight;
+
+      if (hasCyclewayRightSegregated) {
+        featureSet|=SidewayFeatureValue::sidewalkTrackRight;
+      }
+    }
+
+    if (featureSet!=0) {
+      auto* value=static_cast<SidewayFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
+
+      value->SetFeatureSet(featureSet);
     }
   }
 
-  bool DynamicFeatureReader::IsSet(const FeatureValueBuffer& buffer) const
+  void LanesFeatureValue::Read(FileScanner& scanner)
   {
-    size_t index=lookupTable[buffer.GetType()->GetIndex()];
+    scanner.Read(lanes);
 
-    if (index!=std::numeric_limits<size_t>::max()) {
-      return buffer.HasFeature(index);
+    if (lanes & 0x01) {
+      scanner.Read(turnForward);
+      scanner.Read(turnBackward);
+      scanner.Read(destinationForward);
+      scanner.Read(destinationBackward);
+    }
+  }
+
+  void LanesFeatureValue::Write(FileWriter& writer)
+  {
+    if (turnForward.empty() &&
+        turnBackward.empty() &&
+        destinationForward.empty() &&
+        destinationBackward.empty()) {
+      lanes=lanes & ~0x01;
     }
     else {
-      return false;
+      lanes=lanes | 0x01;
+    }
+
+    writer.Write(lanes);
+
+    if (lanes & 0x01) {
+      writer.Write(turnForward);
+      writer.Write(turnBackward);
+      writer.Write(destinationForward);
+      writer.Write(destinationBackward);
+    }
+  }
+
+  LanesFeatureValue& LanesFeatureValue::operator=(const FeatureValue& other)
+  {
+    if (this!=&other) {
+      const auto& otherValue=static_cast<const LanesFeatureValue&>(other);
+
+      lanes=otherValue.lanes;
+      turnForward=otherValue.turnForward;
+      turnBackward=otherValue.turnBackward;
+      destinationForward=otherValue.destinationForward;
+      destinationBackward=otherValue.destinationBackward;
+    }
+
+    return *this;
+  }
+
+  bool LanesFeatureValue::operator==(const FeatureValue& other) const
+  {
+    const auto& otherValue=static_cast<const LanesFeatureValue&>(other);
+
+    return lanes==otherValue.lanes &&
+           turnForward==otherValue.turnForward &&
+           turnBackward==otherValue.turnBackward &&
+           destinationForward==otherValue.destinationForward &&
+           destinationBackward==otherValue.destinationBackward;
+  }
+
+  uint8_t LanesFeatureValue::GetLanes() const
+  {
+    if (lanes & 0x01) {
+      return 1;
+    }
+    else {
+      return GetForwardLanes() + GetBackwardLanes();
+    }
+  }
+
+  const char* const LanesFeature::NAME             = "Lanes";
+  const char* const LanesFeature::NAME_LABEL       = "label";
+  const size_t      LanesFeature::NAME_LABEL_INDEX = 0;
+
+  LanesFeature::LanesFeature()
+    : tagOneway(0),
+       tagLanes(0)
+
+  {
+    RegisterLabel(NAME_LABEL_INDEX,
+                  NAME_LABEL);
+  }
+
+  void LanesFeature::Initialize(TagRegistry& tagRegistry)
+  {
+    tagOneway=tagRegistry.RegisterTag("oneway");
+    tagLanes=tagRegistry.RegisterTag("lanes");
+    tagLanesForward=tagRegistry.RegisterTag("lanes:forward");
+    tagLanesBackward=tagRegistry.RegisterTag("lanes:backward");
+    tagTurnLanes=tagRegistry.RegisterTag("turn:lanes");
+    tagTurnLanesForward=tagRegistry.RegisterTag("turn:lanes:forward");
+    tagTurnLanesBackward=tagRegistry.RegisterTag("turn:lanes:backward");
+    tagDestinationLanes=tagRegistry.RegisterTag("destination:lanes");
+    tagDestinationLanesForward=tagRegistry.RegisterTag("destination:lanes:forward");
+    tagDestinationLanesBackward=tagRegistry.RegisterTag("destination:lanes:backward");
+  }
+
+  std::string LanesFeature::GetName() const
+  {
+    return NAME;
+  }
+
+  size_t LanesFeature::GetValueSize() const
+  {
+    return sizeof(LanesFeatureValue);
+  }
+
+  FeatureValue* LanesFeature::AllocateValue(void* buffer)
+  {
+    return new (buffer) LanesFeatureValue();
+  }
+
+  void LanesFeature::Parse(TagErrorReporter& errorReporter,
+                           const TagRegistry& /*tagRegistry*/,
+                           const FeatureInstance& feature,
+                           const ObjectOSMRef& object,
+                           const TagMap& tags,
+                           FeatureValueBuffer& buffer) const
+  {
+    bool        oneway=false;
+    bool        additionalInfos=false;
+    uint8_t     lanes=0;
+    uint8_t     lanesForward=0;
+    uint8_t     lanesBackward=0;
+    auto        onewayTag=tags.find(tagOneway);
+    auto        lanesTag=tags.find(tagLanes);
+    auto        lanesForwardTag=tags.find(tagLanesForward);
+    auto        lanesBackwardTag=tags.find(tagLanesBackward);
+    auto        turnLanesTag=tags.find(tagTurnLanes);
+    auto        turnLanesForwardTag=tags.find(tagTurnLanesForward);
+    auto        turnLanesBackwardTag=tags.find(tagTurnLanesBackward);
+    auto        destinationLanesTag=tags.find(tagDestinationLanes);
+    auto        destinationLanesForwardTag=tags.find(tagDestinationLanesForward);
+    auto        destinationLanesBackwardTag=tags.find(tagDestinationLanesBackward);
+    std::string turnForward;
+    std::string turnBackward;
+    std::string destinationForward;
+    std::string destinationBackward;
+
+    if (onewayTag!=tags.end()) {
+      // TODO: What happens with -1?
+      oneway=onewayTag->second!="no" && onewayTag->second!="false" && onewayTag->second!="0";
+    }
+
+    if (lanesTag!=tags.end() &&
+      !StringToNumber(lanesTag->second,lanes)) {
+      errorReporter.ReportTag(object,tags,std::string("lanes tag value '")+lanesTag->second+"' is not numeric!");
+
+      return;
+    }
+
+    if (lanesForwardTag!=tags.end() &&
+        !StringToNumber(lanesForwardTag->second,lanesForward)) {
+      errorReporter.ReportTag(object,tags,std::string("lanes:forward tag value '")+lanesForwardTag->second+"' is not numeric!");
+
+      return;
+    }
+
+    if (lanesBackwardTag!=tags.end() &&
+        !StringToNumber(lanesBackwardTag->second,lanesBackward)) {
+      errorReporter.ReportTag(object,tags,std::string("lanes:backward tag value '")+lanesBackwardTag->second+"' is not numeric!");
+
+      return;
+    }
+
+    /* Too many warnings :-/
+    if (!oneway && lanesTag!=tags.end() && lanes%2 != 0) {
+      errorReporter.ReportTag(object,tags,std::string("No oneway, but lanes tag is set with uneven value"));
+    }*/
+
+    if (!oneway &&
+        turnLanesTag!=tags.end()) {
+      errorReporter.ReportTag(object,tags,std::string("No oneway, but turn:lanes tag is set"));
+    }
+
+    if (!oneway &&
+        destinationLanesTag!=tags.end()) {
+      errorReporter.ReportTag(object,tags,std::string("No oneway, but destination:lanes tag is set"));
+    }
+
+    if (turnLanesTag!=tags.end()) {
+      turnForward=turnLanesTag->second;
+      additionalInfos=true;
+    }
+
+    if (turnLanesForwardTag!=tags.end()) {
+      turnForward=turnLanesForwardTag->second;
+      additionalInfos=true;
+    }
+
+    if (turnLanesBackwardTag!=tags.end()) {
+      turnBackward=turnLanesBackwardTag->second;
+      additionalInfos=true;
+    }
+
+    if (destinationLanesTag!=tags.end()) {
+      destinationForward=destinationLanesTag->second;
+      additionalInfos=true;
+    }
+
+    if (destinationLanesForwardTag!=tags.end()) {
+      destinationForward=destinationLanesForwardTag->second;
+      additionalInfos=true;
+    }
+
+    if (destinationLanesBackwardTag!=tags.end()) {
+      destinationBackward=destinationLanesBackwardTag->second;
+      additionalInfos=true;
+    }
+
+    if (lanesForwardTag!=tags.end() &&
+        lanesBackwardTag!=tags.end() &&
+        lanesTag!=tags.end()) {
+      if (lanesForward+lanesBackward!=lanes) {
+        errorReporter.ReportTag(object,tags,std::string("lanes tag value '")+lanesTag->second+"' is not equal sum of lanes:forward and lanes:backward");
+      }
+    }
+    else if (lanesForwardTag!=tags.end() &&
+             lanesTag!=tags.end()) {
+      lanesBackward=lanes-lanesForward;
+    }
+    else if (lanesBackwardTag!=tags.end() &&
+             lanesTag!=tags.end()) {
+      lanesForward=lanes-lanesBackward;
+    }
+    else if (lanesTag!=tags.end()) {
+      if (oneway) {
+        lanesForward=lanes;
+        lanesBackward=0;
+      }
+      else {
+        lanesForward=lanes/(uint8_t)2;
+        lanesBackward=lanes/(uint8_t)2;
+      }
+    }
+    else {
+      return;
+    }
+
+    if (!additionalInfos) {
+      if (oneway) {
+        if (lanes==feature.GetType()->GetOnewayLanes()) {
+          return;
+        }
+      }
+      else {
+        if (lanes==feature.GetType()->GetLanes()) {
+          return;
+        }
+      }
+    }
+
+    auto* value=static_cast<LanesFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
+
+    if (lanes==1) {
+      // One (most of the time implicit) lane for both directions together
+      value->SetLanes(0,0);
+    }
+    else {
+      value->SetLanes(lanesForward,lanesBackward);
+    }
+
+    if (additionalInfos) {
+      value->SetTurnLanes(turnForward,turnBackward);
+      value->SetDestinationLanes(destinationForward,destinationBackward);
     }
   }
 }

@@ -1,3 +1,6 @@
+#ifndef OSMSCOUT_CLIENT_QT_TILEDMAPRENDERER_H
+#define OSMSCOUT_CLIENT_QT_TILEDMAPRENDERER_H
+
 /*
  OSMScout - a Qt backend for libosmscout and libosmscout-map
  Copyright (C) 2010  Tim Teulings
@@ -18,10 +21,6 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307  USA
  */
 
-
-#ifndef TILEDMAPRENDERER_H
-#define TILEDMAPRENDERER_H
-
 #include <QObject>
 #include <QSettings>
 
@@ -29,9 +28,11 @@
 #include <osmscout/DBThread.h>
 #include <osmscout/MapRenderer.h>
 
-#include <osmscout/private/ClientQtImportExport.h>
+#include <osmscout/ClientQtImportExport.h>
 
 #include <atomic>
+
+namespace osmscout {
 
 class OSMSCOUT_CLIENT_QT_API TiledMapRenderer : public MapRenderer {
   Q_OBJECT
@@ -65,7 +66,7 @@ private:
   uint32_t                      loadXTo;
   uint32_t                      loadYFrom;
   uint32_t                      loadYTo;
-  uint32_t                      loadZ;
+  MagnificationLevel            loadZ;
 
   QColor                        unknownColor;
 
@@ -79,7 +80,7 @@ public slots:
   void tileDownloaded(uint32_t zoomLevel, uint32_t x, uint32_t y, QImage image, QByteArray downloadedData);
   void tileDownloadFailed(uint32_t zoomLevel, uint32_t x, uint32_t y, bool zoomLevelOutOfRange);
   void onDatabaseLoaded(osmscout::GeoBox boundingBox);
-  void onLoadJobFinished(QMap<QString,QMap<osmscout::TileId,osmscout::TileRef>>);
+  void onLoadJobFinished(QMap<QString,QMap<osmscout::TileKey,osmscout::TileRef>>);
 
   void onlineTileProviderChanged();
   void onlineTilesEnabledChanged(bool);
@@ -111,4 +112,6 @@ public:
                          const MapViewStruct& request);
 };
 
-#endif /* TILEDMAPRENDERER_H */
+}
+
+#endif /* OSMSCOUT_CLIENT_QT_TILEDMAPRENDERER_H */

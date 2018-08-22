@@ -30,8 +30,8 @@
 
 #include <osmscout/system/Assert.h>
 
-#include <osmscout/private/CoreImportExport.h>
-#include <osmscout/Types.h>
+#include <osmscout/CoreImportExport.h>
+#include <osmscout/OSMScoutTypes.h>
 
 namespace osmscout {
 

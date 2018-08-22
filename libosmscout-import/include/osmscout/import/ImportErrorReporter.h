@@ -23,12 +23,13 @@
 #include <mutex>
 #include <string>
 
-#include <osmscout/private/ImportImportExport.h>
+#include <osmscout/import/ImportImportExport.h>
 
 #include <osmscout/ObjectRef.h>
 #include <osmscout/TypeConfig.h>
 
 #include <osmscout/util/HTMLWriter.h>
+#include <osmscout/util/Progress.h>
 #include <osmscout/util/TagErrorReporter.h>
 
 #include <osmscout/system/Compiler.h>

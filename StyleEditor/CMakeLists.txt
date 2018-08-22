@@ -61,38 +61,17 @@ set(RESOURCE_FILES
 
 add_executable(StyleEditor ${SOURCE_FILES} ${HEADER_FILES} ${RESOURCE_FILES})
 
-target_include_directories(StyleEditor PRIVATE
-		${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout/include
-		${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout-map/include
-		${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout-map-qt/include
-		${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout-client-qt/include
+target_link_libraries(StyleEditor
+	OSMScout
+		OSMScoutMap
+		Qt5::Core
+		Qt5::Gui
+		Qt5::Widgets
+		Qt5::Qml
+		Qt5::Quick
+		OSMScoutMapQt
+		OSMScoutClientQt
 )
-
-if(APPLE)
-	target_link_libraries(StyleEditor
-		OSMScout
-        	OSMScoutMap
-        	Qt5::Core
-        	Qt5::Gui
-        	Qt5::Widgets
-        	Qt5::Qml
-        	Qt5::Quick
-        	OSMScoutMapQt
-        	OSMScoutClientQt
-	)
-else()
-	target_link_libraries(StyleEditor
-		osmscout
-        	osmscout_map
-        	Qt5::Core
-        	Qt5::Gui
-        	Qt5::Widgets
-        	Qt5::Qml
-        	Qt5::Quick
-        	osmscout_map_qt
-        	osmscout_client_qt
-	)
-endif()
 
 if (Qt5Svg_FOUND)
 	target_link_libraries(StyleEditor Qt5::Svg)

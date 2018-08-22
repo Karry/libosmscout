@@ -24,7 +24,7 @@
 #include <set>
 #include <vector>
 
-#include <osmscout/private/MapImportExport.h>
+#include <osmscout/MapImportExport.h>
 
 #include <osmscout/Pixel.h>
 #include <osmscout/util/Color.h>
@@ -47,6 +47,13 @@ namespace osmscout {
       capSquare
     };
 
+    enum OffsetRel {
+      base,
+      leftOutline,
+      rightOutline,
+      laneDivider,
+    };
+
     enum Attribute {
       attrLineColor,
       attrGapColor,
@@ -58,7 +65,8 @@ namespace osmscout {
       attrEndCap,
       attrDashes,
       attrPriority,
-      attrZIndex
+      attrZIndex,
+      attrOffsetRel
     };
 
   private:
@@ -74,6 +82,7 @@ namespace osmscout {
     std::vector<double> dash;
     int                 priority;
     int                 zIndex;
+    OffsetRel           offsetRel;
 
   public:
     LineStyle();
@@ -97,6 +106,7 @@ namespace osmscout {
     LineStyle& SetDashes(const std::vector<double>& dashes);
     LineStyle& SetPriority(int priority);
     LineStyle& SetZIndex(int zIndex);
+    LineStyle& SetOffsetRel(OffsetRel offsetRel);
 
     inline bool IsVisible() const
     {
@@ -170,6 +180,11 @@ namespace osmscout {
       return zIndex;
     }
 
+    inline OffsetRel GetOffsetRel() const
+    {
+      return offsetRel;
+    }
+
     static StyleDescriptorRef GetDescriptor();
 
     void CopyAttributes(const LineStyle& other,
@@ -194,6 +209,20 @@ namespace osmscout {
     }
   };
 
+  class OSMSCOUT_MAP_API OffsetRelAttributeDescriptor CLASS_FINAL : public StyleEnumAttributeDescriptor
+  {
+  public:
+    OffsetRelAttributeDescriptor(const std::string& name,
+                                 int attribute)
+      : StyleEnumAttributeDescriptor(name,
+                                     attribute)
+    {
+      AddEnumValue("base",LineStyle::base);
+      AddEnumValue("leftOutline",LineStyle::leftOutline);
+      AddEnumValue("rightOutline",LineStyle::rightOutline);
+      AddEnumValue("laneDivider",LineStyle::laneDivider);
+    }
+  };
 
   typedef std::shared_ptr<LineStyle>                       LineStyleRef;
 
@@ -729,7 +758,8 @@ namespace osmscout {
       attrSize,
       attrTextColor,
       attrDisplayOffset,
-      attrOffset
+      attrOffset,
+      attrPriority
     };
 
   private:
@@ -738,6 +768,7 @@ namespace osmscout {
     Color            textColor;
     double           displayOffset;
     double           offset;
+    size_t           priority;
 
   public:
     PathTextStyle();
@@ -746,12 +777,14 @@ namespace osmscout {
     void SetColorValue(int attribute, const Color& value) override;
     void SetDoubleValue(int attribute, double value) override;
     void SetLabelValue(int attribute, const LabelProviderRef& value) override;
+    void SetUIntValue(int attribute, size_t value) override;
 
     PathTextStyle& SetLabel(const LabelProviderRef& label);
     PathTextStyle& SetSize(double size);
     PathTextStyle& SetTextColor(const Color& color);
     PathTextStyle& SetDisplayOffset(double value);
     PathTextStyle& SetOffset(double value);
+    PathTextStyle& SetPriority(size_t value);
 
     inline bool IsVisible() const
     {
@@ -782,6 +815,11 @@ namespace osmscout {
     inline double GetOffset() const
     {
       return offset;
+    }
+
+    inline size_t GetPriority() const
+    {
+      return priority;
     }
 
     static StyleDescriptorRef GetDescriptor();
@@ -1015,7 +1053,7 @@ namespace osmscout {
    * \ingroup Stylesheet
    *
    * Definition of a symbol. A symbol consists of a list of DrawPrimitives
-   * with with assigned rendering styes.
+   * with with assigned rendering styles.
    */
   class OSMSCOUT_MAP_API Symbol
   {

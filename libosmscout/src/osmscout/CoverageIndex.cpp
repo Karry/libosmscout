@@ -21,6 +21,7 @@
 
 #include <algorithm>
 
+#include <osmscout/TypeConfig.h>
 #include <osmscout/util/File.h>
 #include <osmscout/util/Geometry.h>
 #include <osmscout/util/Logger.h>
@@ -81,6 +82,7 @@ namespace osmscout {
     }
     catch (IOException& e) {
       log.Error() << e.GetDescription();
+
       return false;
     }
   }
@@ -111,6 +113,4 @@ namespace osmscout {
   {
     return IsCovered(GetTile(coord));
   }
-
 }
-

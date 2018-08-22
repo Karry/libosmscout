@@ -20,6 +20,8 @@
 
 #include <osmscout/MapRenderer.h>
 
+namespace osmscout {
+
 MapRenderer::MapRenderer(QThread *thread,
                          SettingsRef settings,
                          DBThreadRef dbThread,
@@ -186,7 +188,7 @@ void MapRenderer::getOverlayObjects(std::vector<OverlayObjectRef> &objs,
 }
 
 DBRenderJob::DBRenderJob(osmscout::MercatorProjection renderProjection,
-                         QMap<QString,QMap<osmscout::TileId,osmscout::TileRef>> tiles,
+                         QMap<QString,QMap<osmscout::TileKey,osmscout::TileRef>> tiles,
                          osmscout::MapParameter *drawParameter,
                          QPainter *p,
                          std::vector<OverlayObjectRef> overlayObjects,
@@ -343,4 +345,5 @@ void DBRenderJob::Run(const osmscout::BasemapDatabaseRef& basemapDatabase,
                          *drawParameter,
                          p);
   Close();
+}
 }

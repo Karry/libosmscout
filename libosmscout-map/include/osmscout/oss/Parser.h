@@ -100,6 +100,8 @@ private:
   TokenRef t;  // last recognized token
   TokenRef la; // lookahead token
 
+  osmscout::ColorPostprocessor colorPostprocessor;
+
   void SynErr(int n);
 
   void Get();
@@ -108,16 +110,10 @@ private:
   void ExpectWeak(int n, int follow);
   bool WeakSeparator(int n, int syFol, int repFol);
 
+  osmscout::Color PostprocessColor(const osmscout::Color& color) const;
+
 public:
   Errors  *errors;
-
-typedef std::list<FillStyleRef>       FillStyleList;
-typedef std::list<BorderStyleRef>     BorderStyleList;
-typedef std::list<IconStyleRef>       IconStyleList;
-typedef std::list<TextStyleRef>       TextStyleList;
-typedef std::list<LineStyleRef>       LineStyleList;
-typedef std::list<PathTextStyleRef>   PathTextStyleList;
-typedef std::list<PathShieldStyleRef> PathShieldStyleList;
 
 StyleConfig&                          config;
 MagnificationConverter                magnificationConverter;
@@ -172,12 +168,24 @@ size_t GetHexDigitValue(char c)
 
 void AddFeatureToFilter(StyleFilter& filter,
                         const std::string& featureName,
+                        const std::string& flagName,
                         TypeInfoSet& resultTypes)
 {
   FeatureRef feature=config.GetTypeConfig()->GetFeature(featureName);
 
   if (!feature) {
     std::string e="Unknown feature '"+featureName+"'";
+
+    SemErr(e.c_str());
+    return;
+  }
+
+  size_t flagIndex=std::numeric_limits<size_t>::max();
+
+  if (!flagName.empty() &&
+      !feature->GetFlagIndex(flagName,
+                             flagIndex)) {
+    std::string e="Unknown feature flag '"+featureName+"."+flagName+"'";
 
     SemErr(e.c_str());
     return;
@@ -197,14 +205,16 @@ void AddFeatureToFilter(StyleFilter& filter,
   if (!resultTypes.Empty()) {
     size_t featureFilterIndex=config.GetFeatureFilterIndex(*feature);
 
-    filter.AddFeature(featureFilterIndex);
+    filter.AddFeature(featureFilterIndex,
+                      flagIndex);
   }
 }
 
 
 
   Parser(Scanner *scanner,
-         StyleConfig& config);
+         StyleConfig& config,
+         osmscout::ColorPostprocessor colorPostprocessor=nullptr);
   ~Parser();
 
   void SemErr(const char* msg);
@@ -255,6 +265,7 @@ void AddFeatureToFilter(StyleFilter& filter,
 	void STYLEFILTER_MAG(StyleFilter& filter);
 	void STYLEFILTER_ONEWAY(StyleFilter& filter);
 	void STYLEFILTER_SIZE(StyleFilter& filter);
+	void STYLEFILTER_FEATURE_ENTRY(StyleFilter& filter, TypeInfoSet& types);
 	void SIZECONDITION(SizeConditionRef& condition);
 	void NODESTYLEDEF(StyleFilter filter, bool state);
 	void WAYSTYLEDEF(StyleFilter filter, bool state);

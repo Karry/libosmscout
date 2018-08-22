@@ -20,7 +20,7 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307  USA
 */
 
-#include <osmscout/private/CoreImportExport.h>
+#include <osmscout/CoreImportExport.h>
 
 #include <memory>
 
@@ -45,7 +45,7 @@ namespace osmscout {
     GeoBox      boundingBox; //!< Bounding box
 
   public:
-  BoundingBoxDataFile();
+    BoundingBoxDataFile();
     virtual ~BoundingBoxDataFile();
 
     bool Load(const std::string& path,

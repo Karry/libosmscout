@@ -24,7 +24,9 @@
 #include <QThread>
 #include <osmscout/DBThread.h>
 
-#include <osmscout/private/ClientQtImportExport.h>
+#include <osmscout/ClientQtImportExport.h>
+
+namespace osmscout {
 
 /**
  * \ingroup QtAPI
@@ -59,5 +61,7 @@ public:
  * \ingroup QtAPI
  */
 typedef std::shared_ptr<StyleModule> StyleModuleRef;
+
+}
 
 #endif //OSMSCOUT_CLIENT_QT_STYLEMODULE_H

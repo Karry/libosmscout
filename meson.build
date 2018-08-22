@@ -1,14 +1,14 @@
 project('libosmscout',
         'cpp',
-        meson_version: '>=0.40.0',
+        meson_version: '>=0.46.0',
         default_options: ['cpp_std=c++11', 'buildtype=debugoptimized', 'warning_level=3'],
         license: ['LGPL'])
 
 if build_machine.system()=='darwin'
   add_languages(['objcpp'])
   # Workarounds...
-  add_global_arguments(['-fobjc-arc', '-std=c++11'], language: 'objcpp')
-  add_global_link_arguments(['-dynamiclib'], language: 'objcpp')
+  add_project_arguments(['-fobjc-arc', '-std=c++11'], language: 'objcpp')
+  add_project_link_arguments(['-dynamiclib'], language: 'objcpp')
 endif
 
 compiler = meson.get_compiler('cpp')
@@ -25,38 +25,26 @@ else
   haveVisibility=false
 endif
 
-openmpOpt = get_option('openmp')
-
-if openmpOpt and compiler.has_argument('-fopenmp')
-  if (compiler.get_id()=='gcc')
-    add_global_arguments('-fopenmp', language: 'cpp')
-    add_global_link_arguments('-fopenmp', language: 'cpp')
-  elif (compiler.get_id()=='clang')
-    add_global_arguments('-fopenmp', language: 'cpp')
-    add_global_link_arguments('-fopenmp=libomp', language: 'cpp')
-  endif
-endif
-
 if compiler.get_id()=='msvc'
   # Allow the compiler to fork itself for faster compiling
-  # add_global_arguments('/MP', language: 'cpp')
+  # add_project_arguments('/MP', language: 'cpp')
 
   # Allow the compiler to create bigger object files
-  add_global_arguments('/bigobj', language: 'cpp')
+  add_project_arguments('/bigobj', language: 'cpp')
 
   # Do not warn regarding insecure function calls
-  add_global_arguments('-D_CRT_SECURE_NO_DEPRECATE', language: 'cpp')
-  add_global_arguments('-D_CRT_NONSTDC_NO_DEPRECATE', language: 'cpp')
+  add_project_arguments('-D_CRT_SECURE_NO_DEPRECATE', language: 'cpp')
+  add_project_arguments('-D_CRT_NONSTDC_NO_DEPRECATE', language: 'cpp')
 
   # Fast floating point processing
-  add_global_arguments('/fp:fast', language: 'cpp')
+  add_project_arguments('/fp:fast', language: 'cpp')
 
   # Disable some over-eager compiler warnings
-  add_global_arguments(['/wd4251', '/wd4456', '/wd4458'], language: 'cpp')
+  add_project_arguments(['/wd4251', '/wd4456', '/wd4458'], language: 'cpp')
 
   if get_option('default_library')=='shared'
     # TODO: Should only be set for library builds, not executables
-    add_global_arguments('-DDLL_EXPORT', language: 'cpp')
+    add_project_arguments('-DDLL_EXPORT', language: 'cpp')
   endif
 endif
 
@@ -89,6 +77,12 @@ mathDep = compiler.find_library('m', required : false)
 threadDep = dependency('threads')
 iconvDep = compiler.find_library('iconv', required: false)
 marisaDep = dependency('marisa', required : false)
+
+if compiler.get_id()=='clang' or compiler.get_id()=='msvc'
+  openmpDep = dependency('', required: false)
+else
+  openmpDep = dependency('openmp', required: false)
+endif
 
 # Import
 protobufDep = dependency('protobuf', required : false)
@@ -223,7 +217,17 @@ else
 endif
 
 # iOSX
-buildMapIOSX=build_machine.system()=='darwin'
+foundationDep = dependency('appleframeworks', modules : 'Foundation', required : false)
+coreGraphicsDep = dependency('appleframeworks', modules : 'CoreGraphics', required : false)
+coreTextDep = dependency('appleframeworks', modules : 'CoreText', required : false)
+cocoaDep = dependency('appleframeworks', modules : 'Cocoa', required : false)
+appKitDep = dependency('appleframeworks', modules : 'AppKit', required : false)
+
+if build_machine.system()=='darwin' and foundationDep.found() and coreGraphicsDep.found() and coreTextDep.found() and cocoaDep.found() and appKitDep.found()
+  buildMapIOSX=true
+else
+  buildMapIOSX=false
+endif
 
 # Binding
 
@@ -236,7 +240,8 @@ endif
 buildOSMScout2=buildMapQt and buildClientQt and qt5SvgDep.found()
 buildStyleEditor=buildMapQt and buildClientQt and qt5SvgDep.found()
 
-message('option \'openmp\':         @0@'.format(openmpOpt))
+message('build system:            @0@'.format(build_machine.system()))
+message('openmp support:          @0@'.format(openmpDep.found()))
 message('libosmscout:             @0@'.format(true))
 message('libosmscout-gpx:         @0@'.format(true))
 message('libosmscout-import:      @0@'.format(true))
@@ -245,8 +250,7 @@ message('libosmscout-map:         @0@'.format(true))
 message('libosmscout-map-agg:     @0@'.format(buildMapAgg))
 message('libosmscout-map-cairo:   @0@'.format(buildMapCairo))
 message('libosmscout-map-directx: @0@'.format(buildMapDirectX))
-#message('libosmscout-map-iosx:   @0@'.format(buildMapIOSX))
-message('libosmscout-map-iosx:    @0@'.format(false))
+message('libosmscout-map-iosx:    @0@'.format(buildMapIOSX))
 message('libosmscout-map-opengl:  @0@'.format(buildMapOpenGL))
 message('libosmscout-map-qt:      @0@'.format(buildMapQt))
 message('libosmscout-map-svg:     @0@'.format(true))
@@ -279,7 +283,7 @@ endif
 
 if buildMapIOSX
 # Does not yet work, because we are not able to active std11 support, fixed in meson trunk
-#  subdir('libosmscout-map-iosx')
+  subdir('libosmscout-map-iosx')
 endif
 
 if buildMapOpenGL

@@ -20,7 +20,7 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307  USA
 */
 
-#include <osmscout/ImportFeatures.h>
+#include <osmscout/import/ImportFeatures.h>
 
 #include <unordered_set>
 
@@ -28,6 +28,9 @@
 
 #include <osmscout/CoordDataFile.h>
 #include <osmscout/NumericIndex.h>
+
+#include <osmscout/TypeInfoSet.h>
+
 #include <osmscout/routing/TurnRestriction.h>
 
 #include <osmscout/import/Import.h>

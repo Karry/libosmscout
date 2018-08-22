@@ -12,7 +12,10 @@
 #define OSMSCOUT_API
 #define CLASS_FINAL
 
-%include <osmscout/Types.i>
+%include <osmscout/OSMScoutTypes.i>
+
+%include <osmscout/util/StringMatcher.i>
+%include <osmscout/util/Breaker.i>
 
 %include <osmscout/ObjectRef.i>
 
@@ -33,6 +36,7 @@
 %include <osmscout/util/TagErrorReporter.i>
 
 %include <osmscout/TypeConfig.i>
+
 %include <osmscout/BoundingBoxDataFile.i>
 
 %include <osmscout/Node.i>

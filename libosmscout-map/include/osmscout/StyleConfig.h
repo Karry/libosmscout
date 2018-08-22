@@ -21,17 +21,20 @@
 */
 
 #include <limits>
+#include <map>
 #include <memory>
 #include <unordered_map>
 #include <vector>
 
-#include <osmscout/private/MapImportExport.h>
+#include <osmscout/MapImportExport.h>
 
 #include <osmscout/Pixel.h>
 
-#include <osmscout/Types.h>
+#include <osmscout/OSMScoutTypes.h>
 #include <osmscout/TypeConfig.h>
 #include <osmscout/TypeFeatures.h>
+#include <osmscout/TypeInfoSet.h>
+#include <osmscout/FeatureReader.h>
 
 #include <osmscout/Node.h>
 #include <osmscout/Area.h>
@@ -45,6 +48,8 @@
 #include <osmscout/Styles.h>
 
 namespace osmscout {
+
+  typedef osmscout::Color(*ColorPostprocessor)(const osmscout::Color& color);
 
   /**
    * \ingroup Stylesheet
@@ -72,6 +77,12 @@ namespace osmscout {
     inline std::string GetFeatureName(size_t featureIndex) const
     {
       return featureReaders[featureIndex].GetFeatureName();
+    }
+
+    inline FeatureValue* GetFeatureValue(size_t featureIndex,
+                                         const FeatureValueBuffer& buffer) const
+    {
+      return featureReaders[featureIndex].GetValue(buffer);
     }
 
     bool IsOneway(const FeatureValueBuffer& buffer) const;
@@ -177,6 +188,21 @@ namespace osmscout {
 
   typedef std::shared_ptr<SizeCondition> SizeConditionRef;
 
+  struct OSMSCOUT_MAP_API FeatureFilterData
+  {
+    size_t featureFilterIndex;
+    size_t flagIndex;
+
+    FeatureFilterData(size_t featureFilterIndex,
+                      size_t flagIndex);
+
+    inline bool operator==(const FeatureFilterData& other) const
+    {
+      return featureFilterIndex==other.featureFilterIndex &&
+             flagIndex==other.flagIndex;
+    }
+  };
+
   /**
    * \ingroup Stylesheet
    *
@@ -188,13 +214,13 @@ namespace osmscout {
   public:
 
   private:
-    bool             filtersByType;
-    TypeInfoSet      types;
-    size_t           minLevel;
-    size_t           maxLevel;
-    std::set<size_t> features;
-    bool             oneway;
-    SizeConditionRef sizeCondition;
+    bool                         filtersByType;
+    TypeInfoSet                  types;
+    size_t                       minLevel;
+    size_t                       maxLevel;
+    std::list<FeatureFilterData> features;
+    bool                         oneway;
+    SizeConditionRef             sizeCondition;
 
   public:
     StyleFilter();
@@ -204,7 +230,8 @@ namespace osmscout {
     StyleFilter& SetMinLevel(size_t level);
     StyleFilter& SetMaxLevel(size_t level);
 
-    StyleFilter& AddFeature(size_t featureFilterIndex);
+    StyleFilter& AddFeature(size_t featureFilterIndex,
+                            size_t flagIndex);
 
     StyleFilter& SetOneway(bool oneway);
 
@@ -235,7 +262,7 @@ namespace osmscout {
       return maxLevel;
     }
 
-    inline const std::set<size_t>& GetFeatures() const
+    inline const std::list<FeatureFilterData>& GetFeatures() const
     {
       return features;
     }
@@ -268,9 +295,9 @@ namespace osmscout {
   public:
 
   private:
-    std::set<size_t> features;
-    bool             oneway;
-    SizeConditionRef sizeCondition;
+    std::list<FeatureFilterData> features;
+    bool                         oneway;
+    SizeConditionRef             sizeCondition;
 
   public:
     StyleCriteria();
@@ -575,10 +602,6 @@ namespace osmscout {
   private:
     void Reset();
 
-    void GetAllNodeTypes(std::list<TypeId>& types);
-    void GetAllWayTypes(std::list<TypeId>& types);
-    void GetAllAreaTypes(std::list<TypeId>& types);
-
     void PostprocessNodes();
     void PostprocessWays();
     void PostprocessAreas();
@@ -745,8 +768,10 @@ namespace osmscout {
      * Methods for loading a concrete OSS style sheet
      */
     //@{
-    bool LoadContent(const std::string& content);
-    bool Load(const std::string& styleFile);
+    bool LoadContent(const std::string& content,
+                    ColorPostprocessor colorPostprocessor=nullptr);
+    bool Load(const std::string& styleFile,
+              ColorPostprocessor colorPostprocessor=nullptr);
     const std::list<std::string>&  GetErrors();
     const std::list<std::string>&  GetWarnings();
     //@}

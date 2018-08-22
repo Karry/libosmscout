@@ -18,6 +18,7 @@
  */
 
 #include <QObject>
+#include <QtGlobal>
 #include <QMetaType>
 #include <QQmlEngine>
 
@@ -44,6 +45,8 @@
 #include <osmscout/NavigationModel.h>
 #include <osmscout/NearPOIModel.h>
 #include <osmscout/InstalledMapsModel.h>
+
+namespace osmscout {
 
 static OSMScoutQt* osmScoutInstance=NULL;
 
@@ -96,7 +99,11 @@ bool OSMScoutQtBuilder::Init()
   QString userAgent=QString("%1/%2 libosmscout/%3 Qt/%4")
       .arg(appName).arg(appVersion)
       .arg(LIBOSMSCOUT_VERSION_STRING)
-      .arg(QT_VERSION_STR);
+      .arg(qVersion());
+
+  if(strcmp(qVersion(), QT_VERSION_STR) != 0) {
+    qWarning() << "Runtime Qt version" << qVersion() << "is different that compile time version" << QT_VERSION_STR;
+  }
 
   osmScoutInstance=new OSMScoutQt(settings,
                                   mapManager,
@@ -138,6 +145,9 @@ void OSMScoutQt::RegisterQmlTypes(const char *uri,
   qRegisterMetaType<LocationEntry>("LocationEntry");
   qRegisterMetaType<OnlineTileProvider>("OnlineTileProvider");
   qRegisterMetaType<RouteStep>("RouteStep");
+  qRegisterMetaType<OverlayWay*>("OverlayWay*");
+  qRegisterMetaType<OverlayArea*>("OverlayArea*");
+  qRegisterMetaType<OverlayNode*>("OverlayNode*");
 
   // regiester osmscout types for usage in QML
   qmlRegisterType<AvailableMapsModel>(uri, versionMajor, versionMinor, "AvailableMapsModel");
@@ -364,4 +374,5 @@ QString OSMScoutQt::GetCacheLocation()
 size_t OSMScoutQt::GetOnlineTileCacheSize()
 {
   return onlineTileCacheSize;
+}
 }

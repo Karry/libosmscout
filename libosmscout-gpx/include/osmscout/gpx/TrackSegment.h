@@ -23,7 +23,7 @@
 
 #include <osmscout/gpx/TrackPoint.h>
 
-#include <osmscout/private/GPXImportExport.h>
+#include <osmscout/gpx/GPXImportExport.h>
 
 #include <vector>
 
@@ -35,10 +35,10 @@ public:
   std::vector<TrackPoint> points;
 
   /**
-   * Compute track length in meters
+   * Compute track length
    * @return
    */
-  double GetLength() const;
+  Distance GetLength() const;
 };
 }
 }

@@ -52,12 +52,6 @@ namespace osmscout {
     return true;
   }
 
-  void Way::SetLayerToMax()
-  {
-    // TODO
-    // attributes.SetLayer(std::numeric_limits<int8_t>::max());
-  }
-
   bool Way::GetNodeIndexByNodeId(Id id,
                                  size_t& index) const
   {
@@ -93,8 +87,9 @@ namespace osmscout {
 
     featureValueBuffer.Read(scanner);
 
-    scanner.Read(nodes,type->CanRoute() ||
-                       type->GetOptimizeLowZoom());
+    scanner.Read(nodes,
+                 type->CanRoute() ||
+                 type->GetOptimizeLowZoom());
     nextFileOffset=scanner.GetPos();
   }
 
@@ -136,8 +131,9 @@ namespace osmscout {
 
     featureValueBuffer.Write(writer);
 
-    writer.Write(nodes,featureValueBuffer.GetType()->CanRoute() ||
-                       featureValueBuffer.GetType()->GetOptimizeLowZoom());
+    writer.Write(nodes,
+                 featureValueBuffer.GetType()->CanRoute() ||
+                 featureValueBuffer.GetType()->GetOptimizeLowZoom());
   }
 
   /**

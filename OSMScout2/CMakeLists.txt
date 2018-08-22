@@ -87,9 +87,7 @@ qt5_create_translation(TRANSLATION_QM_FILES
 		${TRANSLATION_SOURCE_FILES}
 		${TRANSLATION_TS_FILES})
 
-qt5_add_resources(RESOURCE_FILES
-    res.qrc
-)
+qt5_add_resources(RESOURCE_FILES res.qrc)
 
 set_property(SOURCE qrc_res.cpp PROPERTY SKIP_AUTOMOC ON)
 
@@ -97,45 +95,19 @@ add_executable(OSMScout2 ${SOURCE_FILES} ${HEADER_FILES} ${RESOURCE_FILES})
 
 target_sources(OSMScout2 PRIVATE ${TRANSLATION_TS_FILES} ${TRANSLATION_QM_FILES})
 
-target_include_directories(OSMScout2 PRIVATE
-    ${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout/include
-    ${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout-map/include
-    ${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout-map-qt/include
-    ${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout-client-qt/include
-    ${OSMSCOUT_BASE_DIR_SOURCE}/libosmscout-gpx/include
+target_link_libraries(OSMScout2
+	OSMScout
+	OSMScoutMap
+	OSMScoutGPX
+	Qt5::Core
+	Qt5::Gui
+	Qt5::Widgets
+	Qt5::Qml
+	Qt5::Quick
+	OSMScoutMapQt
+	OSMScoutClientQt
+	OSMScoutGPX
 )
-
-if(APPLE)
-	target_link_libraries(OSMScout2
-        OSMScout
-        OSMScoutMap
-        OSMScoutGPX
-        Qt5::Core
-        Qt5::Gui
-        Qt5::Widgets
-        Qt5::Qml
-        Qt5::Quick
-        Qt5::Positioning
-        OSMScoutMapQt
-        OSMScoutClientQt
-        OSMScoutGPX
-	)
-else()
-	target_link_libraries(OSMScout2
-        osmscout
-        osmscout_map
-        osmscout_gpx
-        Qt5::Core
-        Qt5::Gui
-        Qt5::Widgets
-        Qt5::Qml
-        Qt5::Quick
-        Qt5::Positioning
-        osmscout_map_qt
-        osmscout_client_qt
-        osmscout_gpx
-	)
-endif()
 
 if (Qt5Svg_FOUND)
 	target_link_libraries(OSMScout2 Qt5::Svg)
@@ -146,7 +118,7 @@ if (Qt5Positioning_FOUND)
 endif()
 
 # enable QML debuger
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DQT_QML_DEBUG ")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DQT_QML_DEBUG")
 set_property(TARGET OSMScout2 PROPERTY CXX_STANDARD 11)
 
 install(TARGETS OSMScout2 RUNTIME DESTINATION bin LIBRARY DESTINATION lib ARCHIVE DESTINATION lib)

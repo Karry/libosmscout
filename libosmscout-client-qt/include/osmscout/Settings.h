@@ -29,12 +29,14 @@
 #include <osmscout/OnlineTileProvider.h>
 #include <osmscout/MapProvider.h>
 
-#include <osmscout/private/ClientQtImportExport.h>
+#include <osmscout/ClientQtImportExport.h>
 
 // this variable should be defined by build system
 #ifndef LIBOSMSCOUT_VERSION_STRING
 #define LIBOSMSCOUT_VERSION_STRING "v?"
 #endif
+
+namespace osmscout {
 
 /**
  * \ingroup QtAPI
@@ -215,5 +217,7 @@ public:
   double GetFontSize() const;
   void SetFontSize(double fontSize);
 };
+
+}
 
 #endif

@@ -20,6 +20,12 @@
 
 #include <osmscout/OverlayObject.h>
 #include <osmscout/util/Geometry.h>
+#include <osmscout/util/Logger.h>
+#include <osmscout/TypeFeatures.h>
+
+#include <iostream>
+
+namespace osmscout {
 
 OverlayObject::OverlayObject(QObject *parent):
   QObject(parent),
@@ -36,21 +42,19 @@ OverlayObject::OverlayObject(const std::vector<osmscout::Point> &nodes,
 {
 }
 
-OverlayObject::~OverlayObject()
+OverlayObject::OverlayObject(const OverlayObject &other)
 {
-}
-
-bool OverlayObject::set(const OverlayObject &other)
-{
-  if (getObjectType()!=other.getObjectType()){
-    return false;
-  }
-
   QMutexLocker locker(&lock);
   QMutexLocker locker2(&other.lock);
-  typeName=other.typeName;
-  nodes=other.nodes;
-  return true;
+
+  typeName = other.typeName;
+  nodes = other.nodes;
+  layer = other.layer;
+  name = other.name;
+}
+
+OverlayObject::~OverlayObject()
+{
 }
 
 void OverlayObject::clear()
@@ -76,6 +80,29 @@ osmscout::GeoBox OverlayObject::boundingBox()
   return box;
 }
 
+void OverlayObject::setupFeatures(const osmscout::TypeInfoRef &type,
+                                  osmscout::FeatureValueBuffer &features) const
+{
+  size_t featureIndex;
+
+  features.SetType(type);
+
+  if (type->GetFeature(osmscout::LayerFeature::NAME,
+                       featureIndex)) {
+    auto*value=dynamic_cast<osmscout::LayerFeatureValue*>(features.AllocateValue(featureIndex));
+    assert(value);
+    value->SetLayer(layer);
+  }
+
+  if (!name.isEmpty() &&
+      type->GetFeature(osmscout::NameFeature::NAME,
+                       featureIndex)) {
+    auto*value=dynamic_cast<osmscout::NameFeatureValue*>(features.AllocateValue(featureIndex));
+    assert(value);
+    value->SetName(name.toStdString());
+  }
+}
+
 OverlayWay::OverlayWay(QObject *parent):
   OverlayObject(parent){}
 
@@ -94,10 +121,17 @@ bool OverlayWay::toWay(osmscout::WayRef &way,
   QMutexLocker locker(&lock);
   osmscout::TypeInfoRef type=typeConfig.GetTypeInfo(typeName.toStdString());
   if (!type){
+    // see OSMScoutQtBuilder::AddCustomPoiType
+    osmscout::log.Warn() << "Type " << typeName.toStdString() << " is not registered for way";
     return false;
   }
+
   way->SetType(type);
-  way->SetLayerToMax();
+
+  osmscout::FeatureValueBuffer features;
+  setupFeatures(type, features);
+  way->SetFeatures(features);
+
   way->nodes=nodes;
   return true;
 }
@@ -120,6 +154,8 @@ bool OverlayArea::toArea(osmscout::AreaRef &area,
   QMutexLocker locker(&lock);
   osmscout::TypeInfoRef type=typeConfig.GetTypeInfo(typeName.toStdString());
   if (!type){
+    // see OSMScoutQtBuilder::AddCustomPoiType
+    osmscout::log.Warn() << "Type " << typeName.toStdString() << " is not registered for area";
     return false;
   }
   osmscout::Area::Ring outerRing;
@@ -127,7 +163,11 @@ bool OverlayArea::toArea(osmscout::AreaRef &area,
   outerRing.MarkAsOuterRing();
   outerRing.nodes=nodes;
 
-  area->rings.push_back(outerRing);
+  osmscout::FeatureValueBuffer features;
+  setupFeatures(type, features);
+  outerRing.SetFeatures(features);
+
+  area->rings.push_back(std::move(outerRing));
 
   return true;
 }
@@ -150,13 +190,22 @@ bool OverlayNode::toNode(osmscout::NodeRef &node,
   QMutexLocker locker(&lock);
   osmscout::TypeInfoRef type=typeConfig.GetTypeInfo(typeName.toStdString());
   if (!type){
+    // see OSMScoutQtBuilder::AddCustomPoiType
+    osmscout::log.Warn() << "Type " << typeName.toStdString() << " is not registered for node";
     return false;
   }
   if (nodes.empty()){
     return false;
   }
+
   node->SetType(type);
   //node->SetLayerToMax();
   node->SetCoords(nodes.begin()->GetCoord());
+
+  osmscout::FeatureValueBuffer features;
+  setupFeatures(type, features);
+  node->SetFeatures(features);
+
   return true;
+}
 }

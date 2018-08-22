@@ -19,11 +19,13 @@
 
 #include <osmscout/import/GenCoverageIndex.h>
 
+#include <osmscout/AreaDataFile.h>
 #include <osmscout/NodeDataFile.h>
 #include <osmscout/WayDataFile.h>
-#include <osmscout/AreaDataFile.h>
 
 #include <osmscout/CoverageIndex.h>
+
+#include <osmscout/util/TileId.h>
 
 namespace osmscout {
 
@@ -56,7 +58,7 @@ namespace osmscout {
       node.Read(*typeConfig,
                 nodeScanner);
 
-      cells.insert(tileCalculator.GetTileId(node.GetCoords()));
+      cells.insert(TileId::GetTile(magnification,node.GetCoords()).AsPixel());
     }
 
     nodeScanner.Close();
@@ -94,12 +96,10 @@ namespace osmscout {
       // We currently use the area of the way, since this is simpler than a scan line
       // processing
 
-      GeoBox boundingBox;
+      GeoBox boundingBox=way.GetBoundingBox();
 
-      way.GetBoundingBox(boundingBox);
-
-      Pixel bottomLeft=tileCalculator.GetTileId(boundingBox.GetBottomLeft());
-      Pixel topRight=tileCalculator.GetTileId(boundingBox.GetTopRight());
+      Pixel bottomLeft=TileId::GetTile(magnification,boundingBox.GetBottomLeft()).AsPixel();
+      Pixel topRight=TileId::GetTile(magnification,boundingBox.GetTopRight()).AsPixel();
 
       for (uint32_t y=bottomLeft.y; y<=topRight.y; y++) {
         for (uint32_t x=bottomLeft.x; x<=topRight.x; x++) {
@@ -140,12 +140,10 @@ namespace osmscout {
       area.Read(*typeConfig,
                 areaScanner);
 
-      GeoBox boundingBox;
+      GeoBox boundingBox=area.GetBoundingBox();
 
-      area.GetBoundingBox(boundingBox);
-
-      Pixel bottomLeft=tileCalculator.GetTileId(boundingBox.GetBottomLeft());
-      Pixel topRight=tileCalculator.GetTileId(boundingBox.GetTopRight());
+      Pixel bottomLeft=TileId::GetTile(magnification,boundingBox.GetBottomLeft()).AsPixel();
+      Pixel topRight=TileId::GetTile(magnification,boundingBox.GetTopRight()).AsPixel();
 
       for (uint32_t y=bottomLeft.y; y<=topRight.y; y++) {
         for (uint32_t x=bottomLeft.x; x<=topRight.x; x++) {
@@ -214,7 +212,6 @@ namespace osmscout {
       size_t bitInByte=bitInMap%8;
 
       bitmap[byteInMap]=bitmap[byteInMap] | ((uint8_t)1 << bitInByte);
-
     }
 
     writer.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
@@ -231,14 +228,11 @@ namespace osmscout {
     }
 
     writer.Close();
-
   }
 
   CoverageIndexGenerator::CoverageIndexGenerator()
-  : tileCalculator(std::pow(2,cellLevel))
-  {
-
-  }
+  : magnification(std::pow(2,cellLevel))
+  {}
 
   void CoverageIndexGenerator::GetDescription(const ImportParameter& /*parameter*/,
                                               ImportModuleDescription& description) const
@@ -299,10 +293,10 @@ namespace osmscout {
       WriteIndex(parameter,
                  progress,
                  cells);
-
     }
     catch (IOException& e) {
       progress.Error(e.GetDescription());
+
       return false;
     }
 

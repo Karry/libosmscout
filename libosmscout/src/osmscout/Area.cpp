@@ -63,22 +63,26 @@ namespace osmscout {
     double maxLat=0.0;
     double maxLon=0.0;
 
-    bool start=true;
+    bool   start=true;
 
-    for (size_t j=0; j<nodes.size(); j++) {
+    for (const auto& node : nodes) {
       if (start) {
-        minLat=nodes[j].GetLat();
-        minLon=nodes[j].GetLon();
-        maxLat=nodes[j].GetLat();
-        maxLon=nodes[j].GetLon();
+        minLat=node.GetLat();
+        minLon=node.GetLon();
+        maxLat=node.GetLat();
+        maxLon=node.GetLon();
 
         start=false;
       }
       else {
-        minLat=std::min(minLat,nodes[j].GetLat());
-        minLon=std::min(minLon,nodes[j].GetLon());
-        maxLat=std::max(maxLat,nodes[j].GetLat());
-        maxLon=std::max(maxLon,nodes[j].GetLon());
+        minLat=std::min(minLat,
+                        node.GetLat());
+        minLon=std::min(minLon,
+                        node.GetLon());
+        maxLat=std::max(maxLat,
+                        node.GetLat());
+        maxLon=std::max(maxLon,
+                        node.GetLon());
       }
     }
 
@@ -112,6 +116,26 @@ namespace osmscout {
                     GeoCoord(maxLat,maxLon));
   }
 
+  GeoBox Area::Ring::GetBoundingBox() const
+  {
+    assert(!nodes.empty());
+
+    double minLon=nodes[0].GetLon();
+    double maxLon=minLon;
+    double minLat=nodes[0].GetLat();
+    double maxLat=minLat;
+
+    for (size_t i=1; i<nodes.size(); i++) {
+      minLon=std::min(minLon,nodes[i].GetLon());
+      maxLon=std::max(maxLon,nodes[i].GetLon());
+      minLat=std::min(minLat,nodes[i].GetLat());
+      maxLat=std::max(maxLat,nodes[i].GetLat());
+    }
+
+    return GeoBox(GeoCoord(minLat,minLon),
+                  GeoCoord(maxLat,maxLon));
+  }
+
   bool Area::GetCenter(GeoCoord& center) const
   {
     assert(!rings.empty());
@@ -121,24 +145,28 @@ namespace osmscout {
     double maxLat=0.0;
     double maxLon=0.0;
 
-    bool start=true;
+    bool   start=true;
 
     for (const auto& ring : rings) {
       if (ring.IsOuterRing()) {
-        for (size_t j=0; j<ring.nodes.size(); j++) {
+        for (const auto& node : ring.nodes) {
           if (start) {
-            minLat=ring.nodes[j].GetLat();
+            minLat=node.GetLat();
             maxLat=minLat;
-            minLon=ring.nodes[j].GetLon();
+            minLon=node.GetLon();
             maxLon=minLon;
 
             start=false;
           }
           else {
-            minLat=std::min(minLat,ring.nodes[j].GetLat());
-            minLon=std::min(minLon,ring.nodes[j].GetLon());
-            maxLat=std::max(maxLat,ring.nodes[j].GetLat());
-            maxLon=std::max(maxLon,ring.nodes[j].GetLon());
+            minLat=std::min(minLat,
+                            node.GetLat());
+            minLon=std::min(minLon,
+                            node.GetLon());
+            maxLat=std::max(maxLat,
+                            node.GetLat());
+            maxLon=std::max(maxLon,
+                            node.GetLon());
           }
         }
       }
@@ -156,9 +184,9 @@ namespace osmscout {
     return true;
   }
 
-  void Area::GetBoundingBox(GeoBox& boundingBox) const
+  GeoBox Area::GetBoundingBox() const
   {
-    boundingBox.Invalidate();
+    GeoBox boundingBox;
 
     for (const auto& ring : rings) {
       if (ring.IsOuterRing()) {
@@ -174,6 +202,8 @@ namespace osmscout {
         }
       }
     }
+
+    return boundingBox;
   }
 
   /**
@@ -386,9 +416,9 @@ namespace osmscout {
   void Area::Write(const TypeConfig& typeConfig,
                    FileWriter& writer) const
   {
-    std::vector<Ring>::const_iterator ring=rings.begin();
-    bool                              multipleRings=rings.size()>1;
-    bool                              hasMaster=rings[0].IsMasterRing();
+    auto ring=rings.cbegin();
+    bool multipleRings=rings.size()>1;
+    bool hasMaster=rings[0].IsMasterRing();
 
     // TODO: We would like to have a bit flag here, if we have a simple area,
     // an area with one master (and multiple rings) or an area with
@@ -442,9 +472,9 @@ namespace osmscout {
   void Area::WriteImport(const TypeConfig& typeConfig,
                          FileWriter& writer) const
   {
-    std::vector<Ring>::const_iterator ring=rings.begin();
-    bool                              multipleRings=rings.size()>1;
-    bool                              hasMaster=ring->IsMasterRing();
+    auto ring=rings.cbegin();
+    bool multipleRings=rings.size()>1;
+    bool hasMaster=ring->IsMasterRing();
 
     // Master/Outer ring
 
@@ -491,9 +521,9 @@ namespace osmscout {
   void Area::WriteOptimized(const TypeConfig& typeConfig,
                             FileWriter& writer) const
   {
-    std::vector<Ring>::const_iterator ring=rings.begin();
-    bool                              multipleRings=rings.size()>1;
-    bool                              hasMaster=rings[0].IsMasterRing();
+    auto ring=rings.cbegin();
+    bool multipleRings=rings.size()>1;
+    bool hasMaster=rings[0].IsMasterRing();
 
     // Outer ring
 
@@ -531,4 +561,3 @@ namespace osmscout {
     }
   }
 }
-

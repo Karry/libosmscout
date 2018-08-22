@@ -1,3 +1,6 @@
+#ifndef OSMSCOUT_CLIENT_QT_PLANEMAPRENDERER_H
+#define OSMSCOUT_CLIENT_QT_PLANEMAPRENDERER_H
+
 /*
  OSMScout - a Qt backend for libosmscout and libosmscout-map
  Copyright (C) 2010  Tim Teulings
@@ -18,10 +21,6 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307  USA
  */
 
-
-#ifndef PLANEMAPRENDERER_H
-#define PLANEMAPRENDERER_H
-
 #include <QObject>
 #include <QSettings>
 
@@ -29,7 +28,9 @@
 #include <osmscout/DBThread.h>
 #include <osmscout/MapRenderer.h>
 
-#include <osmscout/private/ClientQtImportExport.h>
+#include <osmscout/ClientQtImportExport.h>
+
+namespace osmscout {
 
 class OSMSCOUT_CLIENT_QT_API PlaneMapRenderer : public MapRenderer {
   Q_OBJECT
@@ -72,7 +73,7 @@ public slots:
   virtual void InvalidateVisualCache();
   void DrawMap();
   void HandleTileStatusChanged(QString dbPath,const osmscout::TileRef tile);
-  void onLoadJobFinished(QMap<QString,QMap<osmscout::TileId,osmscout::TileRef>>);
+  void onLoadJobFinished(QMap<QString,QMap<osmscout::TileKey,osmscout::TileRef>>);
   void TriggerMapRendering(const MapViewStruct& request);
   void HandleInitialRenderingRequest();
   virtual void onStylesheetFilenameChanged();
@@ -99,4 +100,6 @@ private:
                       const osmscout::MercatorProjection &currentProjection);
 };
 
-#endif /* PLANEMAPRENDERER_H */
+}
+
+#endif /* OSMSCOUT_CLIENT_QT_PLANEMAPRENDERER_H */

@@ -1,3 +1,6 @@
+#ifndef OSMSCOUT_CLIENT_QT_MAPRENDERER_H
+#define OSMSCOUT_CLIENT_QT_MAPRENDERER_H
+
 /*
  OSMScout - a Qt backend for libosmscout and libosmscout-map
  Copyright (C) 2010  Tim Teulings
@@ -18,17 +21,16 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307  USA
  */
 
-#ifndef OSMSCOUT_CLIENT_QT_MAPRENDERER_H
-#define OSMSCOUT_CLIENT_QT_MAPRENDERER_H
-
 #include <QObject>
 #include <QSettings>
 
 #include <osmscout/DataTileCache.h>
 #include <osmscout/DBThread.h>
 
-#include <osmscout/private/ClientQtImportExport.h>
+#include <osmscout/ClientQtImportExport.h>
 #include <osmscout/OverlayObject.h>
+
+namespace osmscout {
 
 /**
  * \ingroup QtAPI
@@ -37,7 +39,7 @@ class OSMSCOUT_CLIENT_QT_API DBRenderJob : public DBJob{
   Q_OBJECT
 private:
   osmscout::MercatorProjection renderProjection;
-  QMap<QString,QMap<osmscout::TileId,osmscout::TileRef>> tiles;
+  QMap<QString,QMap<osmscout::TileKey,osmscout::TileRef>> tiles;
   osmscout::MapParameter *drawParameter;
   QPainter *p;
   bool success;
@@ -47,7 +49,7 @@ private:
 
 public:
   DBRenderJob(osmscout::MercatorProjection renderProjection,
-              QMap<QString,QMap<osmscout::TileId,osmscout::TileRef>> tiles,
+              QMap<QString,QMap<osmscout::TileKey,osmscout::TileRef>> tiles,
               osmscout::MapParameter *drawParameter,
               QPainter *p,
               std::vector<OverlayObjectRef> overlayObjects,
@@ -108,7 +110,7 @@ protected:
               QString iconDirectory);
 
   osmscout::GeoBox overlayObjectsBox() const;
-  
+
   void getOverlayObjects(std::vector<OverlayObjectRef> &objs,
                          osmscout::GeoBox requestBox) const;
 
@@ -134,5 +136,6 @@ public:
 
 typedef std::shared_ptr<MapRenderer> MapRendererRef;
 
-#endif /* OSMSCOUT_CLIENT_QT_MAPRENDERER_H */
+}
 
+#endif /* OSMSCOUT_CLIENT_QT_MAPRENDERER_H */

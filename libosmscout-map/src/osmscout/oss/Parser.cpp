@@ -718,7 +718,7 @@ void Parser::COLOR(Color& color) {
 			UDOUBLE(factor);
 			Expect(60 /* ")" */);
 			if (factor>=0.0 && factor<=1.0) {
-			 color=color.Lighten(factor);
+			 color=PostprocessColor(color.Lighten(factor));
 			}
 			else {
 			std::string e="Factor must be in the range [0..1]";
@@ -735,7 +735,7 @@ void Parser::COLOR(Color& color) {
 			UDOUBLE(factor);
 			Expect(60 /* ")" */);
 			if (factor>=0.0 && factor<=1.0) {
-			 color=color.Darken(factor);
+			 color=PostprocessColor(color.Darken(factor));
 			}
 			else {
 			std::string e="Factor must be in the range [0..1]";
@@ -745,6 +745,8 @@ void Parser::COLOR(Color& color) {
 			
 		} else if (la->kind == _color) {
 			COLOR_VALUE(color);
+			color=PostprocessColor(color);
+			
 		} else if (la->kind == _variable) {
 			CONSTANT(constant);
 			if (!constant) {
@@ -777,7 +779,7 @@ void Parser::MAG(Magnification& magnification) {
 			}
 			
 		} else if (la->kind == _number) {
-			size_t level; 
+			uint32_t level; 
 			Get();
 			if (!StringToNumber(t->val,level)) {
 			 std::string e="Cannot parse number '"+std::string(t->val)+"'";
@@ -785,14 +787,14 @@ void Parser::MAG(Magnification& magnification) {
 			 SemErr(e.c_str());
 			}
 			else {
-			 magnification.SetLevel((uint32_t)level);
+			 magnification.SetLevel(osmscout::MagnificationLevel(level));
 			}
 			
 		} else if (la->kind == _variable) {
 			StyleConstantRef constant; 
 			CONSTANT(constant);
 			if (!constant) {
-			 magnification.SetLevel(0);
+			 magnification.SetLevel(osmscout::MagnificationLevel(0));
 			}
 			else if (dynamic_cast<StyleConstantMag*>(constant.get())==NULL) {
 			 std::string e="Variable is not of type 'MAG'";
@@ -972,21 +974,12 @@ void Parser::STYLEFILTER_GROUP(StyleFilter& filter) {
 
 void Parser::STYLEFILTER_FEATURE(StyleFilter& filter) {
 		TypeInfoSet types;
-		std::string featureName;
 		
 		Expect(37 /* "FEATURE" */);
-		IDENT(featureName);
-		AddFeatureToFilter(filter,
-		                  featureName,
-		                  types);
-		
+		STYLEFILTER_FEATURE_ENTRY(filter,types);
 		while (la->kind == 20 /* "," */) {
 			Get();
-			IDENT(featureName);
-			AddFeatureToFilter(filter,
-			                  featureName,
-			                  types);
-			
+			STYLEFILTER_FEATURE_ENTRY(filter,types);
 		}
 		filter.SetTypes(types); 
 }
@@ -1104,6 +1097,22 @@ void Parser::STYLEFILTER_SIZE(StyleFilter& filter) {
 		Expect(42 /* "SIZE" */);
 		SIZECONDITION(sizeCondition);
 		filter.SetSizeCondition(sizeCondition); 
+}
+
+void Parser::STYLEFILTER_FEATURE_ENTRY(StyleFilter& filter, TypeInfoSet& types) {
+		std::string featureName;
+		std::string flagName;
+		
+		IDENT(featureName);
+		if (la->kind == 24 /* "." */) {
+			Get();
+			IDENT(flagName);
+		}
+		AddFeatureToFilter(filter,
+		                  featureName,
+		                  flagName,
+		                  types);
+		
 }
 
 void Parser::SIZECONDITION(SizeConditionRef& condition) {
@@ -1744,10 +1753,10 @@ void Parser::ATTRIBUTEVALUE(PartialStyleBase& style, const StyleAttributeDescrip
 		 }
 		 else if (valueType==ValueType::NUMBER) {
 		   Magnification magnification;
-		   size_t        level;
+		   uint32_t      level;
 		
 		   if (StringToNumber(number,level)) {
-		     magnification.SetLevel((uint32_t)level);
+		     magnification.SetLevel(osmscout::MagnificationLevel(level));
 		   }
 		   else {
 		     std::string e="Cannot parse number '"+std::string(number)+"'";
@@ -2168,7 +2177,7 @@ void Parser::COLOR_VALUE(Color& color) {
 		}
 		
 		if (!errors->hasErrors) {
-		 color=osmscout::Color::FromHexString(c);
+		 color=PostprocessColor(osmscout::Color::FromHexString(c));
 		}
 		
 }
@@ -2206,7 +2215,8 @@ void Parser::Parse()
 }
 
 Parser::Parser(Scanner *scanner,
-               StyleConfig& config)
+               StyleConfig& config,
+               osmscout::ColorPostprocessor colorPostprocessor)
  : config(config)
 {
 	maxT = 62;
@@ -2217,6 +2227,7 @@ Parser::Parser(Scanner *scanner,
   errDist = minErrDist;
   this->scanner = scanner;
   errors = new Errors();
+  this->colorPostprocessor=colorPostprocessor;
 }
 
 bool Parser::StartOf(int s)
@@ -2240,6 +2251,16 @@ bool Parser::StartOf(int s)
 Parser::~Parser()
 {
   delete errors;
+}
+
+osmscout::Color Parser::PostprocessColor(const osmscout::Color& color) const
+{
+  if (colorPostprocessor!=nullptr) {
+    return (*colorPostprocessor)(color);
+  }
+  else {
+    return color;
+  }
 }
 
 Errors::Errors()

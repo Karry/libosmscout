@@ -22,7 +22,7 @@
 
 #include <osmscout/gpx/TrackSegment.h>
 
-#include <osmscout/private/GPXImportExport.h>
+#include <osmscout/gpx/GPXImportExport.h>
 
 #include <string>
 #include <vector>
@@ -40,7 +40,7 @@ public:
    * Compute track length in meters
    * @return length
    */
-  double GetLength() const;
+  Distance GetLength() const;
 
   size_t GetPointCount() const;
 

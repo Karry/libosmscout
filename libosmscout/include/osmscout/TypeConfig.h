@@ -20,25 +20,22 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307  USA
 */
 
-#include <limits>
 #include <list>
 #include <memory>
-#include <map>
-#include <set>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
-#include <osmscout/private/CoreImportExport.h>
+#include <osmscout/CoreImportExport.h>
 
 #include <osmscout/ObjectRef.h>
+#include <osmscout/OSMScoutTypes.h>
 #include <osmscout/Tag.h>
-#include <osmscout/Types.h>
+#include <osmscout/TypeFeature.h>
 
 #include <osmscout/util/FileScanner.h>
 #include <osmscout/util/FileWriter.h>
-#include <osmscout/util/Progress.h>
 #include <osmscout/util/TagErrorReporter.h>
 
 #include <osmscout/system/Assert.h>
@@ -56,199 +53,6 @@ namespace osmscout {
    */
   static const TypeId typeIgnore      = 0;
 
-  // Forward declaration of classes TypeConfig and TypeInfo because
-  // of circular dependency between them and Feature
-  class FeatureValueBuffer;
-  class FeatureInstance;
-  class TypeConfig;
-  class TypeInfo;
-
-  class OSMSCOUT_API FeatureValue
-  {
-  public:
-    FeatureValue();
-    virtual ~FeatureValue() = default;
-
-    inline virtual std::string GetLabel() const
-    {
-      return "";
-    }
-
-    virtual void Read(FileScanner& scanner);
-    virtual void Write(FileWriter& writer);
-
-    virtual FeatureValue& operator=(const FeatureValue& other);
-    virtual bool operator==(const FeatureValue& other) const = 0;
-
-    virtual inline bool operator!=(const FeatureValue& other) const
-    {
-      return !(*this==other);
-    }
-  };
-
-  /**
-   * A feature combines one or multiple tags  to build information attribute for a type.
-   *
-   * The class "Feature" is the abstract base class for a concrete feature implementation
-   * like "NameFeature" or "AccessFeature".
-   *
-   * A feature could just be an alias for one tag (like "name") but it could also combine
-   * a number of attributes (e.g. access and all its variations).
-   */
-  class OSMSCOUT_API Feature
-  {
-  private:
-    std::unordered_map<std::string,size_t>      labels;
-    std::unordered_map<std::string,std::string> descriptions; //!< Map of descriptions for given language codes
-
-  protected:
-    size_t RegisterLabel(const std::string& labelName,
-                         size_t index);
-
-  public:
-    Feature();
-    virtual ~Feature() = default;
-
-    /**
-     * Does further initialization based on the current TypeConfig. For example
-     * it registers Tags (and stores their TagId) for further processing.
-     */
-    virtual void Initialize(TypeConfig& typeConfig) = 0;
-
-    void AddDescription(const std::string& languageCode,
-                        const std::string& description);
-
-    /**
-     * Returns the name of the feature
-     */
-    virtual std::string GetName() const = 0;
-
-    /**
-     * A feature, if set for an object, can hold a value. If there is no value object,
-     * this method returns 0, else it returns the C++ size of the value object.
-     */
-    inline virtual size_t GetValueSize() const
-    {
-      return 0;
-    }
-
-    /**
-     * This method returns the number of additional feature bits reserved. If there are
-     * additional features bit, 0 is returned.
-     *
-     * A feature may reserve additional feature bits. Feature bits should be used
-     * if a custom value object is too expensive. Space for feature bits is always reserved
-     * even if the feature itself is not set for a certain object.
-     */
-    inline virtual size_t GetFeatureBitCount() const
-    {
-      return 0;
-    }
-
-    /**
-     * Returns 'true' if the feature has an value object.
-     */
-    inline virtual bool HasValue() const
-    {
-      return GetValueSize()>0;
-    }
-
-    /**
-     * Returns 'true' if the feature provides labels.
-     */
-    inline virtual bool HasLabel() const
-    {
-      return !labels.empty();
-    }
-
-    /**
-     * Returns the index of the label with the given name. Method returns 'true'
-     * if the feature has labels and a label with the given name exists. Else
-     * 'false' is returned.
-     */
-    bool GetLabelIndex(const std::string& labelName,
-                       size_t& index) const;
-
-    std::string GetDescription(const std::string& languageCode) const;
-
-    inline const std::unordered_map<std::string,std::string>& GetDescriptions() const
-    {
-      return descriptions;
-    };
-
-    virtual FeatureValue* AllocateValue(void* buffer);
-
-    virtual void Parse(TagErrorReporter& reporter,
-                       const TypeConfig& typeConfig,
-                       const FeatureInstance& feature,
-                       const ObjectOSMRef& object,
-                       const TagMap& tags,
-                       FeatureValueBuffer& buffer) const = 0;
-  };
-
-  typedef std::shared_ptr<Feature> FeatureRef;
-
-  /**
-   * An instantiation of a feature for a certain type.
-   */
-  class OSMSCOUT_API FeatureInstance CLASS_FINAL
-  {
-  private:
-    FeatureRef     feature;    //!< The feature we are an instance of
-    const TypeInfo *type;      //!< The type we are assigned to (we are no Ref type to avoid circular references)
-    size_t         featureBit; //!< index of the bit that signals that the feature is available
-    size_t         index;      //!< The index we have in the list of features
-    size_t         offset;     //!< Our offset into the value buffer for our data
-
-  public:
-    FeatureInstance();
-    FeatureInstance(const FeatureRef& feature,
-                    const TypeInfo* type,
-                    size_t featureBit,
-                    size_t index,
-                    size_t offset);
-
-    /**
-     * Return the feature itself.
-     */
-    inline FeatureRef GetFeature() const
-    {
-      return feature;
-    }
-
-    /**
-     * Return a pointer back tot he type we are assigned to.
-     */
-    inline const TypeInfo* GetType() const
-    {
-      return type;
-    }
-
-    /**
-     * return the index of this feature within the list of features of the type.
-     */
-    inline size_t GetFeatureBit() const
-    {
-      return featureBit;
-    }
-
-    /**
-     * return the index of this feature within the list of features of the type.
-     */
-    inline size_t GetIndex() const
-    {
-      return index;
-    }
-
-    /**
-     * Return the file offset within the feature value buffer for the value of this feature.
-     */
-    inline size_t GetOffset() const
-    {
-      return offset;
-    }
-  };
-
   /**
    * \ingroup type
    *
@@ -259,10 +63,10 @@ namespace osmscout {
   class OSMSCOUT_API TypeInfo CLASS_FINAL
   {
   public:
-    static const unsigned char typeNode     = 1 << 0; //!< Condition applies to nodes
-    static const unsigned char typeWay      = 1 << 1; //!< Condition applies to ways
-    static const unsigned char typeArea     = 1 << 2; //!< Condition applies to areas
-    static const unsigned char typeRelation = 1 << 3; //!< Condition applies to releations
+    static const uint8_t typeNode     = 1u << 0u; //!< Condition applies to nodes
+    static const uint8_t typeWay      = 1u << 1u; //!< Condition applies to ways
+    static const uint8_t typeArea     = 1u << 2u; //!< Condition applies to areas
+    static const uint8_t typeRelation = 1u << 3u; //!< Condition applies to releations
 
   public:
     /**
@@ -312,6 +116,8 @@ namespace osmscout {
     bool                                        mergeAreas;              //!< Areas of this type are merged under certain conditions
     bool                                        ignoreSeaLand;           //!< Ignore objects of this type for sea/land calculation
     bool                                        ignore;                  //!< Ignore objects of this type
+    uint8_t                                     lanes;                   //!< Number of expected lanes (default: 1)
+    uint8_t                                     onewayLanes;             //!< Number of expected lanes (default: 1)
 
     std::unordered_set<std::string>             groups;                  //!< Set of idents that server as categorizing groups
     std::unordered_map<std::string,std::string> descriptions;            //!< Map of descriptions for given language codes
@@ -320,7 +126,7 @@ namespace osmscout {
     TypeInfo(const TypeInfo& other);
 
   public:
-    TypeInfo(const std::string& name);
+    explicit TypeInfo(const std::string& name);
 
     /**
      * Set the id of this type
@@ -492,7 +298,7 @@ namespace osmscout {
      */
     inline bool HasConditions() const
     {
-      return conditions.size()>0;
+      return !conditions.empty();
     }
 
     /**
@@ -794,6 +600,30 @@ namespace osmscout {
       return ignore;
     }
 
+    inline TypeInfo& SetLanes(uint8_t lanes)
+    {
+      this->lanes=lanes;
+
+      return *this;
+    }
+
+    inline uint8_t GetLanes() const
+    {
+      return lanes;
+    }
+
+    inline TypeInfo& SetOnewayLanes(uint8_t lanes)
+    {
+      this->onewayLanes=lanes;
+
+      return *this;
+    }
+
+    inline uint8_t GetOnewayLanes() const
+    {
+      return onewayLanes;
+    }
+
     /**
      * Return the set of groups the type is in.
      */
@@ -816,157 +646,6 @@ namespace osmscout {
   };
 
   typedef std::shared_ptr<TypeInfo> TypeInfoRef;
-
-  class OSMSCOUT_API TypeInfoSetConstIterator CLASS_FINAL : public std::iterator<std::input_iterator_tag, const TypeInfoRef>
-  {
-  private:
-    std::vector<TypeInfoRef>::const_iterator iterCurrent;
-    std::vector<TypeInfoRef>::const_iterator iterEnd;
-
-  public:
-    TypeInfoSetConstIterator(const std::vector<TypeInfoRef>::const_iterator& iterCurrent,
-                             const std::vector<TypeInfoRef>::const_iterator& iterEnd)
-    : iterCurrent(iterCurrent),
-      iterEnd(iterEnd)
-    {
-      while (this->iterCurrent!=this->iterEnd &&
-            !*this->iterCurrent) {
-        ++this->iterCurrent;
-      }
-    }
-
-    TypeInfoSetConstIterator(const TypeInfoSetConstIterator& other)
-    : iterCurrent(other.iterCurrent),
-      iterEnd(other.iterEnd)
-    {
-      // no code
-    }
-
-    TypeInfoSetConstIterator& operator++()
-    {
-      ++iterCurrent;
-
-      while (iterCurrent!=iterEnd &&
-            !*iterCurrent) {
-        ++iterCurrent;
-      }
-
-      return *this;
-    }
-
-    TypeInfoSetConstIterator operator++(int)
-    {
-      TypeInfoSetConstIterator tmp(*this);
-
-      operator++();
-
-      return tmp;
-    }
-
-    bool operator==(const TypeInfoSetConstIterator& other)
-    {
-      return iterCurrent==other.iterCurrent;
-    }
-
-    bool operator!=(const TypeInfoSetConstIterator& other)
-    {
-      return iterCurrent!=other.iterCurrent;
-    }
-
-    const TypeInfoRef& operator*()
-    {
-      return *iterCurrent;
-    }
-  };
-
-  /**
-   * Custom data structure to efficiently handle a set of TypeInfoRef.
-   *
-   * All operations on the set are O(1) using the fact, that TypeInfo internally
-   * have a continuously running index variable (Set may be slower if the
-   * internal array was not preinitialized to it maximum size by passing a
-   * TypeConfig or another TypeInfoSet in the constructor.
-   */
-  class OSMSCOUT_API TypeInfoSet CLASS_FINAL
-  {
-  private:
-    std::vector<TypeInfoRef> types;
-    size_t                   count;
-
-  public:
-    TypeInfoSet();
-    TypeInfoSet(const TypeConfig& typeConfig);
-    TypeInfoSet(const TypeInfoSet& other);
-    TypeInfoSet(TypeInfoSet&& other);
-    TypeInfoSet(const std::vector<TypeInfoRef>& types);
-
-    void Adapt(const TypeConfig& typeConfig);
-
-    inline void Clear()
-    {
-      if (count>0) {
-        types.clear();
-      }
-
-      count=0;
-    }
-
-    void Set(const TypeInfoRef& type);
-    void Set(const std::vector<TypeInfoRef>& types);
-    void Set(const TypeInfoSet& other);
-
-    void Add(const TypeInfoSet& types);
-
-    void Remove(const TypeInfoRef& type);
-    void Remove(const TypeInfoSet& otherTypes);
-
-    void Intersection(const TypeInfoSet& otherTypes);
-
-    inline bool IsSet(const TypeInfoRef& type) const
-    {
-      assert(type);
-
-      return type->GetIndex()<types.size() &&
-             types[type->GetIndex()];
-    }
-
-    inline bool Empty() const
-    {
-      return count==0;
-    }
-
-    inline size_t Size() const
-    {
-      return count;
-    }
-
-    bool Intersects(const TypeInfoSet& otherTypes) const;
-
-    inline TypeInfoSet& operator=(const TypeInfoSet& other)
-    {
-      if (&other!=this) {
-        this->types=other.types;
-        this->count=other.count;
-      }
-
-      return *this;
-    }
-
-    bool operator==(const TypeInfoSet& other) const;
-    bool operator!=(const TypeInfoSet& other) const;
-
-    inline TypeInfoSetConstIterator begin() const
-    {
-      return TypeInfoSetConstIterator(types.begin(),
-                                      types.end());
-    }
-
-    inline TypeInfoSetConstIterator end() const
-    {
-      return TypeInfoSetConstIterator(types.end(),
-                                      types.end());
-    }
-  };
 
   /**
    * A FeatureValueBuffer is instantiated by an object and holds information
@@ -1058,7 +737,7 @@ namespace osmscout {
     {
       size_t featureBit=type->GetFeature(idx).GetFeatureBit();
 
-      return (featureBits[featureBit/8] & (1 << featureBit%8))!=0;
+      return (featureBits[featureBit/8] & (1u << featureBit%8))!=0;
     }
 
     /**
@@ -1071,16 +750,15 @@ namespace osmscout {
      */
     inline FeatureValue* GetValue(size_t idx) const
     {
-      if (featureValueBuffer == NULL)
-        return NULL;
-      return static_cast<FeatureValue*>(static_cast<void*>(&featureValueBuffer[type->GetFeature(idx).GetOffset()]));
+      return featureValueBuffer==nullptr ? nullptr
+                                         : static_cast<FeatureValue*>(static_cast<void*>(&featureValueBuffer[type->GetFeature(idx).GetOffset()]));
     }
 
     FeatureValue* AllocateValue(size_t idx);
     void FreeValue(size_t idx);
 
     void Parse(TagErrorReporter& errorReporter,
-               const TypeConfig& typeConfig,
+               const TagRegistry& tagRegistry,
                const ObjectOSMRef& object,
                const TagMap& tags);
 
@@ -1103,26 +781,30 @@ namespace osmscout {
 
     template<class T> const T* findValue() const
     {
-      for (auto &featureInstance :GetType()->GetFeatures()){
-          if (HasFeature(featureInstance.GetIndex())){
-            osmscout::FeatureRef feature=featureInstance.GetFeature();
-            if (feature->HasValue()){
-              osmscout::FeatureValue *value=GetValue(featureInstance.GetIndex());
-              const T *v = dynamic_cast<const T*>(value);
-              if (v!=NULL){
-                return v;
-              }
+      for (auto& featureInstance :GetType()->GetFeatures()) {
+        if (HasFeature(featureInstance.GetIndex())) {
+          osmscout::FeatureRef feature=featureInstance.GetFeature();
+          if (feature->HasValue()) {
+            osmscout::FeatureValue* value=GetValue(featureInstance.GetIndex());
+            const T *v=dynamic_cast<const T*>(value);
+            if (v!=nullptr) {
+              return v;
             }
           }
+        }
       }
-      return NULL;
+
+      return nullptr;
     }
   };
 
   typedef std::shared_ptr<FeatureValueBuffer> FeatureValueBufferRef;
 
-  static const uint32_t FILE_FORMAT_VERSION = 17;
+  static const uint32_t FILE_FORMAT_VERSION = 18;
   static const uint32_t FILE_FORMAT_MIN_VERSION = 6;
+
+  // Forward declaration
+  class TypeConfig;
 
   /**
    * \ingroup type
@@ -1138,21 +820,11 @@ namespace osmscout {
     static const uint32_t MAX_FORMAT_VERSION = FILE_FORMAT_VERSION;
 
   private:
-    
+
     uint32_t                                    fileFormatVersion;
 
     // Tags
-
-    std::vector<TagInfo>                        tags;
-
-    TagId                                       nextTagId;
-
-    std::unordered_map<std::string,TagId>       stringToTagMap;
-    std::unordered_map<TagId,uint32_t>          nameTagIdToPrioMap;
-    std::unordered_map<TagId,uint32_t>          nameAltTagIdToPrioMap;
-    std::unordered_map<std::string,uint8_t>     nameToMaxSpeedMap;
-
-    std::unordered_map<std::string,size_t>      surfaceToGradeMap;
+    TagRegistry                                 tagRegistry;
 
     // Types
 
@@ -1191,6 +863,7 @@ namespace osmscout {
     FeatureRef                                  featureTunnel;
     FeatureRef                                  featureEmbankment;
     FeatureRef                                  featureRoundabout;
+    FeatureRef                                  featureLanes;
 
   public:
     // Internal use (only available during preprocessing)
@@ -1225,20 +898,49 @@ namespace osmscout {
      * Methods for dealing with tags
      */
     //@{
-    TagId RegisterTag(const std::string& tagName);
+    inline TagId GetTagId(const char* name) const
+    {
+      return tagRegistry.GetTagId(name);
+    }
 
-    TagId RegisterNameTag(const std::string& tagName,
-                          uint32_t priority);
-    TagId RegisterNameAltTag(const std::string& tagName,
-                             uint32_t priority);
+    inline TagId GetTagId(const std::string& name) const
+    {
+      return tagRegistry.GetTagId(name);
+    }
 
-    TagId GetTagId(const char* name) const;
-    TagId GetTagId(const std::string& name) const;
+    inline const TagRegistry& GetTagRegistry() const
+    {
+      return tagRegistry;
+    }
 
-    bool IsNameTag(TagId tag,
-                   uint32_t& priority) const;
-    bool IsNameAltTag(TagId tag,
-                      uint32_t& priority) const;
+    inline TagRegistry& GetTagRegistry()
+    {
+      return tagRegistry;
+    }
+    //@}
+
+    /**
+     * Methods for dealing with mappings for surfaces and surface grades.
+     */
+    //@{
+    inline void RegisterSurfaceToGradeMapping(const std::string& surface,
+                                              size_t grade)
+    {
+      tagRegistry.RegisterSurfaceToGradeMapping(surface,
+                                                grade);
+    }
+    //@}
+
+    /**
+     * Methods for dealing with mappings for surfaces and surface grades.
+     */
+    //@{
+    inline void RegisterMaxSpeedAlias(const std::string& alias,
+                                      uint8_t maxSpeed)
+    {
+      tagRegistry.RegisterMaxSpeedAlias(alias,
+                                        maxSpeed);
+    }
     //@}
 
     /**
@@ -1424,27 +1126,6 @@ namespace osmscout {
       return features;
     }
     //@}
-
-    /**
-     * Methods for dealing with mappings for surfaces and surface grades.
-     */
-    //@{
-    void RegisterSurfaceToGradeMapping(const std::string& surface,
-                                       size_t grade);
-    bool GetGradeForSurface(const std::string& surface,
-                            size_t& grade) const;
-    //@}
-
-    /**
-     * Methods for dealing with mappings for surfaces and surface grades.
-     */
-    //@{
-    void RegisterMaxSpeedAlias(const std::string& alias,
-                               uint8_t maxSpeed);
-    bool GetMaxSpeedFromAlias(const std::string& alias,
-                              uint8_t& maxSpeed) const;
-    //@}
-
 
     /**
      * Methods for loading/storing of type information from/to files.

@@ -21,11 +21,13 @@
 */
 
 
-#include <osmscout/private/ClientQtImportExport.h>
+#include <osmscout/ClientQtImportExport.h>
 
 #include <QAbstractListModel>
 
 #include <osmscout/MapManager.h>
+
+namespace osmscout {
 
 /**
  * Model providing access to currently installed maps on device
@@ -74,5 +76,6 @@ private:
   MapManagerRef mapManager;
 };
 
+}
 
 #endif //OSMSCOUT_CLIENT_QT_INSTALLEDMAPSMODEL_H

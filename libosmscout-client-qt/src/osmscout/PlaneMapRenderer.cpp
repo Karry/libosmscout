@@ -23,6 +23,8 @@
 
 #include <osmscout/system/Math.h>
 
+namespace osmscout {
+
 // uncomment or define by compiler parameter to render various debug marks
 // #define DRAW_DEBUG
 
@@ -441,7 +443,7 @@ void PlaneMapRenderer::HandleTileStatusChanged(QString /*dbPath*/,const osmscout
   }
 }
 
-void PlaneMapRenderer::onLoadJobFinished(QMap<QString,QMap<osmscout::TileId,osmscout::TileRef>>)
+void PlaneMapRenderer::onLoadJobFinished(QMap<QString,QMap<osmscout::TileKey,osmscout::TileRef>>)
 {
   emit TriggerDrawMap();
 }
@@ -493,8 +495,8 @@ void PlaneMapRenderer::TriggerMapRendering(const MapViewStruct& request)
     connect(loadJob, SIGNAL(tileStateChanged(QString,const osmscout::TileRef)),
             this, SLOT(HandleTileStatusChanged(QString,const osmscout::TileRef)),
             Qt::QueuedConnection);
-    connect(loadJob, SIGNAL(finished(QMap<QString,QMap<osmscout::TileId,osmscout::TileRef>>)),
-            this, SLOT(onLoadJobFinished(QMap<QString,QMap<osmscout::TileId,osmscout::TileRef>>)));
+    connect(loadJob, SIGNAL(finished(QMap<QString,QMap<osmscout::TileKey,osmscout::TileRef>>)),
+            this, SLOT(onLoadJobFinished(QMap<QString,QMap<osmscout::TileKey,osmscout::TileRef>>)));
 
     dbThread->RunJob(loadJob);
   }
@@ -533,4 +535,5 @@ void PlaneMapRenderer::onStylesheetFilenameChanged()
 
   MapRenderer::onStylesheetFilenameChanged();
   emit Redraw();
+}
 }

@@ -29,7 +29,9 @@
 #include <osmscout/LocationDescriptionService.h>
 #include <osmscout/LocationService.h>
 
-#include <osmscout/private/ClientQtImportExport.h>
+#include <osmscout/ClientQtImportExport.h>
+
+namespace osmscout {
 
 /**
  * \ingroup QtAPI
@@ -103,6 +105,9 @@ public:
 };
 
 typedef std::shared_ptr<LocationEntry> LocationEntryRef;
-Q_DECLARE_METATYPE(LocationEntryRef)
+
+}
+
+Q_DECLARE_METATYPE(osmscout::LocationEntryRef)
 
 #endif

@@ -1,6 +1,7 @@
 osmscoutIncDir = include_directories('.')
 
 osmscoutHeader = [
+            'osmscout/CoreImportExport.h',
             'osmscout/ost/Parser.h',
             'osmscout/ost/Scanner.h',
             'osmscout/system/SSEMath.h',
@@ -8,6 +9,7 @@ osmscoutHeader = [
             'osmscout/util/Cache.h',
             'osmscout/util/CmdLineParsing.h',
             'osmscout/util/Color.h',
+            'osmscout/util/Distance.h',
             'osmscout/util/Exception.h',
             'osmscout/util/File.h',
             'osmscout/util/FileScanner.h',
@@ -28,6 +30,7 @@ osmscoutHeader = [
             'osmscout/util/String.h',
             'osmscout/util/StringMatcher.h',
             'osmscout/util/Tiling.h',
+            'osmscout/util/TileId.h',
             'osmscout/util/Transformation.h',
             'osmscout/util/WorkQueue.h',
             'osmscout/util/TagErrorReporter.h',
@@ -79,8 +82,11 @@ osmscoutHeader = [
             'osmscout/SRTM.h',
             'osmscout/Tag.h',
             'osmscout/TypeConfig.h',
+            'osmscout/TypeFeature.h',
             'osmscout/TypeFeatures.h',
-            'osmscout/Types.h',
+            'osmscout/TypeInfoSet.h',
+            'osmscout/FeatureReader.h',
+            'osmscout/OSMScoutTypes.h',
             'osmscout/WaterIndex.h',
             'osmscout/Way.h',
             'osmscout/WayDataFile.h'

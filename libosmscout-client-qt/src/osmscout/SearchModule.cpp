@@ -24,6 +24,8 @@
 #include <osmscout/util/Logger.h>
 #include <iostream>
 
+namespace osmscout {
+
 SearchModule::SearchModule(QThread *thread,DBThreadRef dbThread,LookupModule *lookupModule):
   thread(thread),dbThread(dbThread),lookupModule(lookupModule)
 {
@@ -95,8 +97,8 @@ void SearchModule::FreeTextSearch(DBInstanceRef &db,
   QList<osmscout::ObjectFileRef> objectSet;
   osmscout::TextSearchIndex textSearch;
   if(!textSearch.Load(db->path.toStdString())){
-      qWarning("Failed to load text index files, search was for locations only");
-      return; // silently continue, text indexes are optional in database
+    osmscout::log.Warn() << "Failed to load text index files, search only for locations with database " << db->path.toStdString();
+    return; // silently continue, text indexes are optional in database
   }
   osmscout::TextSearchIndex::ResultsMap resultsTxt;
   textSearch.Search(searchPattern.toStdString(),
@@ -369,7 +371,6 @@ bool SearchModule::GetObjectDetails(DBInstanceRef db,
                                     osmscout::GeoCoord& coordinates,
                                     osmscout::GeoBox& bbox)
 {
-  osmscout::GeoBox tmpBox;
   for (const osmscout::ObjectFileRef& object:objects) {
     if (!object.Valid()){
       continue;
@@ -384,7 +385,7 @@ bool SearchModule::GetObjectDetails(DBInstanceRef db,
         typeName = QString::fromUtf8(node->GetType()->GetName().c_str());
       }
 
-      bbox.Include(osmscout::GeoBox::BoxByCenterAndRadius(node->GetCoords(), 2.0));
+      bbox.Include(osmscout::GeoBox::BoxByCenterAndRadius(node->GetCoords(), Distance::Of<Meter>(2.0)));
     } else if (object.GetType() == osmscout::RefType::refArea) {
       osmscout::AreaRef area;
 
@@ -394,8 +395,7 @@ bool SearchModule::GetObjectDetails(DBInstanceRef db,
       if (typeName.isEmpty()) {
         typeName = QString::fromUtf8(area->GetType()->GetName().c_str());
       }
-      area->GetBoundingBox(tmpBox);
-      bbox.Include(tmpBox);
+      bbox.Include(area->GetBoundingBox());
     } else if (object.GetType() == osmscout::RefType::refWay) {
       osmscout::WayRef way;
       if (!db->database->GetWayByOffset(object.GetFileOffset(), way)) {
@@ -404,10 +404,10 @@ bool SearchModule::GetObjectDetails(DBInstanceRef db,
       if (typeName.isEmpty()) {
         typeName = QString::fromUtf8(way->GetType()->GetName().c_str());
       }
-      way->GetBoundingBox(tmpBox);
-      bbox.Include(tmpBox);
+      bbox.Include(way->GetBoundingBox());
     }
   }
   coordinates=bbox.GetCenter();
   return true;
+}
 }

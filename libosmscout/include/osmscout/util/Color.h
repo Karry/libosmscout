@@ -20,7 +20,7 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307  USA
 */
 
-#include <osmscout/private/CoreImportExport.h>
+#include <osmscout/CoreImportExport.h>
 
 #include <string>
 
@@ -57,7 +57,7 @@ namespace osmscout {
     inline Color(double r,
                  double g,
                  double b,
-                 double a)
+                 double a) noexcept
     : r(r),
       g(g),
       b(b),
@@ -71,7 +71,7 @@ namespace osmscout {
 
     inline Color(double r,
                  double g,
-                 double b)
+                 double b) noexcept
     : r(r),
       g(g),
       b(b),
@@ -137,14 +137,25 @@ namespace osmscout {
     {
       return Color(r+(1-r)*factor,
                    g+(1-g)*factor,
-                   b+(1-b)*factor);
+                   b+(1-b)*factor,
+                   a);
     }
 
     inline Color Darken(double factor) const
     {
       return Color(r-r*factor,
                    g-g*factor,
-                   b-b*factor);
+                   b-b*factor,
+                   a);
+    }
+
+    inline Color Decolor() const
+    {
+      double grey=(r+g+b)/3.0;
+      return Color(grey,
+                   grey,
+                   grey,
+                   a);
     }
 
     std::string ToHexString() const;

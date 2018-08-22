@@ -4,23 +4,20 @@ set(HEADER_FILES_OST
     include/osmscout/ost/Parser.h
     include/osmscout/ost/Scanner.h)
 
-
-set(HEADER_FILES_PRIVATE
-    include/osmscout/private/CoreImportExport.h)
-
 set(HEADER_FILES_SYSTEM
     include/osmscout/system/Assert.h
     include/osmscout/system/Compiler.h
     include/osmscout/system/Math.h
     include/osmscout/system/SSEMath.h
     include/osmscout/system/SSEMathPublic.h
-    include/osmscout/system/Types.h)
+    include/osmscout/system/OSMScoutTypes.h)
 
 set(HEADER_FILES_UTIL
     include/osmscout/util/Breaker.h
     include/osmscout/util/Cache.h
     include/osmscout/util/Color.h
     include/osmscout/util/CmdLineParsing.h
+    include/osmscout/util/Distance.h
     include/osmscout/util/Exception.h
     include/osmscout/util/File.h
     include/osmscout/util/FileScanner.h
@@ -42,6 +39,7 @@ set(HEADER_FILES_UTIL
     include/osmscout/util/StringMatcher.h
     include/osmscout/util/TagErrorReporter.h
     include/osmscout/util/Tiling.h
+    include/osmscout/util/TileId.h
     include/osmscout/util/Transformation.h
     include/osmscout/util/WorkQueue.h)
 
@@ -63,11 +61,10 @@ set(HEADER_FILES_ROUTING
 
 set(HEADER_FILES
     ${HEADER_FILES_OST}
-    ${HEADER_FILES_PRIVATE}
     ${HEADER_FILES_SYSTEM}
     ${HEADER_FILES_UTIL}
     ${HEADER_FILES_ROUTING}
-    #include/osmscout/private/Config.h
+    include/osmscout/CoreImportExport.h
     include/osmscout/Area.h
     include/osmscout/AreaAreaIndex.h
     include/osmscout/AreaDataFile.h
@@ -75,7 +72,6 @@ set(HEADER_FILES
     include/osmscout/AreaWayIndex.h
     include/osmscout/Coord.h
     include/osmscout/CoordDataFile.h
-    #include/osmscout/CoreFeatures.h
     include/osmscout/CoverageIndex.h
     include/osmscout/BoundingBoxDataFile.h
     include/osmscout/TypeDistributionDataFile.h
@@ -105,10 +101,12 @@ set(HEADER_FILES
     include/osmscout/ObjectVariantDataFile.h
     include/osmscout/SRTM.h
     include/osmscout/Tag.h
-    #include/osmscout/TextSearchIndex.h
     include/osmscout/TypeConfig.h
+    include/osmscout/TypeFeature.h
     include/osmscout/TypeFeatures.h
-    include/osmscout/Types.h
+    include/osmscout/TypeInfoSet.h
+    include/osmscout/FeatureReader.h
+    include/osmscout/OSMScoutTypes.h
     include/osmscout/WaterIndex.h
     include/osmscout/WaterIndex6.h
     include/osmscout/WaterIndex9.h
@@ -122,6 +120,7 @@ set(SOURCE_FILES
     src/osmscout/util/Breaker.cpp
     src/osmscout/util/Cache.cpp
     src/osmscout/util/Color.cpp
+    src/osmscout/util/Distance.cpp
     src/osmscout/util/Exception.cpp
     src/osmscout/util/File.cpp
     src/osmscout/util/FileScanner.cpp
@@ -142,6 +141,7 @@ set(SOURCE_FILES
     src/osmscout/util/String.cpp
     src/osmscout/util/StringMatcher.cpp
     src/osmscout/util/Tiling.cpp
+    src/osmscout/util/TileId.cpp
     src/osmscout/util/Transformation.cpp
     src/osmscout/util/WorkQueue.cpp
     src/osmscout/util/TagErrorReporter.cpp
@@ -192,10 +192,12 @@ set(SOURCE_FILES
     src/osmscout/ObjectVariantDataFile.cpp
     src/osmscout/SRTM.cpp
     src/osmscout/Tag.cpp
-    #src/osmscout/TextSearchIndex.cpp
     src/osmscout/TypeConfig.cpp
+    src/osmscout/TypeFeature.cpp
     src/osmscout/TypeFeatures.cpp
-    src/osmscout/Types.cpp
+    src/osmscout/TypeInfoSet.cpp
+    src/osmscout/FeatureReader.cpp
+    src/osmscout/OSMScoutTypes.cpp
     src/osmscout/WaterIndex.cpp
     src/osmscout/WaterIndex6.cpp
     src/osmscout/WaterIndex9.cpp
@@ -208,54 +210,56 @@ if(MARISA_FOUND)
     list(APPEND SOURCE_FILES src/osmscout/TextSearchIndex.cpp)
 endif()
 
-if(APPLE)
-  set(THE_TARGET_NAME "OSMScout")
-else()
-  set(THE_TARGET_NAME "osmscout")
-endif()
-
 if(IOS)
-  add_library(${THE_TARGET_NAME} STATIC ${SOURCE_FILES} ${HEADER_FILES})
+  add_library(OSMScout STATIC ${SOURCE_FILES} ${HEADER_FILES})
 else()
-  add_library(${THE_TARGET_NAME} ${SOURCE_FILES} ${HEADER_FILES})
+  add_library(OSMScout ${SOURCE_FILES} ${HEADER_FILES})
 endif()
 
-set_property(TARGET ${THE_TARGET_NAME} PROPERTY CXX_STANDARD 11)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/include/osmscout/CoreFeatures.h.cmake ${OSMSCOUT_BASE_DIR_BUILD}/include/osmscout/CoreFeatures.h)
-create_private_config("${CMAKE_CURRENT_BINARY_DIR}/include/osmscout/private/Config.h" "osmscout")
-target_include_directories(${THE_TARGET_NAME} PRIVATE include ${CMAKE_CURRENT_BINARY_DIR}/include)
+set_target_properties(OSMScout PROPERTIES
+    CXX_STANDARD 11
+	OUTPUT_NAME "osmscout")
+
+target_include_directories(OSMScout PUBLIC include ${CMAKE_SOURCE_DIR}/include)
+
+# Public features Header
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/include/osmscout/CoreFeatures.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/include/osmscout/CoreFeatures.h)
+target_include_directories(OSMScout PUBLIC include ${CMAKE_CURRENT_BINARY_DIR}/include)
+
+# Private config header
+create_private_config("${CMAKE_CURRENT_BINARY_DIR}/privateinclude/osmscout/private/Config.h" "OSMScout")
+target_include_directories(OSMScout PRIVATE include ${CMAKE_CURRENT_BINARY_DIR}/privateinclude)
 
 if(MARISA_FOUND)
-    target_include_directories(${THE_TARGET_NAME} PRIVATE ${MARISA_INCLUDE_DIRS})
-    target_link_libraries(${THE_TARGET_NAME} ${MARISA_LIBRARIES})
+    target_include_directories(OSMScout PUBLIC ${MARISA_INCLUDE_DIRS})
+    target_link_libraries(OSMScout ${MARISA_LIBRARIES})
 endif()
 
 if (ICONV_FOUND)
-    target_include_directories(${THE_TARGET_NAME} PRIVATE ${ICONV_INCLUDE_DIRS})
-    target_link_libraries(${THE_TARGET_NAME} ${ICONV_LIBRARIES})
+    target_include_directories(OSMScout PRIVATE ${ICONV_INCLUDE_DIRS})
+    target_link_libraries(OSMScout ${ICONV_LIBRARIES})
 endif()
 
 if(CMAKE_THREAD_LIBS_INIT)
-  target_link_libraries(${THE_TARGET_NAME} ${CMAKE_THREAD_LIBS_INIT})
+  target_link_libraries(OSMScout ${CMAKE_THREAD_LIBS_INIT})
 endif()
 
 if(${IOS})
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fembed-bitcode")
 endif()
 
-if(APPLE)
-  set_target_properties(${THE_TARGET_NAME} PROPERTIES
+if(APPLE AND BUILD_FRAMEWORKS)
+  set_target_properties(OSMScout PROPERTIES
   FRAMEWORK TRUE
   FRAMEWORK_VERSION C
   MACOSX_FRAMEWORK_IDENTIFIER com.cmake.dynamicFramework
   #MACOSX_FRAMEWORK_INFO_PLIST Info.plist
   PUBLIC_HEADER     "${HEADER_FILES}"
-  CODE_ATTRIBUTE_CODE_SIGN_IDENTITY "iPhone Developer")
+  CODE_ATTRIBUTE_CODE_SIGN_IDENTITY "iPhone Developer"
+  OUTPUT_NAME "OSMScout")
 
   set_property(SOURCE "${HEADER_FILES_OST}"
           PROPERTY MACOSX_PACKAGE_LOCATION Headers/ost)
-  set_property(SOURCE "${HEADER_FILES_PRIVATE}"
-          PROPERTY MACOSX_PACKAGE_LOCATION Headers/private)
   set_property(SOURCE "${HEADER_FILES_SYSTEM}"
           PROPERTY MACOSX_PACKAGE_LOCATION Headers/system)
   set_property(SOURCE "${HEADER_FILES_UTIL}"
@@ -265,8 +269,8 @@ if(APPLE)
 
 endif()
 
-target_compile_definitions(${THE_TARGET_NAME} PRIVATE -DOSMSCOUT_EXPORT_SYMBOLS)
-install(TARGETS ${THE_TARGET_NAME}
+target_compile_definitions(OSMScout PRIVATE -DOSMSCOUT_EXPORT_SYMBOLS)
+install(TARGETS OSMScout
         RUNTIME DESTINATION bin
         LIBRARY DESTINATION lib
         ARCHIVE DESTINATION lib
@@ -278,4 +282,4 @@ else()
     install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/osmscout DESTINATION include FILES_MATCHING PATTERN "*.h" PATTERN "private/Config.h" EXCLUDE PATTERN TextSearchIndex.h EXCLUDE)
 endif()
 
-install(FILES ${OSMSCOUT_BASE_DIR_BUILD}/include/osmscout/CoreFeatures.h DESTINATION include/osmscout)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/include/osmscout/CoreFeatures.h DESTINATION include/osmscout)

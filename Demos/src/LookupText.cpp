@@ -17,10 +17,11 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
+#include <algorithm>
 #include <iostream>
+
 #include <osmscout/TextSearchIndex.h>
 #include <osmscout/Database.h>
-#include <algorithm>
 
 #include <osmscout/util/CmdLineParsing.h>
 
@@ -40,17 +41,17 @@ void printDetails(const osmscout::FeatureValueBuffer& features)
 {
   std::cout << "   - type:     " << features.GetType()->GetName() << std::endl;
 
-  for (auto featureInstance :features.GetType()->GetFeatures()) {
+  for (const auto& featureInstance :features.GetType()->GetFeatures()) {
     if (features.HasFeature(featureInstance.GetIndex())) {
       osmscout::FeatureRef feature=featureInstance.GetFeature();
 
       if (feature->HasValue() && feature->HasLabel()) {
         osmscout::FeatureValue *value=features.GetValue(featureInstance.GetIndex());
-        if (value->GetLabel().empty()) {
+        if (value->GetLabel(0).empty()) {
           std::cout << "   + feature " << feature->GetName() << std::endl;
         }
         else {
-          std::cout << "   + feature " << feature->GetName() << ": " << osmscout::UTF8StringToLocaleString(value->GetLabel()) << std::endl;
+          std::cout << "   + feature " << feature->GetName() << ": " << osmscout::UTF8StringToLocaleString(value->GetLabel(0)) << std::endl;
         }
       }
       else {

@@ -9,7 +9,7 @@ if get_option('default_library')=='shared'
 endif
 
 subdir('include')
-subdir('include/osmscout')
+subdir('include/osmscout/import')
 subdir('include/osmscout/private')
 subdir('src')
 subdir('src/protobuf')
@@ -20,11 +20,11 @@ if protobufDep.found() and protocCmd.found()
    osmscoutimportSrc += protoSrc
 endif
 
-osmscoutimport = library('osmscoutimport',
+osmscoutimport = library('osmscout_import',
                          osmscoutimportSrc,
                          include_directories: [osmscoutimportIncDir, osmscoutIncDir],
                          cpp_args: cppArgs,
-                         dependencies: [mathDep, threadDep, wsock32Dep, xml2Dep, marisaDep, protobufDep, zlibDep],
+                         dependencies: [mathDep, threadDep, openmpDep, wsock32Dep, xml2Dep, marisaDep, protobufDep, zlibDep],
                          link_with: [osmscout],
                          install: true)
 

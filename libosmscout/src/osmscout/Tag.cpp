@@ -19,6 +19,7 @@
 
 #include <osmscout/Tag.h>
 
+#include <osmscout/util/Logger.h>
 #include <osmscout/util/String.h>
 
 #include <osmscout/system/Assert.h>
@@ -112,17 +113,23 @@ namespace osmscout {
 
     if (valueType==string) {
       switch (binaryOperator) {
-      case  operatorLess:
+      case operatorLess:
+
         return t->second<tagStringValue;
-      case  operatorLessEqual:
+      case operatorLessEqual:
+
         return t->second<=tagStringValue;
-      case  operatorEqual:
+      case operatorEqual:
+
         return t->second==tagStringValue;
       case operatorNotEqual:
+
         return t->second!=tagStringValue;
       case operatorGreaterEqual:
+
         return t->second>=tagStringValue;
-      case  operatorGreater:
+      case operatorGreater:
+
         return t->second>tagStringValue;
       default:
         assert(false);
@@ -139,17 +146,23 @@ namespace osmscout {
       }
 
       switch (binaryOperator) {
-      case  operatorLess:
+      case operatorLess:
+
         return value<tagSizeValue;
-      case  operatorLessEqual:
+      case operatorLessEqual:
+
         return value<=tagSizeValue;
-      case  operatorEqual:
+      case operatorEqual:
+
         return value==tagSizeValue;
       case operatorNotEqual:
+
         return value!=tagSizeValue;
       case operatorGreaterEqual:
+
         return value>=tagSizeValue;
-      case  operatorGreater:
+      case operatorGreater:
+
         return value>tagSizeValue;
       default:
         assert(false);
@@ -188,9 +201,171 @@ namespace osmscout {
 
   TagInfo::TagInfo(TagId id,
                    const std::string& name)
-   : id(id),
-     name(name)
+  : id(id),
+    name(name)
   {
     // no code
   }
+
+  TagRegistry::TagRegistry()
+  : nextTagId(0)
+  {
+    log.Debug() << "TagRegistry::TagRegistry()";
+
+    // Make sure, that this is always registered first.
+    // It assures that id 0 is always reserved for tagIgnore
+    RegisterTag("");
+
+    RegisterTag("area");
+    RegisterTag("natural");
+    RegisterTag("datapolygon");
+    RegisterTag("type");
+    RegisterTag("restriction");
+    RegisterTag("junction");
+
+  }
+
+  TagRegistry::~TagRegistry()
+  {
+    log.Debug() << "TagRegistry::~TagRegistry()";
+  }
+
+  TagId TagRegistry::RegisterTag(const std::string& tagName)
+  {
+    auto mapping=stringToTagMap.find(tagName);
+
+    if (mapping!=stringToTagMap.end()) {
+      return mapping->second;
+    }
+
+    TagInfo tagInfo(nextTagId,tagName);
+
+    nextTagId++;
+
+    tags.push_back(tagInfo);
+    stringToTagMap[tagInfo.GetName()]=tagInfo.GetId();
+
+    return tagInfo.GetId();
+  }
+
+  TagId TagRegistry::RegisterNameTag(const std::string& tagName, uint32_t priority)
+  {
+    TagId tagId=RegisterTag(tagName);
+
+    nameTagIdToPrioMap.insert(std::make_pair(tagId,priority));
+
+    return tagId;
+  }
+
+  TagId TagRegistry::RegisterNameAltTag(const std::string& tagName, uint32_t priority)
+  {
+    TagId tagId=RegisterTag(tagName);
+
+    nameAltTagIdToPrioMap.insert(std::make_pair(tagId,priority));
+
+    return tagId;
+  }
+
+  TagId TagRegistry::GetTagId(const char* name) const
+  {
+    auto iter=stringToTagMap.find(name);
+
+    if (iter!=stringToTagMap.end()) {
+      return iter->second;
+    }
+    else {
+      return tagIgnore;
+    }
+  }
+
+  TagId TagRegistry::GetTagId(const std::string& name) const
+  {
+    auto iter=stringToTagMap.find(name);
+
+    if (iter!=stringToTagMap.end()) {
+      return iter->second;
+    }
+    else {
+      return tagIgnore;
+    }
+  }
+
+  bool TagRegistry::IsNameTag(TagId tag, uint32_t& priority) const
+  {
+    if (nameTagIdToPrioMap.empty()) {
+      return false;
+    }
+
+    auto entry=nameTagIdToPrioMap.find(tag);
+
+    if (entry==nameTagIdToPrioMap.end()) {
+      return false;
+    }
+
+    priority=entry->second;
+
+    return true;
+  }
+
+  bool TagRegistry::IsNameAltTag(TagId tag, uint32_t& priority) const
+  {
+    if (nameAltTagIdToPrioMap.empty()) {
+      return false;
+    }
+
+    auto entry=nameAltTagIdToPrioMap.find(tag);
+
+    if (entry==nameAltTagIdToPrioMap.end()) {
+      return false;
+    }
+
+    priority=entry->second;
+
+    return true;
+  }
+
+  void TagRegistry::RegisterSurfaceToGradeMapping(const std::string& surface,
+                                                  size_t grade)
+  {
+    surfaceToGradeMap.insert(std::make_pair(surface,
+                                            grade));
+  }
+
+  bool TagRegistry::GetGradeForSurface(const std::string& surface,
+                                       size_t& grade) const
+  {
+    auto entry=surfaceToGradeMap.find(surface);
+
+    if (entry!=surfaceToGradeMap.end()) {
+      grade=entry->second;
+
+      return true;
+    }
+    else {
+      return false;
+    }
+  }
+
+  void TagRegistry::RegisterMaxSpeedAlias(const std::string& alias,
+                                          uint8_t maxSpeed)
+  {
+    nameToMaxSpeedMap.insert(std::make_pair(alias,
+                                            maxSpeed));
+  }
+
+  bool TagRegistry::GetMaxSpeedFromAlias(const std::string& alias,
+                                         uint8_t& maxSpeed) const
+  {
+    auto entry=nameToMaxSpeedMap.find(alias);
+
+    if (entry!=nameToMaxSpeedMap.end()) {
+      maxSpeed=entry->second;
+
+      return true;
+    }
+    else {
+      return false;
+    }
+  }
+
 }

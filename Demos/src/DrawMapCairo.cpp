@@ -91,17 +91,17 @@ int main(int argc, char* argv[])
 
   if (!styleConfig->Load(style)) {
     std::cerr << "Cannot open style" << std::endl;
+    return 1;
   }
 
   cairo_surface_t *surface;
-  cairo_t         *cairo;
 
   surface=cairo_image_surface_create(CAIRO_FORMAT_RGB24,width,height);
 
-  if (surface!=NULL) {
-    cairo=cairo_create(surface);
+  if (surface!=nullptr) {
+    cairo_t *cairo=cairo_create(surface);
 
-    if (cairo!=NULL) {
+    if (cairo!=nullptr) {
       osmscout::MercatorProjection  projection;
       osmscout::MapParameter        drawParameter;
       osmscout::AreaSearchParameter searchParameter;

@@ -25,8 +25,6 @@
 #include <string>
 #include <vector>
 
-#include <string.h>
-
 #include <libxml/parser.h>
 
 #include <osmscout/util/File.h>
@@ -179,7 +177,7 @@ namespace osmscout {
           return;
         }
 
-        TagId id=typeConfig.GetTagId((const char*)keyValue);
+        TagId id=typeConfig.GetTagRegistry().GetTagId((const char*)keyValue);
 
         if (id!=tagIgnore) {
           tags[id]=(const char*)valueValue;
@@ -329,14 +327,14 @@ namespace osmscout {
 
   static void StartElement(void *data, const xmlChar *name, const xmlChar **atts)
   {
-    Parser* parser=static_cast<Parser*>(data);
+    auto* parser=static_cast<Parser*>(data);
 
     parser->StartElement(name,atts);
   }
 
   static void EndElement(void *data, const xmlChar *name)
   {
-    Parser* parser=static_cast<Parser*>(data);
+    auto* parser=static_cast<Parser*>(data);
 
     parser->EndElement(name);
   }
@@ -368,7 +366,7 @@ namespace osmscout {
 
   static void EndDocumentHandler(void* data)
   {
-    Parser* parser=static_cast<Parser*>(data);
+    auto* parser=static_cast<Parser*>(data);
 
     parser->EndDocument();
   }

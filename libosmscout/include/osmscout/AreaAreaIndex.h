@@ -26,6 +26,8 @@
 
 #include <osmscout/DataFile.h>
 
+#include <osmscout/TypeInfoSet.h>
+
 #include <osmscout/util/Cache.h>
 #include <osmscout/util/Geometry.h>
 #include <osmscout/util/FileScanner.h>
@@ -65,7 +67,7 @@ namespace osmscout {
 
     struct IndexCacheValueSizer : public IndexCache::ValueSizer
     {
-      size_t GetSize(const IndexCell& value) const
+      size_t GetSize(const IndexCell& value) const override
       {
         size_t memory=0;
 
@@ -125,7 +127,7 @@ namespace osmscout {
                                std::vector<CellRef>& nextCellRefs) const;
 
   public:
-    AreaAreaIndex(size_t cacheSize);
+    explicit AreaAreaIndex(size_t cacheSize);
     virtual ~AreaAreaIndex();
 
     void Close();
@@ -137,6 +139,11 @@ namespace osmscout {
     inline bool IsOpen() const
     {
       return scanner.IsOpen();
+    }
+
+    inline std::string GetFilename() const
+    {
+      return datafilename;
     }
 
     bool GetAreasInArea(const TypeConfig& typeConfig,

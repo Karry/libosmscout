@@ -30,6 +30,8 @@
 
 #include <osmscout/util/Logger.h>
 
+namespace osmscout {
+
 DBThread::DBThread(QThread *backgroundThread,
                    QString basemapLookupDirectory,
                    QString iconDirectory,
@@ -189,7 +191,6 @@ DatabaseCoverage DBThread::databaseCoverage(const osmscout::Magnification &magni
 void DBThread::Initialize()
 {
   QReadLocker locker(&lock);
-  qDebug() << "Initialize databases";
   mapManager->lookupDatabases();
 }
 
@@ -292,12 +293,17 @@ void DBThread::onDatabaseListChanged(QList<QDir> databaseDirectories)
       if (typeConfig) {
 
         for (const std::string &typeName:customPoiTypes){
-          osmscout::TypeInfoRef highlighted=std::make_shared<osmscout::TypeInfo>(typeName);
-          highlighted->SetInternal()
+          osmscout::TypeInfoRef typeInfo=std::make_shared<osmscout::TypeInfo>(typeName);
+          typeInfo->SetInternal()
             .CanBeWay(true)
             .CanBeArea(true)
             .CanBeNode(true);
-          typeConfig->RegisterType(highlighted);
+
+          osmscout::FeatureRef nameFeature = typeConfig->GetFeature(NameFeature::NAME);
+          if (nameFeature)
+            typeInfo->AddFeature(nameFeature);
+
+          typeConfig->RegisterType(typeInfo);
         }
 
         styleConfig=std::make_shared<osmscout::StyleConfig>(typeConfig);
@@ -456,4 +462,5 @@ void DBThread::RunSynchronousJob(SynchronousDBJob job)
     return;
   }
   job(databases);
+}
 }

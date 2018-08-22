@@ -22,6 +22,8 @@
 
 #include <fstream>
 #include <list>
+#include <map>
+#include <set>
 #include <memory>
 #include <vector>
 
@@ -33,12 +35,13 @@
 
 #include <osmscout/util/FileWriter.h>
 #include <osmscout/util/Geometry.h>
+#include <osmscout/util/Progress.h>
 #include <osmscout/util/Projection.h>
 #include <osmscout/util/Transformation.h>
 
 #include <osmscout/system/Compiler.h>
 
-#include <osmscout/private/ImportImportExport.h>
+#include <osmscout/import/ImportImportExport.h>
 
 namespace osmscout {
 

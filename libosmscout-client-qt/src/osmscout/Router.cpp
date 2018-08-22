@@ -27,6 +27,7 @@
 #include <osmscout/OSMScoutQt.h>
 #include <osmscout/Router.h>
 
+namespace osmscout {
 
 Router::Router(QThread *thread,
                SettingsRef settings,
@@ -201,7 +202,7 @@ void Router::ProcessRouteRequest(osmscout::MultiDBRoutingServiceRef &routingServ
 {
   osmscout::RoutePosition startNode=routingService->GetClosestRoutableNode(
                                 start->getCoord(),
-                                /*radius*/1000);
+                                /*radius*/ Distance::Of<Kilometer>(1));
   if (!startNode.IsValid()){
     osmscout::log.Warn() << "Can't found route node near start coord " << start->getCoord().GetDisplayText();
     emit routeFailed(QString("Can't found route node near start coord %1").arg(QString::fromStdString(start->getCoord().GetDisplayText())),
@@ -211,7 +212,7 @@ void Router::ProcessRouteRequest(osmscout::MultiDBRoutingServiceRef &routingServ
 
   osmscout::RoutePosition targetNode=routingService->GetClosestRoutableNode(
                                 target->getCoord(),
-                                /*radius*/1000);
+                                /*radius*/ Distance::Of<Kilometer>(1));
   if (!targetNode.IsValid()){
     osmscout::log.Warn() << "Can't found route node near target coord " << target->getCoord().GetDisplayText();
     emit routeFailed(QString("Can't found route node near target coord %1").arg(QString::fromStdString(target->getCoord().GetDisplayText())),
@@ -285,4 +286,5 @@ void Router::onRouteRequest(LocationEntryRef start,
       routingService->Close();
     }
   );
+}
 }

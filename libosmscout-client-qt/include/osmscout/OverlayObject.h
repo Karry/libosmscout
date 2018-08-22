@@ -29,7 +29,9 @@
 #include <osmscout/Area.h>
 #include <osmscout/Node.h>
 #include <osmscout/util/GeoBox.h>
-#include <osmscout/private/ClientQtImportExport.h>
+#include <osmscout/ClientQtImportExport.h>
+
+namespace osmscout {
 
 /**
  * \ingroup QtAPI
@@ -43,11 +45,15 @@ class OSMSCOUT_CLIENT_QT_API OverlayObject : public QObject
   Q_PROPERTY(QString type READ getTypeName WRITE setTypeName)
   Q_PROPERTY(int size READ getSize)
   Q_PROPERTY(QString objectType READ getObjectTypeStr)
+  Q_PROPERTY(qint8 layer READ getLayer WRITE setLayer)
+  Q_PROPERTY(QString name READ getName WRITE setName)
 
 protected:
   QString                       typeName;
   std::vector<osmscout::Point>  nodes;
   osmscout::GeoBox              box;
+  int8_t                        layer{std::numeric_limits<int8_t>::max()};
+  QString                       name;
   mutable QMutex                lock;
 
 public slots:
@@ -60,6 +66,9 @@ public:
   OverlayObject(const std::vector<osmscout::Point> &nodes,
                 QString typeName="_route",
                 QObject *parent=Q_NULLPTR);
+
+  OverlayObject(const OverlayObject &o);
+
 
   virtual ~OverlayObject();
 
@@ -80,8 +89,6 @@ public:
     }
   }
 
-  bool set(const OverlayObject &other);
-
   inline QString getTypeName() const
   {
     QMutexLocker locker(&lock);
@@ -94,10 +101,39 @@ public:
   }
 
   inline size_t getSize(){
+    QMutexLocker locker(&lock);
     return nodes.size();
   }
 
+  inline qint8 getLayer() const
+  {
+    QMutexLocker locker(&lock);
+    return layer;
+  }
+
+  inline void setLayer(qint8 l)
+  {
+    QMutexLocker locker(&lock);
+    layer = l;
+  }
+
+  inline QString getName() const
+  {
+    QMutexLocker locker(&lock);
+    return name;
+  }
+
+  inline void setName(const QString &n)
+  {
+    QMutexLocker locker(&lock);
+    name = n;
+  }
+
   osmscout::GeoBox boundingBox();
+
+protected:
+  void setupFeatures(const osmscout::TypeInfoRef &type,
+                     osmscout::FeatureValueBuffer &features) const;
 };
 
 
@@ -166,5 +202,7 @@ public:
 
 
 typedef std::shared_ptr<OverlayObject> OverlayObjectRef;
+
+}
 
 #endif /* OSMSCOUT_CLIENT_QT_OVERLAYOBJECT_H */

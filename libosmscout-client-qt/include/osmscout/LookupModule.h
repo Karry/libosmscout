@@ -24,7 +24,9 @@
 #include <QThread>
 #include <osmscout/DBThread.h>
 
-#include <osmscout/private/ClientQtImportExport.h>
+#include <osmscout/ClientQtImportExport.h>
+
+namespace osmscout {
 
 class OSMSCOUT_CLIENT_QT_API AdminRegionInfo {
 public:
@@ -142,5 +144,6 @@ private:
  */
 typedef std::shared_ptr<LookupModule> LookupModuleRef;
 
-#endif /* OSMSCOUT_CLIENT_QT_LOOKUPMODULE_H */
+}
 
+#endif /* OSMSCOUT_CLIENT_QT_LOOKUPMODULE_H */

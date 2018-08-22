@@ -23,10 +23,12 @@
 #include <osmscout/LocationEntry.h>
 #include <osmscout/POILookupModule.h>
 
-#include <osmscout/private/ClientQtImportExport.h>
+#include <osmscout/ClientQtImportExport.h>
 
 #include <QObject>
 #include <QAbstractListModel>
+
+namespace osmscout {
 
 #define INVALID_COORD -1000.0
 
@@ -108,7 +110,7 @@ private:
   osmscout::GeoCoord searchCenter{INVALID_COORD,INVALID_COORD};
   int resultLimit{100};
   osmscout::BreakerRef breaker;
-  double maxDistance{1000};
+  Distance maxDistance{Distance::Of<Kilometer>(1)};
   QStringList types;
 
   POILookupModule *poiModule{nullptr};
@@ -123,7 +125,7 @@ public:
 
   Q_INVOKABLE virtual Qt::ItemFlags flags(const QModelIndex &index) const;
 
-  Q_INVOKABLE LocationEntry* get(int row) const;
+  Q_INVOKABLE QObject* get(int row) const;
 
   virtual QHash<int, QByteArray> roleNames() const;
 
@@ -160,13 +162,13 @@ public:
 
   inline double GetMaxDistance() const
   {
-    return maxDistance;
+    return maxDistance.AsMeter();
   }
 
   void SetMaxDistance(double d)
   {
-    if (maxDistance!=d){
-      maxDistance=d;
+    if (maxDistance.AsMeter()!=d){
+      maxDistance=Distance::Of<Meter>(d);
       lookupPOI();
     }
   }
@@ -200,5 +202,7 @@ public:
 private:
   void lookupPOI();
 };
+
+}
 
 #endif //OSMSCOUT_CLIENT_QT_NEARPOIMODEL_H
