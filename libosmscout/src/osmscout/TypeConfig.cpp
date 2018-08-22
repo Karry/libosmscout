@@ -746,14 +746,8 @@ namespace osmscout {
     log.Debug() << "TypeConfig::TypeConfig()";
   }
 
-  TypeConfig::~TypeConfig()
-  {
-    log.Debug() << "TypeConfig::~TypeConfig()";
-  }
-  
   void TypeConfig::RegisterInternalTags()
   {
-
     featureName=std::make_shared<NameFeature>();
     RegisterFeature(featureName);
 
@@ -890,6 +884,11 @@ namespace osmscout {
     assert(tagType!=tagIgnore);
     assert(tagRestriction!=tagIgnore);
     assert(tagJunction!=tagIgnore);
+  }
+
+  TypeConfig::~TypeConfig()
+  {
+    log.Debug() << "TypeConfig::~TypeConfig()";
   }
 
   void TypeConfig::RegisterFeature(const FeatureRef& feature)
@@ -1698,7 +1697,11 @@ namespace osmscout {
 
       writer.Write(FILE_FORMAT_VERSION);
 
-      assert(fileFormatVersion >= 9); // storing is not supported for old formats
+      if (fileFormatVersion < 9){
+        writer.CloseFailsafe();
+        log.Error() << "StoreToDataFile is not supported for database format " << fileFormatVersion;
+        return false;
+      }
 
       uint32_t typeCount=0;
       uint32_t featureCount=0;
