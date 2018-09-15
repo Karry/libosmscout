@@ -132,10 +132,12 @@ namespace osmscout {
 
   protected:
     bool HasIcon(const StyleConfig& styleConfig,
+                 const Projection& projection,
                  const MapParameter& parameter,
                  IconStyle& style) override;
 
-    bool HasPattern(const MapParameter& parameter,
+    bool HasPattern(const Projection& projection,
+                    const MapParameter& parameter,
                     const FillStyle& style);
 
     double GetFontHeight(const Projection& projection,
@@ -180,7 +182,8 @@ namespace osmscout {
                             const MapData& data) override;
 
     void DrawIcon(const IconStyle* style,
-                  double x, double y) override;
+                  double centerX, double centerY,
+                  double width, double height) override;
 
     void DrawSymbol(const Projection& projection,
                     const MapParameter& parameter,
