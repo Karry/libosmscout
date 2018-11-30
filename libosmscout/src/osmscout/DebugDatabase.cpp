@@ -110,12 +110,11 @@ namespace osmscout {
                                         std::map<ObjectFileRef,ObjectOSMRef>& fileOffsetIdMap)
   {
     FileScanner scanner;
-    uint32_t    entryCount;
-
     std::string filename=AppendFileToDir(path,mapName);
 
     try {
       scanner.Open(filename,FileScanner::LowMemRandom,false,typeConfig->GetFileFormatVersion());
+      uint32_t    entryCount;
 
       scanner.Read(entryCount);
 
