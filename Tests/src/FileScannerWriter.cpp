@@ -189,7 +189,10 @@ int main()
     writer.Close();
 
     for (int mmapMode = 0; mmapMode <= 1; mmapMode++){
-      scanner.Open("test.dat",osmscout::FileScanner::Normal,(bool)mmapMode);
+      scanner.Open("test.dat",
+                   osmscout::FileScanner::Normal,
+                   (bool)mmapMode,
+                   osmscout::FILE_FORMAT_VERSION);
 
       // Read/Write
 
