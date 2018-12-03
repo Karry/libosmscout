@@ -202,7 +202,8 @@ private:
   osmscout::MapPainterCairo *cairoMapPainter{nullptr};
 
 public:
-  PerformanceTestBackendCairo(size_t tileWidth, size_t tileHeight, osmscout::StyleConfigRef styleConfig)
+  PerformanceTestBackendCairo(size_t tileWidth, size_t tileHeight,
+                              const osmscout::StyleConfigRef& styleConfig)
   {
     cairoSurface=cairo_image_surface_create(CAIRO_FORMAT_RGB24,tileWidth,tileHeight);
     if (cairoSurface==nullptr) {
@@ -223,9 +224,9 @@ public:
     cairo_surface_destroy(cairoSurface);
   }
 
-  virtual void DrawMap(const osmscout::TileProjection &projection,
-                       const osmscout::MapParameter &drawParameter,
-                       const osmscout::MapData &data)
+  void DrawMap(const osmscout::TileProjection &projection,
+               const osmscout::MapParameter &drawParameter,
+               const osmscout::MapData &data) override
   {
     cairoMapPainter->DrawMap(projection,
                             drawParameter,
@@ -243,7 +244,8 @@ private:
   QPainter qtPainter;
   osmscout::MapPainterQt qtMapPainter;
 public:
-  PerformanceTestBackendQt(int argc, char* argv[], int tileWidth, int tileHeight, osmscout::StyleConfigRef styleConfig):
+  PerformanceTestBackendQt(int argc, char* argv[], int tileWidth, int tileHeight,
+                           const osmscout::StyleConfigRef& styleConfig):
     application(argc, argv, true),
     qtPixmap{tileWidth,tileHeight},
     qtPainter{&qtPixmap},
@@ -251,9 +253,10 @@ public:
   {
   }
 
-  virtual void DrawMap(const osmscout::TileProjection &projection,
+  void DrawMap(const osmscout::TileProjection &projection,
                        const osmscout::MapParameter &drawParameter,
-                       const osmscout::MapData &data) {
+                       const osmscout::MapData &data) override
+  {
     qtMapPainter.DrawMap(projection,
                          drawParameter,
                          data,
@@ -270,7 +273,7 @@ private:
   osmscout::MapPainterAgg::AggPixelFormat* pf=nullptr;
   osmscout::MapPainterAgg aggMapPainter;
 public:
-  PerformanceTestBackendAGG(size_t tileWidth, size_t tileHeight, osmscout::StyleConfigRef styleConfig):
+  PerformanceTestBackendAGG(size_t tileWidth, size_t tileHeight, const osmscout::StyleConfigRef& styleConfig):
     buffer{new unsigned char[tileWidth * tileHeight * 3]},
     rbuf{new agg::rendering_buffer(buffer, tileWidth, tileHeight, tileWidth * 3)},
     pf{new osmscout::MapPainterAgg::AggPixelFormat(*rbuf)},
@@ -284,9 +287,10 @@ public:
     delete rbuf;
   }
 
-  virtual void DrawMap(const osmscout::TileProjection &projection,
-                       const osmscout::MapParameter &drawParameter,
-                       const osmscout::MapData &data) {
+  void DrawMap(const osmscout::TileProjection &projection,
+               const osmscout::MapParameter &drawParameter,
+               const osmscout::MapData &data) override
+  {
     aggMapPainter.DrawMap(projection,
                           drawParameter,
                           data,
@@ -341,9 +345,10 @@ public:
     //leaks openglMapPainter;
   }
 
-  virtual void DrawMap(const osmscout::TileProjection &projection,
-                       const osmscout::MapParameter &drawParameter,
-                       const osmscout::MapData &data) {
+  void DrawMap(const osmscout::TileProjection &projection,
+               const osmscout::MapParameter &drawParameter,
+               const osmscout::MapData &data) override
+  {
     openglMapPainter->ProcessData(data, drawParameter, projection, styleConfig);
     openglMapPainter->SwapData();
     openglMapPainter->DrawMap();
@@ -355,13 +360,14 @@ class PerformanceTestBackendNoOp: public PerformanceTestBackend {
 private:
   osmscout::MapPainterNoOp noOpMapPainter;
 public:
-  PerformanceTestBackendNoOp(osmscout::StyleConfigRef styleConfig):
-    noOpMapPainter(styleConfig)
+  PerformanceTestBackendNoOp(const osmscout::StyleConfigRef& styleConfig)
+  : noOpMapPainter(styleConfig)
   {}
 
-  virtual void DrawMap(const osmscout::TileProjection &projection,
-                       const osmscout::MapParameter &drawParameter,
-                       const osmscout::MapData &data) {
+  void DrawMap(const osmscout::TileProjection &projection,
+               const osmscout::MapParameter &drawParameter,
+               const osmscout::MapData &data) override
+  {
     noOpMapPainter.DrawMap(projection,
                            drawParameter,
                            data);
@@ -432,9 +438,10 @@ PerformanceTestBackendPtr PrepareBackend(int argc, char* argv[], const Arguments
 
 int main(int argc, char* argv[])
 {
-  osmscout::CmdLineParser   argParser("PerformanceTest",
-                                      argc,argv);
-  Arguments                 args;
+  osmscout::CmdLineParser     argParser("PerformanceTest",
+                                        argc,argv);
+  Arguments                   args;
+  osmscout::DatabaseParameter databaseParameter;
 
   argParser.AddOption(osmscout::CmdLineFlag([&args](const bool& value) {
                         args.help=value;
@@ -476,7 +483,7 @@ int main(int argc, char* argv[])
                         args.driver = value;
                       }),
                       "driver",
-                      "Rendering driver (cairo|Qt|ag|opengl|noop|none), default: " + args.driver,
+                      "Rendering driver (cairo|Qt|agg|opengl|noop|none), default: " + args.driver,
                       false);
   argParser.AddOption(osmscout::CmdLineDoubleOption([&args](const double& value) {
                         if (value > 0) {
@@ -512,6 +519,25 @@ int main(int argc, char* argv[])
                       "flush-disk",
                       "Flush system disk caches after each data load, default: " + std::to_string(args.flushDiskCache) +
                       " (It work just on Linux with admin rights.)",
+                      false);
+
+  argParser.AddOption(osmscout::CmdLineUIntOption([&databaseParameter](const unsigned int& value) {
+                        databaseParameter.SetNodeDataCacheSize(value);
+                      }),
+                      "cache-nodes",
+                      "Cache size for nodes, default: " + std::to_string(databaseParameter.GetNodeDataCacheSize()),
+                      false);
+  argParser.AddOption(osmscout::CmdLineUIntOption([&databaseParameter](const unsigned int& value) {
+                        databaseParameter.SetWayDataCacheSize(value);
+                      }),
+                      "cache-ways",
+                      "Cache size for ways, default: " + std::to_string(databaseParameter.GetWayDataCacheSize()),
+                      false);
+  argParser.AddOption(osmscout::CmdLineUIntOption([&databaseParameter](const unsigned int& value) {
+                        databaseParameter.SetAreaDataCacheSize(value);
+                      }),
+                      "cache-areas",
+                      "Cache size for areas, default: " + std::to_string(databaseParameter.GetAreaDataCacheSize()),
                       false);
 
 #if defined(HAVE_LIB_GPERFTOOLS)
@@ -555,8 +581,6 @@ int main(int argc, char* argv[])
     std::cout << argParser.GetHelp() << std::endl;
     return 0;
   }
-
-  osmscout::DatabaseParameter databaseParameter;
 
   osmscout::log.Debug(args.debug);
   //databaseParameter.SetDebugPerformance(true);

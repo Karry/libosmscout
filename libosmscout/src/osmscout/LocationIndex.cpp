@@ -328,8 +328,7 @@ namespace osmscout {
                                      bool& stopped) const
   {
     //std::cout << "Visiting locations for " << adminRegion.name << std::endl;
-    uint32_t                  locationCount;
-    ObjectFileRefStreamReader objectFileRefReader(scanner);
+    uint32_t locationCount;
 
     for (const auto& postalArea : adminRegion.postalAreas) {
       scanner.SetPos(postalArea.objectOffset);
@@ -347,8 +346,6 @@ namespace osmscout {
 
         scanner.ReadNumber(objectCount);
 
-        location.objects.reserve(objectCount);
-
         bool hasAddresses;
 
         scanner.Read(hasAddresses);
@@ -360,15 +357,7 @@ namespace osmscout {
           location.addressesOffset=0;
         }
 
-        objectFileRefReader.Reset();
-
-        for (size_t j=0; j<objectCount; j++) {
-          ObjectFileRef ref;
-
-          objectFileRefReader.Read(ref);
-
-          location.objects.push_back(ref);
-        }
+        location.objects=scanner.ReadObjectFileRefs(objectCount);
 
         //std::cout << "Passing location " << location.name << " " << postalArea.name << " " << adminRegion.name << " to visitor" << std::endl;
 
@@ -421,8 +410,7 @@ namespace osmscout {
                                                bool& stopped) const
   {
     //std::cout << "Visiting locations for " << postalArea.name << " " << adminRegion.name << std::endl;
-    uint32_t                  locationCount;
-    ObjectFileRefStreamReader objectFileRefReader(scanner);
+    uint32_t locationCount;
 
     scanner.SetPos(postalArea.objectOffset);
     scanner.ReadNumber(locationCount);
@@ -439,8 +427,6 @@ namespace osmscout {
 
       scanner.ReadNumber(objectCount);
 
-      location.objects.reserve(objectCount);
-
       bool hasAddresses;
 
       scanner.Read(hasAddresses);
@@ -452,15 +438,7 @@ namespace osmscout {
         location.addressesOffset=0;
       }
 
-      objectFileRefReader.Reset();
-
-      for (size_t j=0; j<objectCount; j++) {
-        ObjectFileRef ref;
-
-        objectFileRefReader.Read(ref);
-
-        location.objects.push_back(ref);
-      }
+      location.objects=scanner.ReadObjectFileRefs(objectCount);
 
       //std::cout << "Passing location " << location.name << " " << postalArea.name << " " << adminRegion.name << " to visitor" << std::endl;
 
