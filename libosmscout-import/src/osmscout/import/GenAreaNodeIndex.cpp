@@ -251,7 +251,8 @@ namespace osmscout {
       nodeScanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                        NodeDataFile::NODES_DAT),
                        FileScanner::Sequential,
-                       true);
+                       true,
+                       typeConfig->GetFileFormatVersion());
 
       writer.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                   AreaNodeIndex::AREA_NODE_IDX));
