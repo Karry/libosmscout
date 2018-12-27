@@ -170,6 +170,7 @@ set(SOURCE_FILES
     src/osmscout/AreaDataFile.cpp
     src/osmscout/AreaAreaIndex.cpp
     src/osmscout/AreaNodeIndex.cpp
+    src/osmscout/AreaNodeIndex18.cpp
     src/osmscout/AreaWayIndex.cpp
     src/osmscout/Coord.cpp
     src/osmscout/CoordDataFile.cpp

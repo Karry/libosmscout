@@ -20,6 +20,7 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307  USA
 */
 
+#include <map>
 #include <memory>
 #include <mutex>
 #include <vector>
@@ -28,6 +29,7 @@
 #include <osmscout/TypeInfoSet.h>
 
 #include <osmscout/util/FileScanner.h>
+#include <osmscout/util/TileId.h>
 
 namespace osmscout {
 
@@ -45,7 +47,10 @@ namespace osmscout {
     static const char* AREA_NODE_IDX;
 
   private:
-    struct TypeData
+    uint32_t fileFormatVersion{0};
+
+    // fileFormatVersion < 19
+    struct TypeData18
     {
       uint32_t   indexLevel;
 
@@ -67,25 +72,74 @@ namespace osmscout {
       double     minLat;
       double     maxLat;
 
-      TypeData();
+      TypeData18();
 
       FileOffset GetDataOffset() const;
       FileOffset GetCellOffset(size_t x, size_t y) const;
     };
 
+    struct ListTile
+    {
+      FileOffset         fileOffset;
+      uint16_t           entryCount;
+      bool               storeGeoCoord;
+    };
+
+    struct BitmapTile
+    {
+      FileOffset         fileOffset;
+      uint8_t            dataOffsetBytes;
+      MagnificationLevel magnification;
+    };
+
+    struct TypeData
+    {
+      bool                        isComplex;
+      GeoBox                      boundingBox;
+      FileOffset                  indexOffset=0;
+      uint16_t                    entryCount=0;
+
+      std::map<TileId,ListTile>   listTiles;
+      std::map<TileId,BitmapTile> bitmapTiles;
+    };
+
   private:
+    // fileFormatVersion < 19
+    std::vector<TypeData18> nodeTypeData18;
+
     std::string           datafilename;   //!< Full path and name of the data file
     mutable FileScanner   scanner;        //!< Scanner instance for reading this file
 
+    MagnificationLevel    gridMag;
     std::vector<TypeData> nodeTypeData;
 
     mutable std::mutex    lookupMutex;
 
   private:
-    bool GetOffsets(const TypeData& typeData,
-                    const GeoBox& boundingBox,
-                    std::vector<FileOffset>& offsets) const;
+    bool GetOffsetsList(const TypeData& typeData,
+                        const GeoBox& boundingBox,
+                        std::vector<FileOffset>& offsets) const;
 
+    bool GetOffsetsTileList(const TypeData& typeData,
+                            const GeoBox& boundingBox,
+                            std::vector<FileOffset>& offsets) const;
+
+    bool GetOffsetsBitmap(const TypeData& typeData,
+                          const GeoBox& boundingBox,
+                          std::vector<FileOffset>& offsets) const;
+
+    bool Open18(const std::string& path,
+                bool memoryMappedData,
+                uint32_t fileFormatVersion);
+
+    bool GetOffsets18(const GeoBox& boundingBox,
+                      const TypeInfoSet& requestedTypes,
+                      std::vector<FileOffset>& offsets,
+                      TypeInfoSet& loadedTypes) const;
+
+    bool GetOffsets18(const TypeData18& typeData,
+                      const GeoBox& boundingBox,
+                      std::vector<FileOffset>& offsets) const;
   public:
     AreaNodeIndex();
 

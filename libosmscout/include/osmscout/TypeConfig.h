@@ -800,7 +800,7 @@ namespace osmscout {
 
   typedef std::shared_ptr<FeatureValueBuffer> FeatureValueBufferRef;
 
-  static const uint32_t FILE_FORMAT_VERSION = 18;
+  static const uint32_t FILE_FORMAT_VERSION = 19;
   static const uint32_t FILE_FORMAT_MIN_VERSION = 6;
 
   // Forward declaration
