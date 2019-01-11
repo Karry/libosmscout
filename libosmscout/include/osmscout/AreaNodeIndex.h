@@ -99,8 +99,10 @@ namespace osmscout {
       FileOffset                  indexOffset=0;
       uint16_t                    entryCount=0;
 
-      std::map<TileId,ListTile>   listTiles;
-      std::map<TileId,BitmapTile> bitmapTiles;
+      //std::map<TileId,ListTile>   listTiles;
+      //std::map<TileId,BitmapTile> bitmapTiles;
+      std::unordered_map<TileId,ListTile,TileIdHasher>   listTiles;
+      std::unordered_map<TileId,BitmapTile,TileIdHasher> bitmapTiles;
     };
 
   private:
