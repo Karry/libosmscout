@@ -25,13 +25,19 @@
 
 namespace osmscout {
 
-RouteStep::RouteStep(QString type):
+RouteStep::RouteStep(const QString &type,
+                     const Distance &distance,
+                     const Distance &distanceDelta,
+                     const Duration &time,
+                     const Duration &timeDelta,
+                     const QStringList &streetNames):
     type(type),
-    distance(-1),
-    distanceDelta(-1),
-    distanceTo(-1),
-    time(-1),
-    timeDelta(-1)
+    distance(distance),
+    distanceDelta(distanceDelta),
+    distanceTo(Distance::Zero()),
+    time(time),
+    timeDelta(timeDelta),
+    streetNames(streetNames)
 {
 
 }
@@ -45,7 +51,8 @@ RouteStep::RouteStep(const RouteStep& other)
       time(other.time),
       timeDelta(other.timeDelta),
       description(other.description),
-      shortDescription(other.shortDescription)
+      shortDescription(other.shortDescription),
+      streetNames(other.streetNames)
 {
   copyDynamicProperties(other);
 }
@@ -68,6 +75,7 @@ RouteStep& RouteStep::operator=(const RouteStep& other)
     timeDelta=other.timeDelta;
     description=other.description;
     shortDescription=other.shortDescription;
+    streetNames=other.streetNames;
     for (auto const &propertyName:dynamicPropertyNames()){
       setProperty(propertyName, QVariant());
     }

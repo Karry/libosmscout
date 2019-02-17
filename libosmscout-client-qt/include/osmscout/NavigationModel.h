@@ -34,16 +34,14 @@ namespace osmscout {
  *
  * \ingroup QtAPI
  */
-class OSMSCOUT_CLIENT_QT_API NavigationModel : public QObject
+class OSMSCOUT_CLIENT_QT_API NavigationModel : public QAbstractListModel
 {
   Q_OBJECT
-  Q_PROPERTY(bool positionOnRoute   READ isPositionOnRoute NOTIFY positionOnRouteChanged)
   Q_PROPERTY(QObject *route         READ getRoute          WRITE setRoute NOTIFY routeChanged)
   Q_PROPERTY(QObject *nextRouteStep READ getNextRoutStep   NOTIFY update)
 
 signals:
   void update();
-  void positionOnRouteChanged();
 
   void routeChanged(LocationEntryRef target,
                     QtRouteData route,
@@ -52,12 +50,32 @@ signals:
   void positionChange(osmscout::GeoCoord coord,
                       bool horizontalAccuracyValid, double horizontalAccuracy);
 
+  void rerouteRequest(double fromLat, double fromLon,
+                      double initialBearing,
+                      double toLat, double toLon);
+
+  void targetReached(double targetBearing, double targetDistance);
+
+  void positionEstimate(osmscout::PositionAgent::PositionState state, double lat, double lon, double bearing);
+
 public slots:
   void locationChanged(bool locationValid,
                        double lat, double lon,
                        bool horizontalAccuracyValid, double horizontalAccuracy);
 
-  void onUpdated(bool onRoute, RouteStep routeStep);
+  void onUpdate(std::list<RouteStep> instructions);
+  void onUpdateNext(RouteStep nextRouteInstruction);
+  void onPositionEstimate(PositionAgent::PositionState state, GeoCoord coord, double bearing);
+  void onTargetReached(double targetBearing, Distance targetDistance);
+  void onRerouteRequest(const GeoCoord from, double initialBearing, const GeoCoord to);
+
+public:
+  enum Roles {
+    ShortDescriptionRole = Qt::UserRole + 1,
+    DescriptionRole = Qt::UserRole + 2,
+    TypeRole = Qt::UserRole + 3
+  };
+  Q_ENUM(Roles)
 
 public:
   NavigationModel();
@@ -71,14 +89,22 @@ public:
 
   QObject *getNextRoutStep();
 
+  QVariant data(const QModelIndex &index, int role) const;
+
+  int rowCount(const QModelIndex &parent = QModelIndex()) const;
+
+  Qt::ItemFlags flags(const QModelIndex &index) const;
+
+  QHash<int, QByteArray> roleNames() const;
+
 private:
   NavigationModule* navigationModule;
   LocationEntryRef  target;
   QtRouteData       route;
   osmscout::Vehicle vehicle;
 
-  bool              onRoute;
-  RouteStep         nextRouteStep;
+  std::vector<RouteStep> routeSteps;
+  RouteStep nextRouteStep;
 };
 
 }

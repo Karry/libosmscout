@@ -29,9 +29,11 @@
 #include <osmscout/routing/SimpleRoutingService.h>
 #include <osmscout/routing/RoutePostprocessor.h>
 #include <osmscout/routing/DBFileOffset.h>
+#include <osmscout/routing/RouteDescriptionPostprocessor.h>
 
 #include <osmscout/util/CmdLineParsing.h>
 #include <osmscout/util/Geometry.h>
+#include <osmscout/util/Time.h>
 
 //#define ROUTE_DEBUG
 //#define NODE_DEBUG
@@ -107,15 +109,16 @@ public:
   }
 };
 
-static std::string TimeToString(double time)
+static std::string TimeToString(osmscout::Duration duration)
 {
+  double hours = osmscout::DurationAsHours(duration);
   std::ostringstream stream;
 
-  stream << std::setfill(' ') << std::setw(2) << (int)std::floor(time) << ":";
+  stream << std::setfill(' ') << std::setw(2) << (int)std::floor(hours) << ":";
 
-  time-=std::floor(time);
+  hours-=std::floor(hours);
 
-  stream << std::setfill('0') << std::setw(2) << (int)floor(60*time+0.5);
+  stream << std::setfill('0') << std::setw(2) << (int)floor(60*hours+0.5);
 
   return stream.str();
 }
@@ -216,21 +219,21 @@ static std::string CrossingWaysDescriptionToString(const osmscout::RouteDescript
   }
 }
 
-struct RouteDescriptionGeneratorCallback : public osmscout::RouteDescriptionGenerator::Callback
+struct RouteDescriptionGeneratorCallback : public osmscout::RouteDescriptionPostprocessor::Callback
 {
   size_t lineCount;
   double prevDistance;
-  double prevTime;
+  osmscout::Duration prevTime;
   double distance;
-  double time;
+  osmscout::Duration time;
   bool  lineDrawn;
 
   RouteDescriptionGeneratorCallback()
   : lineCount(0),
     prevDistance(0.0),
-    prevTime(0.0),
+    prevTime(osmscout::Duration::zero()),
     distance(0.0),
-    time(0.0),
+    time(osmscout::Duration::zero()),
     lineDrawn(false)
   {
   }
@@ -253,7 +256,7 @@ struct RouteDescriptionGeneratorCallback : public osmscout::RouteDescriptionGene
 
       std::cout << TimeToString(time) << "h ";
 
-      if (time-prevTime!=0.0) {
+      if (time-prevTime!=osmscout::Duration::zero()) {
         std::cout << TimeToString(time-prevTime) << "h ";
       }
       else {
@@ -813,7 +816,7 @@ int main(int argc, char* argv[])
   std::cout << "Postprocessing time: " << postprocessTimer.ResultString() << std::endl;
 
   osmscout::StopClock                 generateTimer;
-  osmscout::RouteDescriptionGenerator generator;
+  osmscout::RouteDescriptionPostprocessor generator;
   RouteDescriptionGeneratorCallback   generatorCallback;
 
   generator.GenerateDescription(*routeDescriptionResult.description,

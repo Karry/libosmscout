@@ -23,6 +23,9 @@
 
 #include <osmscout/ClientQtImportExport.h>
 
+#include <osmscout/util/Time.h>
+#include <osmscout/util/Distance.h>
+
 #include <QObject>
 
 namespace osmscout {
@@ -46,23 +49,35 @@ class OSMSCOUT_CLIENT_QT_API RouteStep : public QObject
   Q_PROPERTY(double  timeDelta        READ getTimeDelta        NOTIFY update)
   Q_PROPERTY(QString description      READ getDescription      NOTIFY update)
   Q_PROPERTY(QString shortDescription READ getShortDescription NOTIFY update)
+  Q_PROPERTY(QStringList streetNames  READ getStreetNames()    NOTIFY update)
 
 signals:
   void update();
 
 public:
   QString type;             //!< Type of route step
-  double distance;          //!< Estimate distance [meters] from route start
-  double distanceDelta;     //!< Estimate distance [meters] from previous route step
-  double distanceTo;        //!< Estimate distance [meters] to this step (used with navigation)
-  double time;              //!< Estimate time [seconds] from route start
-  double timeDelta;         //!< Estimate time [seconds] from previous route step
+  Distance distance;        //!< Estimate distance from route start
+  Distance distanceDelta;   //!< Estimate distance from previous route step
+  Distance distanceTo;      //!< Estimate distance to this step (used with navigation)
+  Duration time;            //!< Estimate time from route start
+  Duration timeDelta;       //!< Estimate time from previous route step
   QString description;      //!< Formatted (html) verbose description (translated already)
   QString shortDescription; //!< Plain short description (translated already)
+  QStringList streetNames;  //!< Street names leading to this step
 
 public:
-  RouteStep() : RouteStep("") {};
-  RouteStep(QString type);
+  inline RouteStep() : RouteStep("", Distance::Zero(), Distance::Zero(),
+                                 Duration::zero(), Duration::zero(),
+                                 QStringList())
+  {};
+
+  RouteStep(const QString &type,
+            const Distance &distance,
+            const Distance &distanceDelta,
+            const Duration &time,
+            const Duration &timeDelta,
+            const QStringList &streetNames);
+
   RouteStep(const RouteStep& other);
 
   RouteStep& operator=(const RouteStep& other);
@@ -72,29 +87,34 @@ public:
     return type;
   };
 
-  double getDistance() const
+  Distance GetDistance() const
   {
     return distance;
   }
 
+  double getDistance() const
+  {
+    return distance.AsMeter();
+  }
+
   double getDistanceDelta() const
   {
-    return distanceDelta;
+    return distanceDelta.AsMeter();
   }
 
   double getDistanceTo() const
   {
-    return distanceTo;
+    return distanceTo.AsMeter();
   }
 
   double getTime() const
   {
-    return time;
+    return DurationAsSeconds(time);
   }
 
   double getTimeDelta() const
   {
-    return timeDelta;
+    return DurationAsSeconds(timeDelta);
   }
 
   QString getDescription() const
@@ -105,6 +125,11 @@ public:
   QString getShortDescription() const
   {
     return shortDescription;
+  }
+
+  QStringList getStreetNames() const
+  {
+    return streetNames;
   }
 
 private:
