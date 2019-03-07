@@ -339,8 +339,10 @@ void RouteDescriptionBuilder::Callback::OnRoundaboutLeave(const osmscout::RouteD
                                                           const osmscout::RouteDescription::NameDescriptionRef& nameDescription)
 {
   RouteStep leave = MkStep("leave-roundabout");
+  leave.roundaboutExit = roundaboutLeaveDescription->GetExitCount();
 
-  leave.shortDescription=osmscout::RouteDescriptionBuilder::tr("Leave roundabout");
+  leave.shortDescription=osmscout::RouteDescriptionBuilder::tr("Take %1. exit")
+      .arg(roundaboutLeaveDescription->GetExitCount());
 
   if (nameDescription &&
       nameDescription->HasName()) {
