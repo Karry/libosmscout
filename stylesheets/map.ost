@@ -118,6 +118,7 @@ GRADES
     "sett"
     "tarred"
     "tartan"
+    "iron"
   }
 
   SURFACE GRADE 2 {
@@ -127,13 +128,13 @@ GRADES
     "compacted_gravel"
     "fine_gravel"
     "gravel"
-    "gravel;grass"
     "grass_paver"
     "metal"
     "pebblestone"
     "stone"
     "wood"
     "marble"
+    "panel"
   }
 
   SURFACE GRADE 3 {
@@ -142,7 +143,6 @@ GRADES
     "dirt/sand"
     "earth"
     "grass"
-    "grass;earth"
     "ground"
     "mud"
     "sand"
@@ -153,6 +153,9 @@ GRADES
   SURFACE GRADE 4 {
     "artificial_turf"
     "bark_mulch"
+    "stones"
+    "rock"
+    "rocks"
   }
 
 FEATURES
@@ -402,7 +405,7 @@ TYPES
       {Name, NameAlt}
 
   TYPE highway_bus_stop
-    = NODE ("highway"=="bus_stop" OR (!("bus" IN ["no", "false", "0"]) AND "public_transport"=="platform"))
+    = NODE ("highway"=="bus_stop" OR (!("bus" IN ["no", "false", "0"]) AND ("public_transport" IN ["platform", "stop_position"])))
       {Name, NameAlt}
 
   TYPE highway_turning_cycle
@@ -555,7 +558,7 @@ TYPES
       {Name, NameAlt}
 
   TYPE railway_tram_stop
-    = NODE ("railway"=="tram_stop")
+    = NODE ("railway"=="tram_stop" OR (("tram" IN ["yes", "true", "1"]) AND ("public_transport" IN ["platform", "stop_position"])))
       {Name, NameAlt}
 
   TYPE railway_crossing
