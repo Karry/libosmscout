@@ -64,7 +64,7 @@ namespace osmscout {
                              bool memoryMappedData,
                              uint32_t fileFormatVersion)
   {
-    datafilename=AppendFileToDir(path,AREA_NODE_IDX);
+    std::string datafilename=AppendFileToDir(path,AREA_NODE_IDX);
 
     try {
       scanner.Open(datafilename,
