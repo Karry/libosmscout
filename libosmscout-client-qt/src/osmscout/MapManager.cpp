@@ -36,7 +36,6 @@ MapDownloadJob::MapDownloadJob(QNetworkAccessManager *webCtrl,
                                QDir target,
                                bool replaceExisting):
   webCtrl(webCtrl), map(map), target(target),
-  done(false), started(false), downloadedBytes(0),
   replaceExisting(replaceExisting)
 {
 }
@@ -47,6 +46,12 @@ MapDownloadJob::~MapDownloadJob()
     delete job;
   }
   jobs.clear();
+
+  if (started && !successful){
+    // delete partial database
+    MapDirectory dir(target);
+    dir.deleteDatabase();
+  }
 }
 
 void MapDownloadJob::start()
@@ -112,6 +117,13 @@ void MapDownloadJob::start()
   downloadNextFile();
 }
 
+void MapDownloadJob::cancel()
+{
+  if (!done){
+    onJobFailed("Canceled by user", false);
+  }
+}
+
 void MapDownloadJob::onDownloadProgress(uint64_t)
 {
   // reset error message
@@ -151,6 +163,7 @@ void MapDownloadJob::downloadNextFile()
     emit downloadProgress();
   } else {
     done = true;
+    successful = true;
     emit finished();
   }
 }
@@ -268,7 +281,13 @@ bool MapDirectory::deleteDatabase()
   }
   QDir parent=dir;
   parent.cdUp();
-  return result && parent.rmdir(dir.dirName());
+  result&=parent.rmdir(dir.dirName());
+  if (result){
+    qDebug() << "Removed database" << dir.path();
+  }else{
+    qWarning() << "Failed to remove database directory completely" << dir.path();
+  }
+  return result;
 }
 
 MapManager::MapManager(QStringList databaseLookupDirs, SettingsRef settings):
@@ -397,7 +416,7 @@ void MapManager::onJobFinished()
   for (auto job:finished){
     downloadJobs.removeOne(job);
     emit downloadJobsChanged();
-    delete job;
+    job->deleteLater();
   }
   downloadNext();
 }
