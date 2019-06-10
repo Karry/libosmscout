@@ -281,10 +281,10 @@ namespace osmscout {
     filename=AppendFileToDir(path,filepart);
 
     try {
-       scanner.Open(filename,
-                    FileScanner::FastRandom,
-                    memoryMaped,
-                    fileFormatVersion);
+      scanner.Open(filename,
+                   FileScanner::FastRandom,
+                   memoryMaped,
+                   fileFormatVersion);
 
       scanner.ReadNumber(pageSize);                  // Size of one index page
       scanner.ReadNumber(entries);                   // Number of entries in data file
