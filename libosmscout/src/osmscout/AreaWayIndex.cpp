@@ -34,30 +34,21 @@ namespace osmscout {
 
   FileOffset AreaWayIndex::TypeData::GetDataOffset() const
   {
-    return bitmapOffset+cellXCount*cellYCount*(FileOffset)dataOffsetBytes;
+    return bitmapOffset+tileBox.GetCount()*(FileOffset)dataOffsetBytes;
   }
 
   FileOffset AreaWayIndex::TypeData::GetCellOffset(size_t x, size_t y) const
   {
-    return bitmapOffset+((y-cellYStart)*cellXCount+x-cellXStart)*dataOffsetBytes;
+    return bitmapOffset+((y-tileBox.GetMinY())*tileBox.GetWidth()+x-tileBox.GetMinX())*dataOffsetBytes;
   }
 
   AreaWayIndex::TypeData::TypeData()
   : indexLevel(0),
     dataOffsetBytes(0),
     bitmapOffset(0),
-    cellXStart(0),
-    cellXEnd(0),
-    cellYStart(0),
-    cellYEnd(0),
-    cellXCount(0),
-    cellYCount(0),
-    cellWidth(0.0),
-    cellHeight(0.0),
-    minLon(0.0),
-    maxLon(0.0),
-    minLat(0.0),
-    maxLat(0.0)
+    tileBox(TileId(0,0),
+            TileId(0,0)),
+    cellDimension{0.0,0.0}
   {}
 
   AreaWayIndex::AreaWayIndex()
@@ -117,21 +108,20 @@ namespace osmscout {
 
           scanner.ReadNumber(data.indexLevel);
 
-          scanner.ReadNumber(data.cellXStart);
-          scanner.ReadNumber(data.cellXEnd);
-          scanner.ReadNumber(data.cellYStart);
-          scanner.ReadNumber(data.cellYEnd);
+          uint32_t minX;
+          uint32_t maxX;
+          uint32_t minY;
+          uint32_t maxY;
 
-          data.cellXCount=data.cellXEnd-data.cellXStart+1;
-          data.cellYCount=data.cellYEnd-data.cellYStart+1;
+          scanner.ReadNumber(minX);
+          scanner.ReadNumber(maxX);
+          scanner.ReadNumber(minY);
+          scanner.ReadNumber(maxY);
 
-          data.cellWidth=cellDimension[data.indexLevel].width;
-          data.cellHeight=cellDimension[data.indexLevel].height;
+          data.tileBox=TileIdBox(TileId(minX,minY),
+                                 TileId(maxX,maxY));
 
-          data.minLon=data.cellXStart*data.cellWidth-180.0;
-          data.maxLon=(data.cellXEnd+1)*data.cellWidth-180.0;
-          data.minLat=data.cellYStart*data.cellHeight-90.0;
-          data.maxLat=(data.cellYEnd+1)*data.cellHeight-90.0;
+          data.boundingBox=data.tileBox.GetBoundingBox(Magnification(MagnificationLevel(data.indexLevel)));
         }
 
         wayTypeData.push_back(data);
@@ -146,50 +136,40 @@ namespace osmscout {
     }
   }
 
-  bool AreaWayIndex::GetOffsets(const TypeData& typeData,
+  void AreaWayIndex::GetOffsets(const TypeData& typeData,
                                 const GeoBox& boundingBox,
                                 std::unordered_set<FileOffset>& offsets) const
   {
     if (typeData.bitmapOffset==0) {
 
       // No data for this type available
-      return true;
+      return;
     }
 
-    if (boundingBox.GetMaxLon()<typeData.minLon ||
-        boundingBox.GetMinLon()>=typeData.maxLon ||
-        boundingBox.GetMaxLat()<typeData.minLat ||
-        boundingBox.GetMinLat()>=typeData.maxLat) {
+    if (!boundingBox.Intersects(typeData.boundingBox)) {
 
       // No data available in given bounding box
-      return true;
+      return;
     }
 
-    uint32_t minxc=(uint32_t)floor((boundingBox.GetMinLon()+180.0)/typeData.cellWidth);
-    uint32_t maxxc=(uint32_t)floor((boundingBox.GetMaxLon()+180.0)/typeData.cellWidth);
+    TileIdBox boundingTileBox(Magnification(MagnificationLevel(typeData.indexLevel)),
+                              boundingBox);
 
-    uint32_t minyc=(uint32_t)floor((boundingBox.GetMinLat()+90.0)/typeData.cellHeight);
-    uint32_t maxyc=(uint32_t)floor((boundingBox.GetMaxLat()+90.0)/typeData.cellHeight);
-
-    minxc=std::max(minxc,typeData.cellXStart);
-    maxxc=std::min(maxxc,typeData.cellXEnd);
-
-    minyc=std::max(minyc,typeData.cellYStart);
-    maxyc=std::min(maxyc,typeData.cellYEnd);
+    boundingTileBox=boundingTileBox.Intersection(typeData.tileBox);
 
     FileOffset dataOffset=typeData.GetDataOffset();
 
-    // For each row
-    for (size_t y=minyc; y<=maxyc; y++) {
+      // For each row
+    for (size_t y=boundingTileBox.GetMinY(); y<=boundingTileBox.GetMaxY(); y++) {
       std::lock_guard<std::mutex> guard(lookupMutex);
       FileOffset                  initialCellDataOffset=0;
       size_t                      cellDataOffsetCount=0;
-      FileOffset                  bitmapCellOffset=typeData.GetCellOffset(minxc,y);
+      FileOffset                  bitmapCellOffset=typeData.GetCellOffset(boundingTileBox.GetMinX(),y);
 
       scanner.SetPos(bitmapCellOffset);
 
       // For each column in row
-      for (size_t x=minxc; x<=maxxc; x++) {
+      for (size_t x=boundingTileBox.GetMinX(); x<=boundingTileBox.GetMaxX(); x++) {
         FileOffset cellDataOffset;
 
         scanner.ReadFileOffset(cellDataOffset,
@@ -240,8 +220,6 @@ namespace osmscout {
         }
       }
     }
-
-    return true;
   }
 
   bool AreaWayIndex::GetOffsets(const GeoBox& boundingBox,
@@ -259,11 +237,9 @@ namespace osmscout {
     try {
       for (const auto& data : wayTypeData) {
         if (types.IsSet(data.type)) {
-          if (!GetOffsets(data,
-                          boundingBox,
-                          uniqueOffsets)) {
-            return false;
-          }
+          GetOffsets(data,
+                     boundingBox,
+                     uniqueOffsets);
 
           loadedTypes.Set(data.type);
         }

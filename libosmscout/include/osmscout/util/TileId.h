@@ -112,7 +112,7 @@ namespace osmscout {
     static TileId GetTile(const Magnification& magnification,
                           const GeoCoord& coord);
 
-    static TileId GetTile(MagnificationLevel level,
+    static TileId GetTile(const MagnificationLevel& level,
                           const GeoCoord& coord);
   };
 
@@ -123,9 +123,9 @@ namespace osmscout {
   {
     std::size_t operator()(const TileId& id) const noexcept
     {
-      std::size_t h1 = static_cast<size_t>(id.GetX());
-      std::size_t h2 = static_cast<size_t>(id.GetY());
-      return h1 ^ (h2 << 16);
+      auto h1 = static_cast<size_t>(id.GetX());
+      auto h2 = static_cast<size_t>(id.GetY());
+      return h1 ^ (h2 << 16u);
     }
   };
 
@@ -244,6 +244,15 @@ namespace osmscout {
     TileIdBox(const TileId& a,
               const TileId& b);
 
+    TileIdBox(const Magnification& magnification,
+              const GeoBox& boundingBox)
+    : TileIdBox(TileId::GetTile(magnification,
+                                boundingBox.GetMinCoord()),
+                TileId::GetTile(magnification,
+                                boundingBox.GetMaxCoord()))
+    {
+    }
+
     inline TileId GetMin() const
     {
       return minTile;
@@ -305,6 +314,10 @@ namespace osmscout {
     }
 
     GeoBox GetBoundingBox(const Magnification& magnification) const;
+
+    TileIdBox Include(const TileId& tileId);
+    TileIdBox Include(const TileIdBox& other);
+    TileIdBox Intersection(const TileIdBox& other);
 
     inline std::string GetDisplayText() const
     {

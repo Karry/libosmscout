@@ -34,7 +34,6 @@
 #include <osmscout/util/GeoBox.h>
 #include <osmscout/util/Geometry.h>
 #include <osmscout/util/Number.h>
-#include <osmscout/util/TileId.h>
 
 namespace osmscout {
 
@@ -42,12 +41,8 @@ namespace osmscout {
   : indexLevel(0),
     indexCells(0),
     indexEntries(0),
-    cellXStart(0),
-    cellXEnd(0),
-    cellYStart(0),
-    cellYEnd(0),
-    cellXCount(0),
-    cellYCount(0),
+    tileBox(TileId(0,0),
+            TileId(0,0)),
     indexOffset(0)
   {
     // no code
@@ -67,10 +62,9 @@ namespace osmscout {
   bool AreaWayIndexGenerator::FitsIndexCriteria(const ImportParameter& /*parameter*/,
                                                 Progress& progress,
                                                 const TypeInfo& typeInfo,
-                                                const TypeData& typeData,
                                                 const CoordCountMap& cellFillCount) const
   {
-    if (typeData.indexCells==0) {
+    if (cellFillCount.empty()) {
       return true;
     }
 
@@ -140,7 +134,7 @@ namespace osmscout {
    * @param typeData
    * @param cellFillCount
    */
-  void AreaWayIndexGenerator::CalculateStatistics(MagnificationLevel level,
+  void AreaWayIndexGenerator::CalculateStatistics(const MagnificationLevel& level,
                                                   TypeData& typeData,
                                                   const CoordCountMap& cellFillCount) const
   {
@@ -154,24 +148,13 @@ namespace osmscout {
       return;
     }
 
-    typeData.cellXStart=cellFillCount.begin()->first.x;
-    typeData.cellYStart=cellFillCount.begin()->first.y;
-
-    typeData.cellXEnd=typeData.cellXStart;
-    typeData.cellYEnd=typeData.cellYStart;
+    typeData.tileBox=TileIdBox(cellFillCount.begin()->first,cellFillCount.begin()->first);
 
     for (const auto& cell : cellFillCount) {
       typeData.indexEntries+=cell.second;
 
-      typeData.cellXStart=std::min(typeData.cellXStart,cell.first.x);
-      typeData.cellXEnd=std::max(typeData.cellXEnd,cell.first.x);
-
-      typeData.cellYStart=std::min(typeData.cellYStart,cell.first.y);
-      typeData.cellYEnd=std::max(typeData.cellYEnd,cell.first.y);
+      typeData.tileBox=typeData.tileBox.Include(cell.first);
     }
-
-    typeData.cellXCount=typeData.cellXEnd-typeData.cellXStart+1;
-    typeData.cellYCount=typeData.cellYEnd-typeData.cellYStart+1;
   }
 
   bool AreaWayIndexGenerator::CalculateDistribution(const TypeConfig& typeConfig,
@@ -228,36 +211,39 @@ namespace osmscout {
                         TileId::GetTile(magnification,boundingBox.GetMaxCoord()));
 
           for (const auto& tileId : box) {
-            cellFillCount[way.GetType()->GetIndex()][tileId.AsPixel()]++;
+            cellFillCount[way.GetType()->GetIndex()][tileId]++;
           }
         }
 
         // Check if cell fill for current type is in defined limits
         for (auto &type : currentWayTypes) {
-          size_t i=type->GetIndex();
-
-          CalculateStatistics(level,
-                              wayTypeData[i],
-                              cellFillCount[i]);
+          size_t typeIndex=type->GetIndex();
 
           if (!FitsIndexCriteria(parameter,
                                  progress,
-                                 *typeConfig.GetTypeInfo(i),
-                                 wayTypeData[i],
-                                 cellFillCount[i])) {
+                                 *typeConfig.GetTypeInfo(typeIndex),
+                                 cellFillCount[typeIndex])) {
             if (level<parameter.GetAreaWayIndexMaxLevel()) {
               currentWayTypes.Remove(type);
             }
             else {
-              progress.Warning(typeConfig.GetTypeInfo(i)->GetName()+" has too many index cells, that area filled over the limit");
+              progress.Warning(typeConfig.GetTypeInfo(typeIndex)->GetName()+" has too many index cells, that area filled over the limit");
             }
           }
         }
 
         for (const auto &type : currentWayTypes) {
+          size_t typeIndex=type->GetIndex();
+
+          CalculateStatistics(level,
+                              wayTypeData[typeIndex],
+                              cellFillCount[typeIndex]);
+
           maxLevel=std::max(maxLevel,level);
 
-          progress.Info("Type "+type->GetName()+", "+std::to_string(wayTypeData[type->GetIndex()].indexCells)+" cells, "+std::to_string(wayTypeData[type->GetIndex()].indexEntries)+" objects");
+          progress.Info("Type "+type->GetName()+", "+
+                        std::to_string(wayTypeData[type->GetIndex()].indexCells)+" cells, "+
+                        std::to_string(wayTypeData[type->GetIndex()].indexEntries)+" objects");
 
           remainingWayTypes.Remove(type);
         }
@@ -324,7 +310,7 @@ namespace osmscout {
 
     progress.Info("Writing map for "+
                   typeInfo.GetName()+" , "+
-                  ByteSizeToString(1.0*dataOffsetBytes*typeData.cellXCount*typeData.cellYCount+dataSize));
+                  ByteSizeToString(1.0*dataOffsetBytes*typeData.tileBox.GetCount()+dataSize));
 
     FileOffset bitmapOffset;
 
@@ -342,7 +328,7 @@ namespace osmscout {
     // Write the bitmap with offsets for each cell
     // We prefill with zero and only overwrite cells that have data
     // So zero means "no data for this cell"
-    for (size_t i=0; i<typeData.cellXCount*typeData.cellYCount; i++) {
+    for (size_t i=0; i<typeData.tileBox.GetCount(); i++) {
       writer.WriteFileOffset(0,
                              dataOffsetBytes);
     }
@@ -354,8 +340,8 @@ namespace osmscout {
     // Now write the list of offsets of objects for every cell with content
     for (const auto& cell : typeCellOffsets) {
       FileOffset bitmapCellOffset=bitmapOffset+
-                                  ((cell.first.y-typeData.cellYStart)*typeData.cellXCount+
-                                    cell.first.x-typeData.cellXStart)*(FileOffset)dataOffsetBytes;
+                                  ((cell.first.GetY()-typeData.tileBox.GetMinY())*typeData.tileBox.GetWidth()+
+                                    cell.first.GetX()-typeData.tileBox.GetMinX())*(FileOffset)dataOffsetBytes;
       FileOffset previousOffset=0;
       FileOffset cellOffset;
 
@@ -394,7 +380,7 @@ namespace osmscout {
   {
     FileScanner           wayScanner;
     FileWriter            writer;
-    std::vector<TypeData> wayTypeData;
+    std::vector<TypeData> typeData;
     MagnificationLevel    maxLevel;
 
     progress.Info("Minimum magnification: "+parameter.GetAreaWayMinMag());
@@ -408,21 +394,18 @@ namespace osmscout {
     if (!CalculateDistribution(*typeConfig,
                                parameter,
                                progress,
-                               wayTypeData,
+                               typeData,
                                maxLevel)) {
       return false;
     }
 
     // Calculate number of types which have data
 
-    uint32_t indexEntries=0;
-
-    for (const auto& type : typeConfig->GetWayTypes())
-    {
-      if (wayTypeData[type->GetIndex()].HasEntries()) {
-        indexEntries++;
-      }
-    }
+    uint32_t indexEntries=std::count_if(typeConfig->GetWayTypes().begin(),
+                                        typeConfig->GetWayTypes().end(),
+                                        [&typeData](const TypeInfoRef& type) {
+                                           return typeData[type->GetIndex()].HasEntries();
+                                        });
 
     //
     // Writing index file
@@ -439,22 +422,22 @@ namespace osmscout {
       for (const auto &type : typeConfig->GetWayTypes()) {
         size_t i=type->GetIndex();
 
-        if (wayTypeData[i].HasEntries()) {
+        if (typeData[i].HasEntries()) {
           uint8_t    dataOffsetBytes=0;
           FileOffset bitmapOffset=0;
 
           writer.WriteTypeId(type->GetWayId(),
                              typeConfig->GetWayTypeIdBytes());
 
-          wayTypeData[i].indexOffset=writer.GetPos();
+          typeData[i].indexOffset=writer.GetPos();
 
           writer.WriteFileOffset(bitmapOffset);
           writer.Write(dataOffsetBytes);
-          writer.WriteNumber(wayTypeData[i].indexLevel);
-          writer.WriteNumber(wayTypeData[i].cellXStart);
-          writer.WriteNumber(wayTypeData[i].cellXEnd);
-          writer.WriteNumber(wayTypeData[i].cellYStart);
-          writer.WriteNumber(wayTypeData[i].cellYEnd);
+          writer.WriteNumber(typeData[i].indexLevel);
+          writer.WriteNumber(typeData[i].tileBox.GetMinX());
+          writer.WriteNumber(typeData[i].tileBox.GetMaxX());
+          writer.WriteNumber(typeData[i].tileBox.GetMinY());
+          writer.WriteNumber(typeData[i].tileBox.GetMaxY());
         }
       }
 
@@ -472,8 +455,8 @@ namespace osmscout {
         wayScanner.GotoBegin();
 
         for (const auto &type : typeConfig->GetWayTypes()) {
-          if (wayTypeData[type->GetIndex()].HasEntries() &&
-              wayTypeData[type->GetIndex()].indexLevel==l) {
+          if (typeData[type->GetIndex()].HasEntries() &&
+              typeData[type->GetIndex()].indexLevel==l) {
             indexTypes.Set(type);
           }
         }
@@ -504,13 +487,10 @@ namespace osmscout {
             continue;
           }
 
-          GeoBox boundingBox=way.GetBoundingBox();
-
-          TileIdBox box(TileId::GetTile(magnification,boundingBox.GetMinCoord()),
-                        TileId::GetTile(magnification,boundingBox.GetMaxCoord()));
+          TileIdBox box(magnification,way.GetBoundingBox());
 
           for (const auto& tileId : box) {
-            typeCellOffsets[way.GetType()->GetIndex()][tileId.AsPixel()].push_back(offset);
+            typeCellOffsets[way.GetType()->GetIndex()][tileId].push_back(offset);
           }
         }
 
@@ -520,7 +500,7 @@ namespace osmscout {
           if (!WriteBitmap(progress,
                            writer,
                            *typeConfig->GetTypeInfo(index),
-                           wayTypeData[index],
+                           typeData[index],
                            typeCellOffsets[index])) {
             return false;
           }

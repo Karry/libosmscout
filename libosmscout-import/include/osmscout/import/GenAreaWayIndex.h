@@ -29,6 +29,7 @@
 
 #include <osmscout/util/FileWriter.h>
 #include <osmscout/util/Geometry.h>
+#include <osmscout/util/TileId.h>
 
 #include <osmscout/system/Compiler.h>
 
@@ -37,8 +38,8 @@ namespace osmscout {
   class AreaWayIndexGenerator CLASS_FINAL : public ImportModule
   {
   private:
-    typedef std::map<Pixel,size_t>                 CoordCountMap;
-    typedef std::map<Pixel,std::list<FileOffset> > CoordOffsetsMap;
+    typedef std::map<TileId,size_t>                 CoordCountMap;
+    typedef std::map<TileId,std::list<FileOffset> > CoordOffsetsMap;
 
     struct TypeData
     {
@@ -46,12 +47,7 @@ namespace osmscout {
       size_t             indexCells;   //! Number of filled cells in index
       size_t             indexEntries; //! Number of entries over all cells
 
-      uint32_t           cellXStart;
-      uint32_t           cellXEnd;
-      uint32_t           cellYStart;
-      uint32_t           cellYEnd;
-      uint32_t           cellXCount;
-      uint32_t           cellYCount;
+      TileIdBox          tileBox;
 
       FileOffset         indexOffset; //! Position in file where the offset of the bitmap is written to
 
@@ -68,10 +64,9 @@ namespace osmscout {
     bool FitsIndexCriteria(const ImportParameter& parameter,
                            Progress& progress,
                            const TypeInfo& typeInfo,
-                           const TypeData& typeData,
                            const CoordCountMap& cellFillCount) const;
 
-    void CalculateStatistics(MagnificationLevel level,
+    void CalculateStatistics(const MagnificationLevel& level,
                              TypeData& typeData,
                              const CoordCountMap& cellFillCount) const;
 
