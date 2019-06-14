@@ -47,8 +47,7 @@ namespace osmscout {
     dataOffsetBytes(0),
     bitmapOffset(0),
     tileBox(TileId(0,0),
-            TileId(0,0)),
-    cellDimension{0.0,0.0}
+            TileId(0,0))
   {}
 
   AreaWayIndex::AreaWayIndex()
@@ -155,11 +154,16 @@ namespace osmscout {
     TileIdBox boundingTileBox(Magnification(MagnificationLevel(typeData.indexLevel)),
                               boundingBox);
 
+    if (!boundingTileBox.Intersects(typeData.tileBox)) {
+      // No data available in given bounding box
+      return;
+    }
+
     boundingTileBox=boundingTileBox.Intersection(typeData.tileBox);
 
     FileOffset dataOffset=typeData.GetDataOffset();
 
-      // For each row
+    // For each row
     for (size_t y=boundingTileBox.GetMinY(); y<=boundingTileBox.GetMaxY(); y++) {
       std::lock_guard<std::mutex> guard(lookupMutex);
       FileOffset                  initialCellDataOffset=0;
