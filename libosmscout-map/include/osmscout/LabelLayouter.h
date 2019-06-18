@@ -89,6 +89,7 @@ namespace osmscout {
   public:
     size_t            priority{0}; //!< Priority of the entry
     std::string       text;        //!< The label text (type==Text|PathText)
+    double            height;
     PathTextStyleRef  style;
     double            contourLabelOffset;
     double            contourLabelSpace;
@@ -218,7 +219,7 @@ namespace osmscout {
     Mask &operator=(const Mask &m) = delete;
     Mask &operator=(Mask &&m) = delete;
 
-	  OSMSCOUT_MAP_API void prepare(const IntRectangle &rect);
+    OSMSCOUT_MAP_API void prepare(const IntRectangle &rect);
 
     inline int64_t size() const
     { return d.size(); };
@@ -665,7 +666,7 @@ namespace osmscout {
           projection,
           parameter,
           labelData.text,
-          labelData.style->GetSize(),
+          labelData.height,
           /* object width */ 0.0,
           /*enable wrapping*/ false,
           /*contour label*/ true);
@@ -678,12 +679,16 @@ namespace osmscout {
 
       double pLength=labelPath.GetLength();
       double offset=labelData.contourLabelOffset;
+
       while (offset+label->width < pLength){
+        double labelSpaceCount=size_t(label->width/labelData.contourLabelSpace)+1;
+
+        double nextOffset = offset+labelSpaceCount*labelData.contourLabelSpace;
 
         // skip string rendering when path is too much squiggly at this offset
         if (!labelPath.TestAngleVariance(offset,offset+label->width,M_PI_4)){
           // skip drawing current label and let offset point to the next instance
-          offset+=label->width + labelData.contourLabelSpace;
+          offset=nextOffset;
           continue;
         }
 
@@ -716,7 +721,7 @@ namespace osmscout {
           double angle=labelPath.AngleAtLength(upwards ? glyphOffset - w/2 : glyphOffset + w/2)*-1;
 
           // it is not real diagonal, but maximum distance from glyph
-          // point that can be covered after treansformantions
+          // point that can be covered after transformations
           double diagonal=w+h+std::abs(textBaselineOffset);
 
           // fast check if current glyph can be visible
@@ -773,7 +778,8 @@ namespace osmscout {
         if (!cLabel.glyphs.empty()) { // is some glyph visible?
           contourLabelInstances.push_back(cLabel);
         }
-        offset+=label->width + labelData.contourLabelSpace;
+
+        offset=nextOffset;
       }
     }
 

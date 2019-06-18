@@ -37,6 +37,8 @@
 
 #include <osmscout/GroundTile.h>
 
+#include <osmscout/MapData.h>
+
 #include <osmscout/util/Breaker.h>
 #include <osmscout/util/Geometry.h>
 #include <osmscout/util/Projection.h>
@@ -70,28 +72,6 @@ namespace osmscout {
     Postrender            = 15, //!< Implementation specific final step
     LastStep              = 15
   };
-
-  /**
-   * \ingroup Renderer
-   *
-   * This is the data structure holding all to be rendered data.
-   */
-  class OSMSCOUT_MAP_API MapData CLASS_FINAL
-  {
-  public:
-    std::vector<NodeRef>  nodes;       //!< Nodes as retrieved from database
-    std::vector<AreaRef>  areas;       //!< Areas as retrieved from database
-    std::vector<WayRef>   ways;        //!< Ways as retrieved from database
-    std::list<NodeRef>    poiNodes;    //!< List of manually added nodes (not managed or changed by the database)
-    std::list<AreaRef>    poiAreas;    //!< List of manually added areas (not managed or changed by the database)
-    std::list<WayRef>     poiWays;     //!< List of manually added ways (not managed or changed by the database)
-    std::list<GroundTile> groundTiles; //!< List of ground tiles (optional)
-
-  public:
-    void ClearDBData();
-  };
-
-  typedef std::shared_ptr<MapData> MapDataRef;
 
   /**
    * Abstract base class of all renders (though you can always write
@@ -216,52 +196,6 @@ namespace osmscout {
       size_t                   transStart;      //!< Start of coordinates in transformation buffer
       size_t                   transEnd;        //!< End of coordinates in transformation buffer
       std::list<PolyData>      clippings;       //!< Clipping polygons to be used during drawing of this area
-    };
-
-    /**
-     * Helper class for drawing contours. Allows the MapPainter base class
-     * to inject itself at certain points in the contour label rendering code of
-     * the actual backend.
-     */
-    class OSMSCOUT_MAP_API ContourLabelHelper CLASS_FINAL
-    {
-    private:
-      double contourLabelOffset;
-      double contourLabelSpace;
-      double pathLength;
-      double textWidth;
-      double currentOffset;
-
-    public:
-      explicit ContourLabelHelper(const MapPainter& painter);
-
-      bool Init(double pathLength,
-                double textWidth);
-
-      inline bool ContinueDrawing() const
-      {
-        return currentOffset<pathLength;
-      }
-
-      inline double GetCurrentOffset() const
-      {
-        return currentOffset;
-      }
-
-      inline void AdvancePartial(double width)
-      {
-        currentOffset+=width;
-      }
-
-      inline void AdvanceText()
-      {
-        currentOffset+=textWidth;
-      }
-
-      inline void AdvanceSpace()
-      {
-        currentOffset+=contourLabelSpace;
-      }
     };
 
   protected:
@@ -730,7 +664,7 @@ namespace osmscout {
     }
 
   public:
-    MapPainterBatch(size_t expectedCount)
+    explicit MapPainterBatch(size_t expectedCount)
     {
       data.reserve(expectedCount);
       painters.reserve(expectedCount);

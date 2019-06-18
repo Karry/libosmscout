@@ -196,7 +196,7 @@ namespace osmscout {
     TypeConfigRef GetTypeConfig() const;
 
     RoutingResult CalculateRouteViaCoords(RoutingProfile& profile,
-                                          std::vector<GeoCoord> via,
+                                          const std::vector<GeoCoord>& via,
                                           const Distance &radius,
                                           const RoutingParameter& parameter);
 
@@ -208,7 +208,7 @@ namespace osmscout {
                                                          Vehicle vehicle,
                                                          const Distance &maxRadius);
 
-    virtual std::map<DatabaseId, std::string> GetDatabaseMapping() const override;
+    std::map<DatabaseId, std::string> GetDatabaseMapping() const override;
 
     void DumpStatistics();
   };

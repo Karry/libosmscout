@@ -33,10 +33,6 @@
 //#define DEBUG_GROUNDTILES
 //#define DEBUG_NODE_DRAW
 
-#if defined(DEBUG_GROUNDTILES)
-#include <osmscout/Coord.h>
-#endif
-
 namespace osmscout {
 
   static void GetGridPoints(const std::vector<Point>& nodes,
@@ -141,45 +137,12 @@ namespace osmscout {
   }
 
   /**
-   * Deletes the content hold by this instance.
-   */
-  void MapData::ClearDBData()
-  {
-    nodes.clear();
-    areas.clear();
-    ways.clear();
-  }
-
-  /**
    * Sort labels for the same object by position
    */
   static inline bool LabelLayoutDataSorter(const LabelData& a,
                                            const LabelData& b)
   {
     return a.position<b.position;
-  }
-
-  MapPainter::ContourLabelHelper::ContourLabelHelper(const MapPainter& painter)
-  : contourLabelOffset(painter.contourLabelOffset),
-    contourLabelSpace(painter.contourLabelSpace)
-  {
-    // no code
-  }
-
-  bool MapPainter::ContourLabelHelper::Init(double pathLength,
-                                            double textWidth)
-  {
-    this->pathLength=pathLength;
-    this->textWidth=textWidth;
-
-    if (pathLength-textWidth-2*contourLabelOffset<=0.0) {
-      return false;
-    }
-
-    currentOffset=fmod(pathLength-textWidth-2*contourLabelOffset,
-                  textWidth+contourLabelSpace)/2+contourLabelOffset;
-
-    return true;
   }
 
   MapPainter::MapPainter(const StyleConfigRef& styleConfig,
@@ -940,8 +903,6 @@ namespace osmscout {
                                        transEnd);
     }
 
-    ContourLabelHelper helper(*this);
-
     // TODO: use coordBuffer for label path
     LabelPath labelPath;
 
@@ -1178,6 +1139,7 @@ namespace osmscout {
     labelData.priority=pathTextStyle->GetPriority();
     labelData.style=pathTextStyle;
     labelData.text=textLabel;
+    labelData.height=pathTextStyle->GetSize();
     labelData.contourLabelOffset=contourLabelOffset;
     labelData.contourLabelSpace=contourLabelSpace;
 
@@ -1562,12 +1524,13 @@ namespace osmscout {
         lineOffset=mainSlotWidth/2.0;
         break;
       case LineStyle::laneDivider:
+        lineOffset=0.0;
         lanesValue=lanesReader.GetValue(buffer);
         accessValue=accessReader.GetValue(buffer);
 
         if (lanesValue==nullptr &&
             accessValue==nullptr) {
-          return;
+          continue;
         }
         break;
       }
@@ -1600,7 +1563,8 @@ namespace osmscout {
                                    transStart,
                                    transEnd,
                                    errorTolerancePixel);
-        } else {
+        }
+        else {
           std::vector<Point> nodes;
           for (const auto &segment : way.segments){
             if (projection.GetDimensions().Intersects(segment.bbox, false)){
@@ -1669,7 +1633,7 @@ namespace osmscout {
         }
 
         if (lanes<2) {
-          return;
+          continue;
         }
 
         double  lanesSpace=mainSlotWidth/lanes;
@@ -1781,8 +1745,8 @@ namespace osmscout {
   {
     errorTolerancePixel=projection.ConvertWidthToPixel(parameter.GetOptimizeErrorToleranceMm());
     areaMinDimension   =projection.ConvertWidthToPixel(parameter.GetAreaMinDimensionMM());
-    contourLabelOffset =projection.ConvertWidthToPixel(parameter.GetContourLabelOffset());
-    contourLabelSpace  =projection.ConvertWidthToPixel(parameter.GetContourLabelSpace());
+    contourLabelOffset =GetProjectedWidth(projection,parameter.GetContourLabelOffset());
+    contourLabelSpace  =GetProjectedWidth(projection,parameter.GetContourLabelSpace());
 
     shieldGridSizeHoriz=360.0/(std::pow(2,projection.GetMagnification().GetLevel()+1));
     shieldGridSizeVert=180.0/(std::pow(2,projection.GetMagnification().GetLevel()+1));

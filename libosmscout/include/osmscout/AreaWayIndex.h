@@ -43,20 +43,20 @@ namespace osmscout {
   class OSMSCOUT_API AreaWayIndex
   {
   public:
-    static const char* AREA_WAY_IDX;
+    static const char* const AREA_WAY_IDX;
 
   private:
     struct TypeData
     {
-      TypeInfoRef   type;
-      uint32_t      indexLevel;
+      TypeInfoRef         type;
+      MagnificationLevel  indexLevel;
 
-      uint8_t       dataOffsetBytes;
-      FileOffset    bitmapOffset;
+      uint8_t             dataOffsetBytes;
+      FileOffset          bitmapOffset;
 
-      TileIdBox     tileBox;
+      TileIdBox           tileBox;
 
-      GeoBox        boundingBox;
+      GeoBox              boundingBox;
 
       TypeData();
 

@@ -90,14 +90,21 @@ namespace osmscout {
     // no code
   }
 
-  StyleConstantMag::StyleConstantMag(Magnification& magnification)
+  StyleConstantMag::StyleConstantMag(const Magnification& magnification)
   : magnification(magnification)
   {
     // no code
   }
 
-  StyleConstantUInt::StyleConstantUInt(size_t& value)
+  StyleConstantUInt::StyleConstantUInt(size_t value)
   : value(value)
+  {
+    // no code
+  }
+
+  StyleConstantWidth::StyleConstantWidth(double value, Unit unit)
+    : value(value),
+      unit(unit)
   {
     // no code
   }
@@ -569,8 +576,8 @@ namespace osmscout {
       for (size_t level=0; level<selector.size(); level++) {
         if (selector[level].size()>=2) {
           // If two consecutive conditions are equal, one can be removed and the style can get merged
-          typename std::list<StyleSelector<S,A> >::iterator prevSelector=selector[level].begin();
-          typename std::list<StyleSelector<S,A> >::iterator curSelector=prevSelector;
+          auto prevSelector=selector[level].begin();
+          auto curSelector=prevSelector;
 
           ++curSelector;
 

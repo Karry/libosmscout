@@ -26,7 +26,7 @@
 
 namespace osmscout {
 
-  const char* CoordDataFile::COORD_DAT="coord.dat";
+  const char* const CoordDataFile::COORD_DAT="coord.dat";
 
   CoordDataFile::CoordDataFile()
   : isOpen(false),
@@ -144,7 +144,7 @@ namespace osmscout {
         }
 
         resultMap.insert(std::make_pair(id,
-                                        Coord(serial,
+                                        Point(serial,
                                               coord)));
       }
     }
