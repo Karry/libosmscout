@@ -251,7 +251,7 @@ namespace osmscout {
       // Persistent
       bool                 hasCellData;      //!< If true, we have cell data
       uint8_t              dataOffsetBytes;  //!< Number of bytes per entry in bitmap
-      State                defaultCellData;  //!< If hasCellData is false, this is the vaue to be returned for all cells
+      State                defaultCellData;  //!< If hasCellData is false, this is the value to be returned for all cells
       FileOffset           indexDataOffset;  //!< File offset of start cell state data on disk
 
       StateMap             stateMap;         //!< Index to handle state of cells
@@ -278,6 +278,7 @@ namespace osmscout {
     {
       size_t        coastline;          //! Running number of the intersecting coastline
       size_t        prevWayPointIndex;  //! The index of the path point before the intersection
+      GeoCoord      prevPoint;          //! just helper for sorting
       GeoCoord      point;              //! The intersection point
       double        distanceSquare;     //! The distance^2 between the path point and the intersectionPoint
       Direction     direction;          //! 1 in, 0 touch, -1 out
@@ -295,6 +296,7 @@ namespace osmscout {
       Id                                         id;                 //! The id of the coastline
       bool                                       isArea;             //! true,if the boundary forms an area
       bool                                       isCompletelyInCell; //! true, if the complete coastline is within one cell
+      GeoBox                                     boundingBox;        //! GeoBox from points (already transformed)
       Pixel                                      cell;               //! The cell that completely contains the coastline
       std::vector<GeoCoord>                      points;             //! The points of the coastline
       std::map<Pixel,std::list<IntersectionRef>> cellIntersections;  //! All intersections for each cell
@@ -342,12 +344,27 @@ namespace osmscout {
         if (a->borderIndex==b->borderIndex) {
           switch (a->borderIndex) {
           case 0:
+            if (a->point.GetLon()==b->point.GetLon()){
+              return a->prevPoint.GetLon()<b->prevPoint.GetLon();
+            }
             return a->point.GetLon()<b->point.GetLon();
+
           case 1:
+            if (a->point.GetLat()==b->point.GetLat()){
+              return a->prevPoint.GetLat()>b->prevPoint.GetLat();
+            }
             return a->point.GetLat()>b->point.GetLat();
+
           case 2:
+            if (a->point.GetLon()==b->point.GetLon()){
+              return a->prevPoint.GetLon()>b->prevPoint.GetLon();
+            }
             return a->point.GetLon()>b->point.GetLon();
+
           default: /* 3 */
+            if (a->point.GetLat()==b->point.GetLat()){
+              return a->prevPoint.GetLat()<b->prevPoint.GetLat();
+            }
             return a->point.GetLat()<b->point.GetLat();
           }
         }
@@ -598,6 +615,11 @@ namespace osmscout {
                              const StateMap& stateMap,
                              std::map<Pixel,std::list<GroundTile> >& cellGroundTileMap,
                              Data& data);
+
+    /**
+     * Comparator of coastline size (GeoBox::GetSize) for descending sort
+     */
+    static bool CoastlineGeoSizeSorter(const CoastlineDataRef &a, const CoastlineDataRef &b);
 
 public:
     /**
