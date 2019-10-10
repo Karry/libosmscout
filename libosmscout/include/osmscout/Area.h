@@ -37,8 +37,18 @@
 
 namespace osmscout {
   /**
-    Representation of an (complex/multipolygon) area
-    */
+   * Representation of an (complex/multipolygon) area.
+   *
+   * It consists from hierarchy of rings:
+   *  - optional master ring (ring number 0)
+   *  - outer ring(s) (ring number 1)
+   *  - inner ring(s) (ring number > 1)
+   *
+   *  When area consists just from simple line (usual building), Area will contains just one outer ring (ring number 0)
+   *
+   *  When area is multipolygon relation, type and features of such relation is stored in master ring.
+   *
+   */
   class OSMSCOUT_API Area CLASS_FINAL
   {
   public:
@@ -107,9 +117,16 @@ namespace osmscout {
         return ring==masterRingId;
       }
 
+      // top level outer ring
       inline bool IsOuterRing() const
       {
         return ring==outerRingId;
+      }
+
+      // ring level is odd, it is some outer ring
+      inline bool IsSomeOuterRing() const
+      {
+        return (ring & outerRingId) == outerRingId;
       }
 
       inline uint8_t GetRing() const
