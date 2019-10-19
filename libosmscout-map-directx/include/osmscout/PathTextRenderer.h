@@ -1,11 +1,11 @@
 #pragma once
 
+#define NOMINMAX
+
 #include <d2d1.h>
 #include <dwrite.h>
 
 #include <osmscout/MapPainter.h>
-
-#include "osmscout/MapPainter.h"
 
 /**
  * Helper class for drawing contours. Allows the MapPainter base class
