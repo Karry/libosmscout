@@ -78,6 +78,8 @@ namespace osmscout {
     this->lastUpdate=time;
     this->position=position;
     this->horizontalAccuracy=horizontalAccuracy;
+    log.Debug() << "GPS updated: " << position.GetDisplayText()
+                << " accuracy " << horizontalAccuracy.AsString();
   }
 
   PositionAgent::PositionMessage::PositionMessage(const Timestamp& timestamp,
@@ -183,7 +185,7 @@ namespace osmscout {
 
     if (dynamic_cast<GPSUpdateMessage*>(message.get())!=nullptr) {
       auto gpsUpdateMessage=dynamic_cast<GPSUpdateMessage*>(message.get());
-      // ignore gps update when we accuracy is too low and we have good data already
+      // ignore gps update when accuracy is too low and we have good data already
       if (gps.GetState(now)!=Good ||
           gpsUpdateMessage->horizontalAccuracy < Meters(100)){
         gps.Update(now,
@@ -316,7 +318,8 @@ namespace osmscout {
       }
     }
 
-    log.Debug() << "GPS signal state: " << gps.GetStateStr(now) << ", "
+    log.Debug() << "GPS signal state: " << gps.GetStateStr(now) << " "
+                << "(accuracy " << gps.horizontalAccuracy.AsString() << "), "
                 << "position state: " << position.StateStr() << ", "
                 << "position " << position.coord.GetDisplayText();
 
