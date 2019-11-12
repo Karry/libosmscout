@@ -93,14 +93,17 @@ namespace osmscout {
     WaterIndex9();
     virtual ~WaterIndex9();
 
-    virtual bool Open(const std::string& path,uint32_t fileFormatVersion);
-    virtual void Close();
+    virtual bool Open(const std::string& path,
+                      bool memoryMappedData,
+                      uint32_t fileFormatVersion) override;
+
+    virtual void Close() override;
 
     virtual bool GetRegions(const GeoBox& boundingBox,
-                    const Magnification& magnification,
-                    std::list<GroundTile>& tiles) const;
+                            const Magnification& magnification,
+                            std::list<GroundTile>& tiles) const override;
 
-    virtual void DumpStatistics();
+    virtual void DumpStatistics() override;
   };
 
   typedef std::shared_ptr<WaterIndex> WaterIndexRef;
