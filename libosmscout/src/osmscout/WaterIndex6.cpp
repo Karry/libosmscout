@@ -40,12 +40,14 @@ namespace osmscout {
     Close();
   }
 
-  bool WaterIndex6::Open(const std::string& path,uint32_t fileFormatVersion)
+  bool WaterIndex6::Open(const std::string& path,
+                         bool memoryMappedData,
+                         uint32_t fileFormatVersion)
   {
     datafilename=AppendFileToDir(path,WATER_IDX);
 
     try {
-      scanner.Open(datafilename,FileScanner::FastRandom,true,fileFormatVersion);
+      scanner.Open(datafilename,FileScanner::FastRandom,memoryMappedData,fileFormatVersion);
 
       scanner.ReadNumber(waterIndexMinMag);
       scanner.ReadNumber(waterIndexMaxMag);
