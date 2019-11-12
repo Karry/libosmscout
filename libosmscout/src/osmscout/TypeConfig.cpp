@@ -330,6 +330,9 @@ namespace osmscout {
     if (fileFormatVersion >= 18) {
       scanner.Read(lanes);
       scanner.Read(onewayLanes);
+    } else {
+      lanes=1;
+      onewayLanes=1;
     }
 
     typeInfo->CanBeNode(canBeNode);
