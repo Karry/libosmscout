@@ -56,7 +56,7 @@ namespace osmscout {
       return name;
     }
 
-    inline std::string GetLabel(Units /*units*/, size_t /*labelIndex*/) const override
+    inline std::string GetLabel(const Locale &/*locale*/, size_t /*labelIndex*/) const override
     {
       return name;
     }
@@ -124,7 +124,7 @@ namespace osmscout {
       return nameAlt;
     }
 
-    inline std::string GetLabel(Units /*units*/, size_t /*labelIndex*/) const override
+    inline std::string GetLabel(const Locale &/*locale*/, size_t /*labelIndex*/) const override
     {
       return nameAlt;
     }
@@ -192,7 +192,7 @@ namespace osmscout {
       return ref;
     }
 
-    inline std::string GetLabel(Units /*units*/, size_t /*labelIndex*/) const override
+    inline std::string GetLabel(const Locale &/*locale*/, size_t /*labelIndex*/) const override
     {
       return ref;
     }
@@ -261,7 +261,7 @@ namespace osmscout {
       return location;
     }
 
-    inline std::string GetLabel(Units /*units*/, size_t /*labelIndex*/) const override
+    inline std::string GetLabel(const Locale &/*locale*/, size_t /*labelIndex*/) const override
     {
       return location;
     }
@@ -339,7 +339,7 @@ namespace osmscout {
       return address;
     }
 
-    inline std::string GetLabel(Units /*units*/, size_t /*labelIndex*/) const override
+    inline std::string GetLabel(const Locale &/*locale*/, size_t /*labelIndex*/) const override
     {
       return address;
     }
@@ -1123,7 +1123,7 @@ namespace osmscout {
       return postalCode;
     }
 
-    inline std::string GetLabel(Units /*units*/, size_t /*labelIndex*/) const override
+    inline std::string GetLabel(const Locale &/*locale*/, size_t /*labelIndex*/) const override
     {
       return postalCode;
     }
@@ -1144,6 +1144,12 @@ namespace osmscout {
   public:
     /** Name of this feature */
     static const char* const NAME;
+
+    /** Name of the "name" label */
+    static const char* const NAME_LABEL;
+
+    /** Index of the 'name' label */
+    static const size_t      NAME_LABEL_INDEX;
 
   public:
     PostalCodeFeature();
@@ -1279,18 +1285,7 @@ namespace osmscout {
       return ele;
     }
 
-    inline std::string GetLabel(Units units, size_t /*labelIndex*/) const override
-    {
-      if (units==Units::Imperial){
-        int eleFeet=std::round(Meters(ele).As<Feet>());
-        // use tiny, unbreakable space between value and unit.
-        // U+202F unicode is encoded as 0xE280AF in utf-8
-        // because unicode support in C++ is poor and platform dependent,
-        // we will use utf-8 bytes directly
-        return std::to_string(eleFeet)+"\xE2\x80\xAF"+"ft";
-      }
-      return std::to_string(ele)+"\xE2\x80\xAF"+"m";
-    }
+    std::string GetLabel(const Locale &locale, size_t labelIndex) const override;
 
     void Read(FileScanner& scanner) override;
     void Write(FileWriter& writer) override;
@@ -1308,11 +1303,23 @@ namespace osmscout {
     /** Name of this feature */
     static const char* const NAME;
 
-    /** Name of the "name" label */
-    static const char* const NAME_LABEL;
+    /** Name of the "inMeter" label */
+    static const char* const IN_METER_LABEL;
 
-    /** Index of the 'name' label */
-    static const size_t      NAME_LABEL_INDEX;
+    /** Index of the 'inMeter' label */
+    static const size_t      IN_METER_LABEL_INDEX;
+
+    /** Name of the "inFeet" label */
+    static const char* const IN_FEET_LABEL;
+
+    /** Index of the 'inFeet' label */
+    static const size_t      IN_FEET_LABEL_INDEX;
+
+    /** Name of the "inLocaleUnit" label */
+    static const char* const IN_LOCALE_UNIT_LABEL;
+
+    /** Index of the 'inLocaleUnit' label */
+    static const size_t      IN_LOCALE_UNIT_LABEL_INDEX;
 
   public:
     EleFeature();
@@ -1358,7 +1365,7 @@ namespace osmscout {
       return destination;
     }
 
-    inline std::string GetLabel(Units /*units*/, size_t /*labelIndex*/) const override
+    inline std::string GetLabel(const Locale &/*locale*/, size_t /*labelIndex*/) const override
     {
       return destination;
     }
@@ -1453,7 +1460,7 @@ namespace osmscout {
       return website;
     }
 
-    inline std::string GetLabel(Units /*units*/, size_t /*labelIndex*/) const override
+    inline std::string GetLabel(const Locale &/*locale*/, size_t /*labelIndex*/) const override
     {
       return website;
     }
@@ -1474,8 +1481,11 @@ namespace osmscout {
     /** Name of this feature */
     static const char* const NAME;
 
-    /** Name of the "name" label */
-    static const char* const NAME_LABEL;
+    /** Name of the "url" label */
+    static const char* const URL_LABEL;
+
+    /** Index of the 'url' label */
+    static const size_t      URL_LABEL_INDEX;
 
   public:
     WebsiteFeature();
@@ -1522,7 +1532,7 @@ namespace osmscout {
       return phone;
     }
 
-    inline std::string GetLabel(Units /*units*/, size_t /*labelIndex*/) const override
+    inline std::string GetLabel(const Locale &/*locale*/, size_t /*labelIndex*/) const override
     {
       return phone;
     }
@@ -1542,6 +1552,12 @@ namespace osmscout {
   public:
     /** Name of this feature */
     static const char* const NAME;
+
+    /** Name of the "number" label */
+    static const char* const NUMBER_LABEL;
+
+    /** Index of the 'number' label */
+    static const size_t      NUMBER_LABEL_INDEX;
 
   public:
     PhoneFeature();
@@ -1658,7 +1674,7 @@ namespace osmscout {
       return endYear;
     }
 
-    inline std::string GetLabel(Units /*units*/, size_t /*labelIndex*/) const override
+    inline std::string GetLabel(const Locale &/*locale*/, size_t /*labelIndex*/) const override
     {
       if (startYear==endYear) {
         return std::to_string(startYear);
@@ -1684,6 +1700,12 @@ namespace osmscout {
   public:
     /** Name of this feature */
     static const char* const NAME;
+
+    /** Name of the "year" label */
+    static const char* const YEAR_LABEL;
+
+    /** Index of the 'year' label */
+    static const size_t      YEAR_LABEL_INDEX;
 
   public:
     ConstructionYearFeature();
@@ -1888,7 +1910,7 @@ namespace osmscout {
       this->destinationBackward=destinationBawckard;
     }
 
-    inline std::string GetLabel(Units /*units*/, size_t /*labelIndex*/) const override
+    inline std::string GetLabel(const Locale &/*locale*/, size_t /*labelIndex*/) const override
     {
       if (HasSingleLane()) {
         return "1";
