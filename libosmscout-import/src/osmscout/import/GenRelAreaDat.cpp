@@ -884,7 +884,7 @@ namespace osmscout {
 
     // Count the occurence of outer types and store the last outer ring found for each type
     for (auto ring=parts.begin(); ring!=parts.end(); ++ring) {
-      if (ring->role.IsOuterRing() &&
+      if (ring->role.IsTopOuter() &&
           ring->IsArea() &&
           ring->role.GetType()!=typeConfig.typeInfoIgnore) {
         typeCount[ring->role.GetType()->GetIndex()]++;
@@ -1058,7 +1058,7 @@ namespace osmscout {
       size_t outerRingCount=0;
 
       for (const auto& ring : parts) {
-        if (ring.role.IsOuterRing()) {
+        if (ring.role.IsTopOuter()) {
           outerRingCount++;
 
           if (outerRingCount>1) {
@@ -1071,7 +1071,7 @@ namespace osmscout {
         optimizeAwayMaster=true;
 
         for (auto& ring : parts) {
-          if (ring.role.IsOuterRing()) {
+          if (ring.role.IsTopOuter()) {
             ring.role.SetFeatures(masterRing.GetFeatureValueBuffer());
             break;
           }
@@ -1083,7 +1083,7 @@ namespace osmscout {
       bool outerRingsClean=true;
 
       for (const auto& ring : parts) {
-        if (ring.role.IsOuterRing() &&
+        if (ring.role.IsTopOuter() &&
             ring.role.GetType()!=masterRing.GetType()) {
           outerRingsClean=false;
           break;
@@ -1109,7 +1109,7 @@ namespace osmscout {
 
     if (!optimizeAwayMaster) {
       for (auto& ring : relation.rings) {
-        if (ring.IsOuterRing() &&
+        if (ring.IsTopOuter() &&
             ring.GetType()==masterRing.GetType()) {
           ring.SetType(typeConfig.typeInfoIgnore);
         }
@@ -1268,7 +1268,7 @@ namespace osmscout {
         bool big=false;
 
         for (const auto& ring : rel.rings) {
-          if (!ring.IsMasterRing()) {
+          if (!ring.IsMaster()) {
             if (ring.nodes.size()<3) {
               valid=false;
               break;
@@ -1315,7 +1315,7 @@ namespace osmscout {
 
         areaTypeCount[rel.GetType()->GetIndex()]++;
         for (const auto& ring: rel.rings) {
-          if (ring.IsOuterRing()) {
+          if (ring.IsTopOuter()) {
             areaNodeTypeCount[rel.GetType()->GetIndex()]+=ring.nodes.size();
           }
         }
