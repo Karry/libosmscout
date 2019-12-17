@@ -1206,7 +1206,7 @@ namespace osmscout {
           break;
         }
 
-        if (ring.IsOuterRing()) {
+        if (ring.IsTopOuter()) {
           if (IsCoordInArea(location,
                             ring.nodes)) {
             distance=Distance::Of<Meter>(0.0);
@@ -1438,7 +1438,7 @@ namespace osmscout {
           break;
         }
 
-        if (ring.IsOuterRing()) {
+        if (ring.IsTopOuter()) {
           if (IsCoordInArea(center,
                             ring.nodes)) {
             distance=Distance::Of<Meter>(0.0);
