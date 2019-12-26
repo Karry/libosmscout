@@ -285,7 +285,7 @@ stylesheets = [
             ]
 
 foreach stylesheet : stylesheets
-    test('Check OST and OSS file '+stylesheet,
+    test('Check OSS/T file '+stylesheet,
             OSTAndOSSCheck,
             args : ['--warning-as-error',
                     meson.current_source_dir() + '/../stylesheets/map.ost',
