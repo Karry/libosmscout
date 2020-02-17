@@ -140,6 +140,7 @@ namespace osmscout {
               }
             }
             if (distance<nearest){
+              nearest=distance;
               position.coord=nearestPoint;
               position.databaseId=dbId;
               position.typeConfig=objs.typeConfig;
