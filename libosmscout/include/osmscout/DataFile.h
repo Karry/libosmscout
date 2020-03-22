@@ -108,6 +108,8 @@ namespace osmscout {
     virtual bool IsOpen() const;
     virtual bool Close();
 
+    void FlushCache();
+
     inline std::string GetFilename() const
     {
       return datafilename;
@@ -244,6 +246,7 @@ namespace osmscout {
   bool DataFile<N>::Close()
   {
     typeConfig=nullptr;
+    cache.Flush();
 
     try  {
       if (scanner.IsOpen()) {
@@ -257,6 +260,13 @@ namespace osmscout {
     }
 
     return true;
+  }
+
+  template <class N>
+  void DataFile<N>::FlushCache()
+  {
+    std::lock_guard<std::mutex> lock(accessMutex);
+    cache.Flush();
   }
 
   /**

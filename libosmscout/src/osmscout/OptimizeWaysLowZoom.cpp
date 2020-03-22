@@ -128,6 +128,8 @@ namespace osmscout
 
   bool OptimizeWaysLowZoom::Close()
   {
+    typeConfig=nullptr;
+    wayTypesData.clear();
     try  {
       if (scanner.IsOpen()) {
         scanner.Close();

@@ -129,6 +129,8 @@ namespace osmscout
 
   bool OptimizeAreasLowZoom::Close()
   {
+    typeConfig=nullptr;
+    areaTypesData.clear();
     try  {
       if (scanner.IsOpen()) {
         scanner.Close();

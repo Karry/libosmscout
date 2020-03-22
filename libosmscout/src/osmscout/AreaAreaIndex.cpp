@@ -48,6 +48,7 @@ namespace osmscout {
 
   void AreaAreaIndex::Close()
   {
+    indexCache.Flush();
     try {
       if (scanner.IsOpen()) {
         scanner.Close();
@@ -375,6 +376,13 @@ namespace osmscout {
 
   void AreaAreaIndex::DumpStatistics()
   {
+    std::lock_guard<std::mutex> guard(lookupMutex);
     indexCache.DumpStatistics(AREA_AREA_IDX,IndexCacheValueSizer());
+  }
+
+  void AreaAreaIndex::FlushCache()
+  {
+    std::lock_guard<std::mutex> guard(lookupMutex);
+    indexCache.Flush();
   }
 }

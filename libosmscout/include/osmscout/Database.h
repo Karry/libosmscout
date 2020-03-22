@@ -477,6 +477,8 @@ namespace osmscout {
                                            const GeoBox& boundingBox);
 
     void DumpStatistics();
+
+    void FlushCache();
   };
 
   //! Reference counted reference to an Database instance
