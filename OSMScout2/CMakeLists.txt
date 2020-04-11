@@ -57,6 +57,7 @@ set(SOURCE_FILES
     qml/custom/MapButton.qml
 	qml/custom/RoutingStep.qml
 	qml/custom/RouteStepIcon.qml
+	qml/custom/Utils.js
 	)
 
 # XML files with translated phrases.
@@ -119,7 +120,7 @@ endif()
 
 # enable QML debuger
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DQT_QML_DEBUG")
-set_property(TARGET OSMScout2 PROPERTY CXX_STANDARD 14)
+set_property(TARGET OSMScout2 PROPERTY CXX_STANDARD 17)
 
 install(TARGETS OSMScout2 RUNTIME DESTINATION bin LIBRARY DESTINATION lib ARCHIVE DESTINATION lib)
 
