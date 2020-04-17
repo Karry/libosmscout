@@ -37,7 +37,7 @@ namespace osmscout {
   /**
    * \ingroup Database
    */
-  class OSMSCOUT_API WaterIndex final
+  class OSMSCOUT_API WaterIndex
   {
   public:
     static const char* const WATER_IDX;
