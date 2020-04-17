@@ -107,7 +107,7 @@ namespace osmscout {
 
           if (currentCoordCount>parameter.GetRawCoordBlockSize()
               && coordPages.size()>1) {
-            Id oldUpperLimit=currentUpperLimit;
+            [[maybe_unused]] Id oldUpperLimit=currentUpperLimit;
 
             while (currentCoordCount>parameter.GetRawCoordBlockSize()
                    && coordPages.size()>1) {
@@ -121,7 +121,6 @@ namespace osmscout {
             }
 
             assert(currentUpperLimit<oldUpperLimit);
-            unused(oldUpperLimit);
           }
         }
 
@@ -284,7 +283,7 @@ namespace osmscout {
 
           if (currentCoordCount>parameter.GetRawCoordBlockSize()
               && coordPages.size()>1) {
-            OSMId oldUpperLimit=currentUpperLimit;
+            [[maybe_unused]] OSMId oldUpperLimit=currentUpperLimit;
 
             while (currentCoordCount>parameter.GetRawCoordBlockSize()
                    && coordPages.size()>1) {
@@ -298,7 +297,6 @@ namespace osmscout {
             }
 
             assert(currentUpperLimit<oldUpperLimit);
-            unused(oldUpperLimit);
           }
         }
 
