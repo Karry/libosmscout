@@ -47,7 +47,7 @@ namespace osmscout {
   public:
     BoundingBoxDataFile();
 
-    virtual ~BoundingBoxDataFile();
+    virtual ~BoundingBoxDataFile() = default;
 
     bool Load(const std::string& path,
               uint32_t fileFormatVersion);
