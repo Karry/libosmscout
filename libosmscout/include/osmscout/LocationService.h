@@ -311,10 +311,10 @@ public:
 
 };
 
-//! \ingroup Service
-//! \ingroup Location
-//! Reference counted reference to a location service instance
-typedef std::shared_ptr<LocationService> LocationServiceRef;
+  //! \ingroup Service
+  //! \ingroup Location
+  //! Reference counted reference to a location service instance
+  using LocationServiceRef = std::shared_ptr<LocationService>;
 }
 
 

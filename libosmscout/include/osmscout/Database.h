@@ -482,7 +482,7 @@ namespace osmscout {
   };
 
   //! Reference counted reference to an Database instance
-  typedef std::shared_ptr<Database> DatabaseRef;
+  using DatabaseRef = std::shared_ptr<Database>;
 
   /**
    * \defgroup Service High level services

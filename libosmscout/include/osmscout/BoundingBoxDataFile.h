@@ -68,7 +68,7 @@ namespace osmscout {
     }
   };
 
-  typedef std::shared_ptr<BoundingBoxDataFile> BoundingBoxDataFileRef;
+  using BoundingBoxDataFileRef = std::shared_ptr<BoundingBoxDataFile>;
 }
 
 #endif

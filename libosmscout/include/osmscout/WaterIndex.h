@@ -105,7 +105,7 @@ namespace osmscout {
     virtual void DumpStatistics();
   };
 
-  typedef std::shared_ptr<WaterIndex> WaterIndexRef;
+  using WaterIndexRef = std::shared_ptr<WaterIndex>;
 }
 
 #endif
