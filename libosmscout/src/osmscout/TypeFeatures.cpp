@@ -204,6 +204,82 @@ namespace osmscout {
     }
   }
 
+  void NameShortFeatureValue::Read(FileScanner& scanner)
+  {
+    scanner.Read(nameShort);
+  }
+
+  void NameShortFeatureValue::Write(FileWriter& writer)
+  {
+    writer.Write(nameShort);
+  }
+
+  NameShortFeatureValue& NameShortFeatureValue::operator=(const FeatureValue& other)
+  {
+    if (this!=&other) {
+      const auto& otherValue=static_cast<const NameShortFeatureValue&>(other);
+
+      nameShort=otherValue.nameShort;
+    }
+
+    return *this;
+  }
+
+  bool NameShortFeatureValue::operator==(const FeatureValue& other) const
+  {
+    const auto& otherValue=static_cast<const NameShortFeatureValue&>(other);
+
+    return nameShort==otherValue.nameShort;
+  }
+
+  const char* const NameShortFeature::NAME             = "ShortName";
+  const char* const NameShortFeature::NAME_LABEL       = "name";
+  const size_t      NameShortFeature::NAME_LABEL_INDEX = 0;
+
+  NameShortFeature::NameShortFeature()
+  : tagShortName(0)
+  {
+    RegisterLabel(NAME_LABEL_INDEX,
+                  NAME_LABEL);
+  }
+
+  void NameShortFeature::Initialize(TagRegistry& tagRegistry)
+  {
+    tagShortName=tagRegistry.RegisterTag("short_name");
+  }
+
+  std::string NameShortFeature::GetName() const
+  {
+    return NAME;
+  }
+
+  size_t NameShortFeature::GetValueSize() const
+  {
+    return sizeof(NameShortFeatureValue);
+  }
+
+  FeatureValue* NameShortFeature::AllocateValue(void* buffer)
+  {
+    return new (buffer) NameShortFeatureValue();
+  }
+
+  void NameShortFeature::Parse(TagErrorReporter& /*errorReporter*/,
+                             const TagRegistry& /*tagRegistry*/,
+                             const FeatureInstance& feature,
+                             const ObjectOSMRef& /*object*/,
+                             const TagMap& tags,
+                             FeatureValueBuffer& buffer) const
+  {
+    auto shortName=tags.find(tagShortName);
+
+    if (shortName!=tags.end() &&
+      !shortName->second.empty()) {
+      auto* value=static_cast<NameShortFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
+
+      value->SetNameShort(shortName->second);
+    }
+  }
+
   void RefFeatureValue::Read(FileScanner& scanner)
   {
     scanner.Read(ref);
@@ -2815,6 +2891,238 @@ namespace osmscout {
     if (additionalInfos) {
       value->SetTurnLanes(turnForward,turnBackward);
       value->SetDestinationLanes(destinationForward,destinationBackward);
+    }
+  }
+
+  void OperatorFeatureValue::Read(FileScanner& scanner)
+  {
+    scanner.Read(op);
+  }
+
+  void OperatorFeatureValue::Write(FileWriter& writer)
+  {
+    writer.Write(op);
+  }
+
+  OperatorFeatureValue& OperatorFeatureValue::operator=(const FeatureValue& other)
+  {
+    if (this!=&other) {
+      const auto& otherValue=static_cast<const OperatorFeatureValue&>(other);
+
+      op=otherValue.op;
+    }
+
+    return *this;
+  }
+
+  bool OperatorFeatureValue::operator==(const FeatureValue& other) const
+  {
+    const auto& otherValue=static_cast<const OperatorFeatureValue&>(other);
+
+    return op==otherValue.op;
+  }
+
+  const char* const OperatorFeature::NAME = "Operator";
+  const char* const OperatorFeature::NUMBER_LABEL = "number";
+  const size_t      OperatorFeature::NUMBER_LABEL_INDEX = 0;
+
+  OperatorFeature::OperatorFeature()
+  {
+    RegisterLabel(NUMBER_LABEL_INDEX,NUMBER_LABEL);
+  }
+
+  void OperatorFeature::Initialize(TagRegistry& tagRegistry)
+  {
+    tagOperator=tagRegistry.RegisterTag("operator");
+  }
+
+  std::string OperatorFeature::GetName() const
+  {
+    return NAME;
+  }
+
+  size_t OperatorFeature::GetValueSize() const
+  {
+    return sizeof(OperatorFeatureValue);
+  }
+
+  FeatureValue* OperatorFeature::AllocateValue(void* buffer)
+  {
+    return new (buffer) OperatorFeatureValue();
+  }
+
+  void OperatorFeature::Parse(TagErrorReporter& /*errorReporter*/,
+                              const TagRegistry& /*tagRegistry*/,
+                              const FeatureInstance& feature,
+                              const ObjectOSMRef& /*object*/,
+                              const TagMap& tags,
+                              FeatureValueBuffer& buffer) const
+  {
+    auto op = tags.find(tagOperator);
+
+    if (op != tags.end() && !op->second.empty()) {
+      auto* value = static_cast<OperatorFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
+
+      value->SetOperator(op->second);
+    }
+  }
+
+  void NetworkFeatureValue::Read(FileScanner& scanner)
+  {
+    scanner.Read(network);
+  }
+
+  void NetworkFeatureValue::Write(FileWriter& writer)
+  {
+    writer.Write(network);
+  }
+
+  NetworkFeatureValue& NetworkFeatureValue::operator=(const FeatureValue& other)
+  {
+    if (this!=&other) {
+      const auto& otherValue=static_cast<const NetworkFeatureValue&>(other);
+
+      network=otherValue.network;
+    }
+
+    return *this;
+  }
+
+  bool NetworkFeatureValue::operator==(const FeatureValue& other) const
+  {
+    const auto& otherValue=static_cast<const NetworkFeatureValue&>(other);
+
+    return network==otherValue.network;
+  }
+
+  const char* const NetworkFeature::NAME = "Network";
+  const char* const NetworkFeature::NUMBER_LABEL = "number";
+  const size_t      NetworkFeature::NUMBER_LABEL_INDEX = 0;
+
+  NetworkFeature::NetworkFeature()
+  {
+    RegisterLabel(NUMBER_LABEL_INDEX,NUMBER_LABEL);
+  }
+
+  void NetworkFeature::Initialize(TagRegistry& tagRegistry)
+  {
+    tagNetwork=tagRegistry.RegisterTag("network");
+  }
+
+  std::string NetworkFeature::GetName() const
+  {
+    return NAME;
+  }
+
+  size_t NetworkFeature::GetValueSize() const
+  {
+    return sizeof(NetworkFeatureValue);
+  }
+
+  FeatureValue* NetworkFeature::AllocateValue(void* buffer)
+  {
+    return new (buffer) NetworkFeatureValue();
+  }
+
+  void NetworkFeature::Parse(TagErrorReporter& /*errorReporter*/,
+                             const TagRegistry& /*tagRegistry*/,
+                             const FeatureInstance& feature,
+                             const ObjectOSMRef& /*object*/,
+                             const TagMap& tags,
+                             FeatureValueBuffer& buffer) const
+  {
+    auto network= tags.find(tagNetwork);
+
+    if (network!=tags.end() && !network->second.empty()) {
+      auto* value = static_cast<NetworkFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
+
+      value->SetNetwork(network->second);
+    }
+  }
+
+  void FromToFeatureValue::Read(FileScanner& scanner)
+  {
+    scanner.Read(from);
+    scanner.Read(to);
+  }
+
+  void FromToFeatureValue::Write(FileWriter& writer)
+  {
+    writer.Write(from);
+    writer.Write(to);
+  }
+
+  FromToFeatureValue& FromToFeatureValue::operator=(const FeatureValue& other)
+  {
+    if (this!=&other) {
+      const auto& otherValue=static_cast<const FromToFeatureValue&>(other);
+
+      from=otherValue.from;
+      to=otherValue.to;
+    }
+
+    return *this;
+  }
+
+  bool FromToFeatureValue::operator==(const FeatureValue& other) const
+  {
+    const auto& otherValue=static_cast<const FromToFeatureValue&>(other);
+
+    return from==otherValue.from &&
+           to==otherValue.to;
+  }
+
+  const char* const FromToFeature::NAME = "FromTo";
+  const char* const FromToFeature::NUMBER_LABEL = "number";
+  const size_t      FromToFeature::NUMBER_LABEL_INDEX = 0;
+
+  FromToFeature::FromToFeature()
+  {
+    RegisterLabel(NUMBER_LABEL_INDEX,NUMBER_LABEL);
+  }
+
+  void FromToFeature::Initialize(TagRegistry& tagRegistry)
+  {
+    tagFrom=tagRegistry.RegisterTag("from");
+    tagTo=tagRegistry.RegisterTag("to");
+  }
+
+  std::string FromToFeature::GetName() const
+  {
+    return NAME;
+  }
+
+  size_t FromToFeature::GetValueSize() const
+  {
+    return sizeof(FromToFeatureValue);
+  }
+
+  FeatureValue* FromToFeature::AllocateValue(void* buffer)
+  {
+    return new (buffer) FromToFeatureValue();
+  }
+
+  void FromToFeature::Parse(TagErrorReporter& /*errorReporter*/,
+                             const TagRegistry& /*tagRegistry*/,
+                             const FeatureInstance& feature,
+                             const ObjectOSMRef& /*object*/,
+                             const TagMap& tags,
+                             FeatureValueBuffer& buffer) const
+  {
+    auto from=tags.find(tagFrom);
+    auto to=tags.find(tagTo);
+
+    if ((from!=tags.end() && !from->second.empty()) ||
+        (to!=tags.end() && !to->second.empty())) {
+      auto* value = static_cast<FromToFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
+
+      if (from!=tags.end()) {
+        value->SetFrom(from->second);
+      }
+
+      if (to!=tags.end()) {
+        value->SetTo(to->second);
+      }
     }
   }
 }

@@ -41,8 +41,11 @@ namespace osmscout {
   {
   public:
     FeatureValue() = default;
+    FeatureValue(const FeatureValue& featureValue) = default;
 
     virtual ~FeatureValue() = default;
+
+    virtual FeatureValue& operator=(const FeatureValue& other); // NOLINT
 
     inline virtual std::string GetLabel(const Locale &/*locale*/, size_t /*labelIndex*/) const
     {
@@ -56,11 +59,19 @@ namespace osmscout {
       return false;
     }
 
-    virtual void Read(FileScanner& scanner);
+    /**
+     * Read the value of the Feature from the FileScanner
+     *
+     * @throws IOException
+     */
+    virtual void Read(FileScanner& scanner) = 0;
 
-    virtual void Write(FileWriter& writer);
-
-    virtual FeatureValue& operator=(const FeatureValue& other);
+    /**
+     * Write the FeatureValue to disk.
+     *
+     * @throws IOException.
+     */
+    virtual void Write(FileWriter& writer) = 0;
 
     virtual bool operator==(const FeatureValue& other) const = 0;
 

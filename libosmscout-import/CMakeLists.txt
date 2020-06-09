@@ -14,6 +14,7 @@ set(HEADER_FILES
     include/osmscout/import/GenOptimizeAreasLowZoom.h
     include/osmscout/import/GenOptimizeAreaWayIds.h
     include/osmscout/import/GenOptimizeWaysLowZoom.h
+    include/osmscout/import/GenPTRouteDat.h
     include/osmscout/import/GenRawNodeIndex.h
     include/osmscout/import/GenRawRelIndex.h
     include/osmscout/import/GenRawWayIndex.h
@@ -25,6 +26,9 @@ set(HEADER_FILES
     include/osmscout/import/GenWayWayDat.h
     include/osmscout/import/Import.h
     include/osmscout/import/ImportErrorReporter.h
+    include/osmscout/import/ImportModule.h
+    include/osmscout/import/ImportParameter.h
+    include/osmscout/import/ImportProgress.h
     include/osmscout/import/MergeAreaData.h
     include/osmscout/import/Preprocess.h
     include/osmscout/import/Preprocessor.h
@@ -62,6 +66,7 @@ set(SOURCE_FILES
     src/osmscout/import/GenRawRelIndex.cpp
     src/osmscout/import/GenRawWayIndex.cpp
     src/osmscout/import/GenRelAreaDat.cpp
+    src/osmscout/import/GenPTRouteDat.cpp
     src/osmscout/import/GenRouteDat.cpp
     src/osmscout/import/GenTypeDat.cpp
     src/osmscout/import/GenWaterIndex.cpp
@@ -69,6 +74,9 @@ set(SOURCE_FILES
     src/osmscout/import/GenWayWayDat.cpp
     src/osmscout/import/Import.cpp
     src/osmscout/import/ImportErrorReporter.cpp
+    src/osmscout/import/ImportModule.cpp
+    src/osmscout/import/ImportParameter.cpp
+    src/osmscout/import/ImportProgress.cpp
     src/osmscout/import/MergeAreaData.cpp
     src/osmscout/import/Preprocess.cpp
     src/osmscout/import/Preprocessor.cpp

@@ -230,18 +230,13 @@ namespace osmscout {
 
       bool          access;        //!< Flags to signal, if we had access ("access restrictions") to this node
 
-      RNode()
-      : id()
-      {
-        // no code
-      }
+      RNode() = default;
 
       RNode(const DBId& id,
             const RouteNodeRef& node,
             const ObjectFileRef& object)
       : id(id),
         node(node),
-        prev(),
         object(object),
         currentCost(0),
         estimateCost(0),
@@ -288,9 +283,8 @@ namespace osmscout {
         if (a->overallCost==b->overallCost) {
          return a->id<b->id;
         }
-        else {
-          return a->overallCost<b->overallCost;
-        }
+
+        return a->overallCost<b->overallCost;
       }
     };
 
@@ -332,8 +326,7 @@ namespace osmscout {
        *    Offset of the node to search for
        */
       inline explicit VNode(const DBId& currentNode)
-        : currentNode(currentNode),
-          previousNode()
+        : currentNode(currentNode)
       {
         // no code
       }

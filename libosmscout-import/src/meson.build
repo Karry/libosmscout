@@ -23,6 +23,7 @@ osmscoutimportSrc = [
             'src/osmscout/import/GenOptimizeAreaWayIds.cpp',
             'src/osmscout/import/GenOptimizeAreasLowZoom.cpp',
             'src/osmscout/import/GenOptimizeWaysLowZoom.cpp',
+            'src/osmscout/import/GenPTRouteDat.cpp',
             'src/osmscout/import/GenRelAreaDat.cpp',
             'src/osmscout/import/GenRouteDat.cpp',
             'src/osmscout/import/GenTypeDat.cpp',
@@ -36,6 +37,9 @@ osmscoutimportSrc = [
             'src/osmscout/import/SortWayDat.cpp',
             'src/osmscout/import/Import.cpp',
             'src/osmscout/import/ImportErrorReporter.cpp',
+            'src/osmscout/import/ImportModule.cpp',
+            'src/osmscout/import/ImportParameter.cpp',
+            'src/osmscout/import/ImportProgress.cpp',
             'src/osmscout/import/Preprocessor.cpp',
             'src/osmscout/import/Preprocess.cpp',
             'src/osmscout/import/PreprocessPoly.cpp'

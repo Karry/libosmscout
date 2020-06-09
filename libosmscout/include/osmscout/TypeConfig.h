@@ -73,6 +73,13 @@ namespace osmscout {
     static const uint8_t typeArea     = 1u << 2u; //!< Condition applies to areas
     static const uint8_t typeRelation = 1u << 3u; //!< Condition applies to releations
 
+    enum class SpecialType : uint8_t {
+      none         = 0,
+      multipolygon = 1,
+      routeMaster  = 2,
+      route        = 3
+    };
+
   public:
     /**
      * \ingroup type
@@ -116,7 +123,7 @@ namespace osmscout {
     bool                                        indexAsRegion;           //!< Objects of this type are defining a administrative region (e.g. city, county,...)
     bool                                        indexAsPOI;              //!< Objects of this type are defining a POI
     bool                                        optimizeLowZoom;         //!< Optimize objects of this type for low zoom rendering
-    bool                                        multipolygon;
+    SpecialType                                 specialType;             //!< Special logical OSM type
     bool                                        pinWay;                  //!< If there is no way/area information treat this object as way even it the way is closed
     bool                                        mergeAreas;              //!< Areas of this type are merged under certain conditions
     bool                                        ignoreSeaLand;           //!< Ignore objects of this type for sea/land calculation
@@ -531,20 +538,60 @@ namespace osmscout {
       return optimizeLowZoom;
     }
 
-    /**
-     * If set to 'true', an object is handled as multipolygon even though it may not have
-     * type=multipolygon set explicitly.
-     */
-    inline TypeInfo& SetMultipolygon(bool multipolygon)
-    {
-      this->multipolygon=multipolygon;
+    inline TypeInfo& SetSpecialType(SpecialType specialType) {
+      this->specialType=specialType;
 
       return *this;
     }
 
-    inline bool GetMultipolygon() const
+    inline SpecialType GetSpecialType() const
     {
-      return multipolygon;
+      return specialType;
+    }
+    /**
+     * An object is handled as multipolygon even though it may not have
+     * type=multipolygon set explicitly.
+     */
+    inline TypeInfo& SetMultipolygon()
+    {
+      this->specialType=SpecialType::multipolygon;
+
+      return *this;
+    }
+
+    /**
+     * An object is handled as route master.
+     */
+    inline TypeInfo& SetRouteMaster()
+    {
+      this->specialType=SpecialType::routeMaster;
+
+      return *this;
+    }
+
+    /**
+ * An object is handled as route master.
+ */
+    inline TypeInfo& SetRoute()
+    {
+      this->specialType=SpecialType::route;
+
+      return *this;
+    }
+
+    inline bool IsMultipolygon() const
+    {
+      return specialType==SpecialType::multipolygon;
+    }
+
+    inline bool IsRouteMaster() const
+    {
+      return specialType==SpecialType::routeMaster;
+    }
+
+    inline bool IsRoute() const
+    {
+      return specialType==SpecialType::route;
     }
 
     inline TypeInfo& SetPinWay(bool pinWay)
@@ -805,7 +852,7 @@ namespace osmscout {
 
   using FeatureValueBufferRef = std::shared_ptr<FeatureValueBuffer>;
 
-  static const uint32_t FILE_FORMAT_VERSION = 19;
+  static const uint32_t FILE_FORMAT_VERSION = 20;
   static const uint32_t FILE_FORMAT_MIN_VERSION = 6;
 
   // Forward declaration
@@ -852,6 +899,7 @@ namespace osmscout {
     std::unordered_map<std::string,FeatureRef>  nameToFeatureMap;
 
     FeatureRef                                  featureName;
+    FeatureRef                                  featureNameShort;
     FeatureRef                                  featureRef;
     FeatureRef                                  featureLocation;
     FeatureRef                                  featureAddress;
@@ -1025,7 +1073,7 @@ namespace osmscout {
     /**
      * Returns the type definition for the given type id
      */
-    inline const TypeInfoRef GetTypeInfo(size_t index) const
+    inline TypeInfoRef GetTypeInfo(size_t index) const
     {
       assert(index<types.size());
 
@@ -1035,46 +1083,43 @@ namespace osmscout {
     /**
      * Returns the type definition for the given type id
      */
-    inline const TypeInfoRef GetNodeTypeInfo(TypeId id) const
+    inline TypeInfoRef GetNodeTypeInfo(TypeId id) const
     {
       assert(id<=nodeTypes.size());
 
       if (id==typeIgnore) {
         return typeInfoIgnore;
       }
-      else {
-        return nodeTypes[id-1];
-      }
+
+      return nodeTypes[id-1];
     }
 
     /**
      * Returns the type definition for the given type id
      */
-    inline const TypeInfoRef GetWayTypeInfo(TypeId id) const
+    inline TypeInfoRef GetWayTypeInfo(TypeId id) const
     {
       assert(id<=wayTypes.size());
 
       if (id==typeIgnore) {
         return typeInfoIgnore;
       }
-      else {
-        return wayTypes[id-1];
-      }
+
+      return wayTypes[id-1];
     }
 
     /**
      * Returns the type definition for the given type id
      */
-    inline const TypeInfoRef GetAreaTypeInfo(TypeId id) const
+    inline TypeInfoRef GetAreaTypeInfo(TypeId id) const
     {
       assert(id<=areaTypes.size());
 
       if (id==typeIgnore) {
         return typeInfoIgnore;
       }
-      else {
-        return areaTypes[id-1];
-      }
+
+      return areaTypes[id-1];
     }
 
     /**

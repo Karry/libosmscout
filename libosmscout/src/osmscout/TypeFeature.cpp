@@ -23,31 +23,11 @@
 
 namespace osmscout {
 
-  FeatureValue& FeatureValue::operator=(const FeatureValue& /*other*/)
+  FeatureValue& FeatureValue::operator=(const FeatureValue& /*other*/) // NOLINT
   {
     assert(false);
 
     return *this;
-  }
-
-  /**
-   * Read the value of the Feature from the FileScanner
-   *
-   * @throws IOException
-   */
-  void FeatureValue::Read(FileScanner& /*scanner*/)
-  {
-    assert(false);
-  }
-
-  /**
-   * Write the FeatureValue to disk.
-   *
-   * @throws IOException.
-   */
-  void FeatureValue::Write(FileWriter& /*writer*/)
-  {
-    assert(false);
   }
 
   void Feature::RegisterLabel(size_t index,

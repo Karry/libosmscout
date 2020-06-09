@@ -26,6 +26,7 @@ osmscoutimportHeader = [
             'osmscout/import/GenOptimizeAreaWayIds.h',
             'osmscout/import/GenOptimizeAreasLowZoom.h',
             'osmscout/import/GenOptimizeWaysLowZoom.h',
+            'osmscout/import/GenPTRouteDat.h',
             'osmscout/import/GenRelAreaDat.h',
             'osmscout/import/GenRouteDat.h',
             'osmscout/import/GenTypeDat.h',
@@ -39,6 +40,9 @@ osmscoutimportHeader = [
             'osmscout/import/SortWayDat.h',
             'osmscout/import/Import.h',
             'osmscout/import/ImportErrorReporter.h',
+            'osmscout/import/ImportModule.h',
+            'osmscout/import/ImportParameter.h',
+            'osmscout/import/ImportProgress.h',
             'osmscout/import/Preprocessor.h',
             'osmscout/import/Preprocess.h',
             'osmscout/import/PreprocessPoly.h'

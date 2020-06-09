@@ -60,7 +60,7 @@ namespace osmscout {
       indexAsRegion(false),
       indexAsPOI(false),
       optimizeLowZoom(false),
-      multipolygon(false),
+      specialType(SpecialType::none),
       pinWay(false),
       mergeAreas(false),
       ignoreSeaLand(false),
@@ -301,7 +301,7 @@ namespace osmscout {
     bool        indexAsRegion;
     bool        indexAsPOI;
     bool        optimizeLowZoom;
-    bool        multipolygon;
+    uint8_t     specialType;
     bool        pinWay;
     bool        mergeAreas;
     bool        ignore;
@@ -322,7 +322,7 @@ namespace osmscout {
     scanner.Read(indexAsRegion);
     scanner.Read(indexAsPOI);
     scanner.Read(optimizeLowZoom);
-    scanner.Read(multipolygon);
+    scanner.Read(specialType);
     scanner.Read(pinWay);
     scanner.Read(mergeAreas);
     scanner.Read(ignoreSeaLand);
@@ -348,7 +348,7 @@ namespace osmscout {
     typeInfo->SetIndexAsRegion(indexAsRegion);
     typeInfo->SetIndexAsPOI(indexAsPOI);
     typeInfo->SetOptimizeLowZoom(optimizeLowZoom);
-    typeInfo->SetMultipolygon(multipolygon);
+    typeInfo->SetSpecialType(static_cast<SpecialType>(specialType));
     typeInfo->SetPinWay(pinWay);
     typeInfo->SetMergeAreas(mergeAreas);
     typeInfo->SetIgnoreSeaLand(ignoreSeaLand);
@@ -832,6 +832,9 @@ namespace osmscout {
 
     RegisterFeature(std::make_shared<NameAltFeature>());
 
+    featureNameShort=std::make_shared<NameShortFeature>();
+    RegisterFeature(featureNameShort);
+
     featureRef=std::make_shared<RefFeature>();
     RegisterFeature(featureRef);
 
@@ -898,6 +901,10 @@ namespace osmscout {
 
     featureLanes = std::make_shared<LanesFeature>();
     RegisterFeature(featureLanes);
+
+    RegisterFeature(std::make_shared<OperatorFeature>());
+    RegisterFeature(std::make_shared<NetworkFeature>());
+    RegisterFeature(std::make_shared<FromToFeature>());
 
     // Make sure, that this is always registered first.
     // It assures that id 0 is always reserved for typeIgnore
@@ -1765,7 +1772,7 @@ namespace osmscout {
         writer.Write(type->GetIndexAsRegion());
         writer.Write(type->GetIndexAsPOI());
         writer.Write(type->GetOptimizeLowZoom());
-        writer.Write(type->GetMultipolygon());
+        writer.Write(static_cast<uint8_t>(type->GetSpecialType()));
         writer.Write(type->GetPinWay());
         writer.Write(type->GetMergeAreas());
         writer.Write(type->GetIgnoreSeaLand());

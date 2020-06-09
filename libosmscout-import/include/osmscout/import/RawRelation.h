@@ -48,21 +48,19 @@ namespace osmscout {
       MemberType  type;
       OSMId       id;
       std::string role;
+
+      ObjectOSMRef GetObjectOSMRef() const;
     };
 
   private:
-    OSMId               id;
+    OSMId               id=0;
     FeatureValueBuffer  featureValueBuffer;
 
   public:
     std::vector<Member> members;
 
   public:
-    inline RawRelation()
-    : id(0)
-    {
-      // no code
-    }
+    RawRelation() = default;
 
     inline OSMId GetId() const
     {
@@ -111,7 +109,7 @@ namespace osmscout {
                FileWriter& writer) const;
   };
 
-  typedef std::shared_ptr<RawRelation> RawRelationRef;
+  using RawRelationRef = std::shared_ptr<RawRelation>;
 }
 
 #endif

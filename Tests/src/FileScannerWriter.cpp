@@ -553,7 +553,6 @@ int main()
   if (errors!=0) {
     return 1;
   }
-  else {
-    return 0;
-  }
+
+  return 0;
 }

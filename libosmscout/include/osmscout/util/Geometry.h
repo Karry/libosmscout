@@ -21,6 +21,7 @@
 */
 
 #include <algorithm>
+#include <array>
 #include <functional>
 #include <list>
 #include <unordered_map>
@@ -83,8 +84,10 @@ namespace osmscout {
   {
     double diff = std::abs(a - b);
 
-    if (diff > M_PI)
+    if (diff > M_PI) {
       return 2 * M_PI - diff;
+    }
+
     return diff;
   }
 
@@ -232,9 +235,8 @@ namespace osmscout {
                aBox.Includes(b1,false) ||
                aBox.Includes(b2,false);
       }
-      else {
-        return false;
-      }
+
+      return false;
     }
 
     double ua=ua_numr/denr;
@@ -316,9 +318,8 @@ namespace osmscout {
 
         return false;
       }
-      else {
-        return false;
-      }
+
+      return false;
     }
 
     double ua=ua_numr/denr;
@@ -599,7 +600,8 @@ namespace osmscout {
       if (relPos>0) {
         return true;
       }
-      else if (relPos<0) {
+
+      if (relPos<0) {
         return false;
       }
     }
@@ -681,8 +683,9 @@ namespace osmscout {
       }
     }
 
-    if (pro == 0 && contra == 0 && count > 0)
+    if (pro == 0 && contra == 0 && count > 0) {
       return true;
+    }
 
     return pro/20.0>contra;
   }
@@ -1133,7 +1136,8 @@ namespace osmscout {
       if (y<other.y) {
         return true;
       }
-      else if (y==other.y) {
+
+      if (y==other.y) {
         return x<other.x;
       }
 
@@ -1443,7 +1447,7 @@ namespace osmscout {
   const size_t CELL_DIMENSION_MAX   = 25;
   const size_t CELL_DIMENSION_COUNT = CELL_DIMENSION_MAX+1;
 
-  extern OSMSCOUT_API CellDimension cellDimension[CELL_DIMENSION_COUNT];
+  extern OSMSCOUT_API std::array<CellDimension,CELL_DIMENSION_COUNT> cellDimension;
 
   /**
    * Helper class to divide a given GeoBox in multiple equally sized parts. The partitioning
