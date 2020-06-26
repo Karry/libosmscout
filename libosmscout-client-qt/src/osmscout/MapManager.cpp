@@ -73,6 +73,7 @@ void MapDownloadJob::start()
     return;
   }
 
+  started=true;
   QStorageInfo storage=QStorageInfo(target);
   if (storage.bytesAvailable() > 0 && (uint64_t)storage.bytesAvailable() < map.getSize()){
     qWarning() << "Free space" << storage.bytesAvailable() << "bytes is less than map size (" << map.getSize() << ")!";
@@ -251,7 +252,7 @@ void MapManager::lookupDatabases()
   QList<QDir> databaseFsDirectories;
 
   for (QString lookupDir:databaseLookupDirs){
-    QDirIterator dirIt(lookupDir, QDirIterator::Subdirectories | QDirIterator::FollowSymlinks);
+    QDirIterator dirIt(lookupDir, QDir::Files, QDirIterator::Subdirectories | QDirIterator::FollowSymlinks);
     while (dirIt.hasNext()) {
       dirIt.next();
       QFileInfo fInfo(dirIt.filePath());

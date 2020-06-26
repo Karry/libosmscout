@@ -32,6 +32,15 @@ VoiceDownloadJob::VoiceDownloadJob(QNetworkAccessManager *webCtrl,
     DownloadJob(webCtrl, target, replaceExisting), voice(voice)
 {}
 
+VoiceDownloadJob::~VoiceDownloadJob()
+{
+  if (started && !successful){
+    // delete partial voice
+    Voice dir(target);
+    dir.deleteVoice();
+  }
+}
+
 void VoiceDownloadJob::start()
 {
   if (target.exists()){
@@ -46,6 +55,7 @@ void VoiceDownloadJob::start()
     return;
   }
 
+  started=true;
   QJsonObject metadata;
   metadata["lang"] = voice.getLang();
   metadata["gender"] = voice.getGender();
@@ -82,12 +92,12 @@ VoiceManager::VoiceManager()
 void VoiceManager::reload()
 {
   SettingsRef settings = OSMScoutQt::GetInstance().GetSettings();
-  osmscout::log.Info() << "Lookup voices";
   lookupDir = settings->GetVoiceLookupDirectory();
+  osmscout::log.Info() << "Lookup voices at " << lookupDir.toStdString();
   installedVoices.clear();
   QSet<QString> uniqPaths;
   if (QDir(lookupDir).exists()) {
-    QDirIterator dirIt(lookupDir, QDirIterator::Subdirectories | QDirIterator::FollowSymlinks);
+    QDirIterator dirIt(lookupDir, QDir::Dirs | QDir::NoDotAndDotDot, QDirIterator::Subdirectories | QDirIterator::FollowSymlinks);
     while (dirIt.hasNext()) {
       dirIt.next();
       QFileInfo fInfo(dirIt.filePath());
