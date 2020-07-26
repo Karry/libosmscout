@@ -23,6 +23,7 @@
 #include <map>
 #include <memory>
 #include <vector>
+#include <iostream>
 
 #include <osmscout/OSMScoutTypes.h>
 #include <osmscout/TypeConfig.h>
@@ -33,6 +34,7 @@
 #include <osmscout/Area.h>
 
 #include <osmscout/util/Time.h>
+#include <osmscout/util/String.h>
 #include <osmscout/util/Logger.h>
 
 #include <osmscout/routing/RouteNode.h>
@@ -87,6 +89,11 @@ namespace osmscout {
      * Estimated cost for distance when are no limitations (max. speed on the way)
      */
     virtual double GetCosts(const Distance &distance) const = 0;
+
+    /**
+     * Textual representation of cost
+     */
+    virtual std::string GetCostString(double cost) const = 0;
 
     virtual Duration GetTime(const Area& area,
                              const Distance &distance) const = 0;
@@ -152,6 +159,11 @@ namespace osmscout {
     inline double GetCostLimitFactor() const override
     {
       return costLimitFactor;
+    }
+
+    std::string GetCostString(double cost) const override
+    {
+      return std::to_string(cost);
     }
 
     void AddType(const TypeInfoRef& type, double speed);
@@ -228,6 +240,11 @@ namespace osmscout {
     {
       return distance.As<Kilometer>();
     }
+
+    std::string GetCostString(double cost) const override
+    {
+      return Kilometers(cost).AsString();
+    }
   };
 
   using ShortestPathRoutingProfileRef = std::shared_ptr<ShortestPathRoutingProfile>;
@@ -243,6 +260,7 @@ namespace osmscout {
     bool applyJunctionPenalty=true;
     Distance penaltySameType=Meters(160);
     Distance penaltyDifferentType=Meters(250);
+    HourDuration maxPenalty=std::chrono::seconds(10);
 
   public:
     explicit FastestPathRoutingProfile(const TypeConfigRef& typeConfig);
@@ -254,18 +272,28 @@ namespace osmscout {
       AbstractRoutingProfile::ParametrizeForFoot(typeConfig, maxSpeed);
     }
 
+    /**
+     * Setup profile for bicycle, it also setup junction penalty and multiply cost limit and cost limit factor.
+     */
     void ParametrizeForBicycle(const TypeConfig& typeConfig,
                                double maxSpeed) override
     {
-      applyJunctionPenalty=true;
+      applyJunctionPenalty = true;
+      costLimitDistance *= 2;
+      costLimitFactor *= 1.5;
       AbstractRoutingProfile::ParametrizeForBicycle(typeConfig, maxSpeed);
     }
 
+    /**
+     * Setup profile for car, it also setup junction penalty and multiply cost limit and cost limit factor.
+     */
     bool ParametrizeForCar(const TypeConfig& typeConfig,
                            const std::map<std::string,double>& speedMap,
                            double maxSpeed) override
     {
-      applyJunctionPenalty=true;
+      applyJunctionPenalty = true;
+      costLimitDistance *= 2;
+      costLimitFactor *= 1.5;
       return AbstractRoutingProfile::ParametrizeForCar(typeConfig, speedMap, maxSpeed);
     }
 
@@ -315,6 +343,11 @@ namespace osmscout {
         junctionPenalty = minSpeed <= 0 ?
                           std::numeric_limits<double>::infinity() :
                           penaltyDistance.As<Kilometer>() / minSpeed;
+
+        junctionPenalty = std::min(junctionPenalty, maxPenalty.count());
+#if defined(DEBUG_ROUTING)
+        std::cout << "  Add junction penalty " << GetCostString(junctionPenalty) << std::endl;
+#endif
       }
 
       return outPrice + junctionPenalty;
@@ -358,6 +391,12 @@ namespace osmscout {
 
       return distance.As<Kilometer>()/speed;
     }
+
+    std::string GetCostString(double cost) const override
+    {
+      return DurationString(std::chrono::duration_cast<Duration>(HourDuration(cost)));
+    }
+
   };
 
   using FastestPathRoutingProfileRef = std::shared_ptr<FastestPathRoutingProfile>;
