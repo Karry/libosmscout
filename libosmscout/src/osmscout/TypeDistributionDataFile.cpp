@@ -25,7 +25,7 @@
 
 namespace osmscout {
 
-  const char* TypeDistributionDataFile::DISTRIBUTION_DAT="distribution.dat";
+  const char* const TypeDistributionDataFile::DISTRIBUTION_DAT="distribution.dat";
 
 
   TypeDistributionDataFile::Distribution::Distribution()
@@ -38,11 +38,6 @@ namespace osmscout {
 
   TypeDistributionDataFile::TypeDistributionDataFile()
     : isLoaded(false)
-  {
-    // no code
-  }
-
-  TypeDistributionDataFile::~TypeDistributionDataFile()
   {
     // no code
   }

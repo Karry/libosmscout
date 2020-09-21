@@ -306,7 +306,7 @@ namespace osmscout {
         for (size_t i = 0; i < area->rings.size(); i++) {
           const Area::Ring &ring = area->rings[i];
 
-          if (ring.IsMasterRing()) {
+          if (ring.IsMaster()) {
             continue;
           }
 
@@ -314,19 +314,19 @@ namespace osmscout {
             continue;
           }
 
-          if (!ring.IsOuterRing() &&
+          if (!ring.IsTopOuter() &&
               ring.GetType()->GetIgnore()) {
             continue;
           }
 
-          if (!ring.IsOuterRing() && ring.GetType()->GetIgnore())
+          if (!ring.IsTopOuter() && ring.GetType()->GetIgnore())
             continue;
 
           TypeInfoRef type;
           FillStyleRef fillStyle;
           std::vector<BorderStyleRef> borderStyles;
 
-          if (ring.IsOuterRing()) {
+          if (ring.IsTopOuter()) {
             type = area->GetType();
           } else {
             type = ring.GetType();
@@ -380,7 +380,7 @@ namespace osmscout {
 
           std::vector<GLfloat> points;
 
-          if (!fillStyle && borderStyles.empty()) {
+          if (!fillStyle) {
             continue;
           }
 
@@ -580,7 +580,7 @@ namespace osmscout {
         if (lineStyles[l]->GetWidth() > 0.0) {
           WidthFeatureValue *widthValue = widthReader.GetValue(buffer);
 
-          if (widthValue != NULL) {
+          if (widthValue != nullptr) {
             lineWidth += widthValue->GetWidth() / projection.GetPixelSize();
           } else {
             lineWidth += lineStyles[l]->GetWidth() / projection.GetPixelSize();
@@ -946,7 +946,7 @@ namespace osmscout {
 
           image = osmscout::LoadPNGOpenGL(filename);
 
-          if (image != NULL) {
+          if (image != nullptr) {
             ImageRenderer.AddNewTexture(image);
             icons.push_back(id);
             hasIcon = true;
@@ -1017,7 +1017,7 @@ namespace osmscout {
           double minY;
           double maxX;
           double maxY;
-          symbol->GetBoundingBox(minX, minY, maxX, maxY);
+          symbol->GetBoundingBox(projection, minX, minY, maxX, maxY);
 
           double centerX = (minX + maxX) / 2;
           double centerY = (minY + maxY) / 2;
@@ -1026,8 +1026,9 @@ namespace osmscout {
             DrawPrimitive *primitive = p.get();
             FillStyleRef fillStyle = primitive->GetFillStyle();
 
-            if (dynamic_cast<PolygonPrimitive *>(primitive) !=nullptr) {
-              PolygonPrimitive *polygon = dynamic_cast<PolygonPrimitive *>(primitive);
+            if (PolygonPrimitive *polygon = dynamic_cast<PolygonPrimitive *>(primitive);
+                polygon !=nullptr) {
+
               double meterPerPixelLat = (40075.016686 * 1000) * std::cos(node->GetCoords().GetLat()) /
                                         (float) (std::pow(2, (Magnification.GetLevel() + 9)));
               double meterPerPixel = (40075.016686 * 1000) / (float) (std::pow(2, (Magnification.GetLevel() + 9)));
@@ -1039,9 +1040,9 @@ namespace osmscout {
                 double scaleLat = -1 * meterPerPixelLat * meterToDegreeLat;
 
                 double x =
-                    node->GetCoords().GetLon() + (projection.ConvertWidthToPixel(pixel.GetX() - centerX) * scale);
+                    node->GetCoords().GetLon() + ((projection.ConvertWidthToPixel(pixel.GetX()) - centerX) * scale);
                 double y = node->GetCoords().GetLat() +
-                           (projection.ConvertWidthToPixel(pixel.GetY() - centerY) * scaleLat);
+                           ((projection.ConvertWidthToPixel(pixel.GetY()) - centerY) * scaleLat);
 
                 vertices.push_back(osmscout::Vertex2D(x, y));
               }

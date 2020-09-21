@@ -82,6 +82,13 @@ EncodeNumber = executable('EncodeNumber',
              link_with: [osmscout],
              install: false)
 
+FeatureLabelTest = executable('FeatureLabelTest',
+             'src/FeatureLabelTest.cpp',
+             include_directories: [testIncDir, osmscoutIncDir],
+             dependencies: [mathDep, openmpDep],
+             link_with: [osmscout],
+             install: false)
+
 FileScannerWriter = executable('FileScannerWriter',
              'src/FileScannerWriter.cpp',
              include_directories: [osmscoutIncDir],
@@ -110,17 +117,19 @@ Geometry = executable('Geometry',
              link_with: [osmscout],
              install: false)
 
-LocationServiceTest = executable('LocationServiceTest',
-             [
-               'src/LocationServiceTest.cpp',
-               'src/SearchForLocationByStringTest.cpp',
-               'src/SearchForLocationByFormTest.cpp',
-               'src/SearchForPOIByFormTest.cpp'
-             ],
-             include_directories: [testIncDir, osmscouttestIncDir, osmscoutimportIncDir, osmscoutIncDir],
-             dependencies: [mathDep, openmpDep],
-             link_with: [osmscouttest, osmscoutimport, osmscout],
-             install: false)
+if buildImport
+    LocationServiceTest = executable('LocationServiceTest',
+                 [
+                   'src/LocationServiceTest.cpp',
+                   'src/SearchForLocationByStringTest.cpp',
+                   'src/SearchForLocationByFormTest.cpp',
+                   'src/SearchForPOIByFormTest.cpp'
+                 ],
+                 include_directories: [testIncDir, osmscouttestIncDir, osmscoutimportIncDir, osmscoutIncDir],
+                 dependencies: [mathDep, openmpDep],
+                 link_with: [osmscouttest, osmscoutimport, osmscout],
+                 install: false)
+endif
 
 MapRotate = executable('MapRotate',
              'src/MapRotate.cpp',
@@ -167,6 +176,13 @@ ReaderScannerPerformance = executable('ReaderScannerPerformance',
 
 ScanConversion = executable('ScanConversion',
              'src/ScanConversion.cpp',
+             include_directories: [testIncDir, osmscoutIncDir],
+             dependencies: [mathDep, openmpDep],
+             link_with: [osmscout],
+             install: false)
+
+StringUtils = executable('StringUtils',
+             'src/StringUtils.cpp',
              include_directories: [testIncDir, osmscoutIncDir],
              dependencies: [mathDep, openmpDep],
              link_with: [osmscout],
@@ -236,23 +252,37 @@ test('Check parsing of access rights', AccessParse)
 test('Check parsing of time string', TimeParse)
 test('Check calculation of bearing', Bearing)
 test('Check encoding of numbers', BitsAndBytesNeeded)
+test('Check cache functionality with CachePerformance', CachePerformance, args : ['--size', '1000'])
 test('Check parsing of command line args', CmdLineParsing)
 test('Check parsing of colors', ColorParse)
+test('Check parsing of ways.dat', CoordinateEncoding, args : [meson.current_source_dir() + '/data/testregion'])
+test('Check routing', MultiDBRouting, args : ['50.412', '14.534', '50.424', '14.6013', meson.current_source_dir() + '/data/testregion'])
+test('Check threaded database', ThreadedDatabase, args : [
+        '--threads', '100',
+        '--iterations', '1000',
+        meson.current_source_dir() + '/data/testregion',
+        meson.current_source_dir() + '/../stylesheets/standard.oss'])
+
 test('Check encoding of numbers', EncodeNumber)
+test('Check label formatting', FeatureLabelTest)
 test('Check File access implementation', FileScannerWriter)
 test('Check parsing of geo box intersection', GeoBox)
 test('Check parsing of geo coordinates', GeoCoordParse)
 test('Check impl. of geometric functions', Geometry)
-test('Check LocationService', LocationServiceTest, env: ostandossEnv)
 test('Check rotation of maps', MapRotate)
 test('Check correctness of NumberSet class', NumberSet)
 test('Check scan conversion code', ScanConversion)
+test('Check string utils', StringUtils)
 test('Check tiling calculation code', TilingTest)
 test('Check polygon transformation code', TransPolygon)
 test('Check implementation of work queue', WorkQueue)
 test('Check WString<=>String conversion code', WStringStringConversion)
 test('Check LabelPath code', LabelPathTest)
 test('Check Base64 code', Base64Test)
+
+if buildImport
+    test('Check LocationService', LocationServiceTest, env: ostandossEnv)
+endif
 
 stylesheets = [
             'standard.oss',
@@ -264,9 +294,34 @@ stylesheets = [
             ]
 
 foreach stylesheet : stylesheets
-    test('Check OST and OSS file '+stylesheet,
+    test('Check OSS/T file '+stylesheet,
             OSTAndOSSCheck,
             args : ['--warning-as-error',
                     meson.current_source_dir() + '/../stylesheets/map.ost',
                     meson.current_source_dir() + '/../stylesheets/' + stylesheet])
 endforeach
+
+if buildClientQt
+  threadingMocs = qt5.preprocess(moc_headers : ['include/ClientQtThreading.h'])
+
+  ClientQtThreading = executable('ClientQtThreading',
+               'src/ClientQtThreading.cpp',
+               threadingMocs,
+               include_directories: [testIncDir, osmscoutmapqtIncDir, osmscoutmapIncDir, osmscoutIncDir, osmscoutclientqtIncDir],
+               dependencies: [mathDep, threadDep, openmpDep, qt5GuiDep, qt5WidgetsDep, qt5QmlDep, qt5QuickDep, qt5NetworkDep, qt5MultimediaDep],
+               link_with: [osmscoutmapqt, osmscoutmap, osmscout, osmscoutclientqt],
+               install: false)
+endif
+
+if buildClientQt
+  testMocs = qt5.preprocess(moc_headers : ['include/DownloaderTest.h'])
+
+  QtFileDownloader = executable('QtFileDownloader',
+               'src/QtFileDownloader.cpp',
+               testMocs,
+               include_directories: [testIncDir, osmscoutmapqtIncDir, osmscoutmapIncDir, osmscoutIncDir, osmscoutclientqtIncDir],
+               dependencies: [mathDep, threadDep, openmpDep, qt5GuiDep, qt5WidgetsDep, qt5QmlDep, qt5QuickDep, qt5NetworkDep, qt5MultimediaDep],
+               link_with: [osmscoutmapqt, osmscoutmap, osmscout, osmscoutclientqt],
+               install: false)
+endif
+

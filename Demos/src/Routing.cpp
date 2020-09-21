@@ -29,13 +29,11 @@
 #include <osmscout/routing/SimpleRoutingService.h>
 #include <osmscout/routing/RoutePostprocessor.h>
 #include <osmscout/routing/DBFileOffset.h>
+#include <osmscout/routing/RouteDescriptionPostprocessor.h>
 
 #include <osmscout/util/CmdLineParsing.h>
 #include <osmscout/util/Geometry.h>
-
-//#define ROUTE_DEBUG
-//#define NODE_DEBUG
-//#define DATA_DEBUG
+#include <osmscout/util/Time.h>
 
 /*
   Examples for the nordrhein-westfalen.osm:
@@ -68,6 +66,9 @@ struct Arguments
   std::string            databaseDirectory;
   osmscout::GeoCoord     start;
   osmscout::GeoCoord     target;
+  bool                   debug=false;
+  bool                   dataDebug=false;
+  bool                   routeDebug=false;
 };
 
 class ConsoleRoutingProgress : public osmscout::RoutingProgress
@@ -107,15 +108,16 @@ public:
   }
 };
 
-static std::string TimeToString(double time)
+static std::string TimeToString(osmscout::Duration duration)
 {
+  double hours = osmscout::DurationAsHours(duration);
   std::ostringstream stream;
 
-  stream << std::setfill(' ') << std::setw(2) << (int)std::floor(time) << ":";
+  stream << std::setfill(' ') << std::setw(2) << (int)std::floor(hours) << ":";
 
-  time-=std::floor(time);
+  hours-=std::floor(hours);
 
-  stream << std::setfill('0') << std::setw(2) << (int)floor(60*time+0.5);
+  stream << std::setfill('0') << std::setw(2) << (int)floor(60*hours+0.5);
 
   return stream.str();
 }
@@ -216,22 +218,24 @@ static std::string CrossingWaysDescriptionToString(const osmscout::RouteDescript
   }
 }
 
-struct RouteDescriptionGeneratorCallback : public osmscout::RouteDescriptionGenerator::Callback
+struct RouteDescriptionGeneratorCallback : public osmscout::RouteDescriptionPostprocessor::Callback
 {
   size_t lineCount;
   double prevDistance;
-  double prevTime;
+  osmscout::Duration prevTime;
   double distance;
-  double time;
+  osmscout::Duration time;
   bool  lineDrawn;
+  bool routeDebug;
 
-  RouteDescriptionGeneratorCallback()
+  RouteDescriptionGeneratorCallback(bool routeDebug)
   : lineCount(0),
     prevDistance(0.0),
-    prevTime(0.0),
+    prevTime(osmscout::Duration::zero()),
     distance(0.0),
-    time(0.0),
-    lineDrawn(false)
+    time(osmscout::Duration::zero()),
+    lineDrawn(false),
+    routeDebug(routeDebug)
   {
   }
 
@@ -253,7 +257,7 @@ struct RouteDescriptionGeneratorCallback : public osmscout::RouteDescriptionGene
 
       std::cout << TimeToString(time) << "h ";
 
-      if (time-prevTime!=0.0) {
+      if (time-prevTime!=osmscout::Duration::zero()) {
         std::cout << TimeToString(time-prevTime) << "h ";
       }
       else {
@@ -526,26 +530,35 @@ struct RouteDescriptionGeneratorCallback : public osmscout::RouteDescriptionGene
     distance=node.GetDistance().As<osmscout::Kilometer>();
     time=node.GetTime();
 
-#if defined(ROUTE_DEBUG) || defined(NODE_DEBUG)
-    NextLine(lineCount);
+    if(routeDebug) {
+      NextLine(lineCount);
 
-    std::cout << "// " << node->GetTime() << "h " << std::setw(0) << std::setprecision(3) << node->GetDistance() << "km ";
+      using namespace std::chrono;
+      using hoursDouble = duration<double, std::ratio<3600>>;
 
-    if (node->GetPathObject().Valid()) {
-      std::cout << node->GetPathObject().GetTypeName() << " " << node->GetPathObject().GetFileOffset() << "[" << node->GetCurrentNodeIndex() << "] => " << node->GetPathObject().GetTypeName() << " " << node->GetPathObject().GetFileOffset() << "[" << node->GetTargetNodeIndex() << "]";
-    }
-
-    std::cout << std::endl;
-
-    for (std::list<osmscout::RouteDescription::DescriptionRef>::const_iterator d=node.GetDescriptions().begin();
-        d!=node.GetDescriptions().end();
-        ++d) {
-      osmscout::RouteDescription::DescriptionRef desc=*d;
+      std::cout << "// at " << node.GetLocation().GetDisplayText() << std::endl;
 
       NextLine(lineCount);
-      std::cout << "// " << desc->GetDebugString() << std::endl;
+      std::cout << "// " << duration_cast<hoursDouble>(node.GetTime()).count() << "h " << std::setw(0)
+                << std::setprecision(3) << node.GetDistance() << " ";
+
+      if (node.GetPathObject().Valid()) {
+        std::cout << node.GetPathObject().GetTypeName() << " " << node.GetPathObject().GetFileOffset() << "["
+                  << node.GetCurrentNodeIndex() << "] => " << node.GetPathObject().GetTypeName() << " "
+                  << node.GetPathObject().GetFileOffset() << "[" << node.GetTargetNodeIndex() << "]";
+      }
+
+      std::cout << std::endl;
+
+      for (std::list<osmscout::RouteDescription::DescriptionRef>::const_iterator d = node.GetDescriptions().begin();
+           d != node.GetDescriptions().end();
+           ++d) {
+        osmscout::RouteDescription::DescriptionRef desc = *d;
+
+        NextLine(lineCount);
+        std::cout << "// " << desc->GetDebugString() << std::endl;
+      }
     }
-#endif
   }
 
   void AfterNode(const osmscout::RouteDescription::Node& node) override
@@ -578,7 +591,28 @@ int main(int argc, char* argv[])
                       }),
                       "gpx",
                       "Dump resulting route as GPX to std::cout",
-                      true);
+                      false);
+
+  argParser.AddOption(osmscout::CmdLineFlag([&args](const bool& value) {
+                      args.debug=value;
+                      }),
+                      "debug",
+                      "Enable debug output",
+                      false);
+
+  argParser.AddOption(osmscout::CmdLineFlag([&args](const bool& value) {
+                        args.dataDebug=value;
+                      }),
+                      "dataDebug",
+                      "Dump data nodes to sdt::cout",
+                      false);
+
+  argParser.AddOption(osmscout::CmdLineFlag([&args](const bool& value) {
+                        args.routeDebug=value;
+                      }),
+                      "routeDebug",
+                      "Dump route description data to std::cout",
+                      false);
 
   argParser.AddOption(osmscout::CmdLineAlternativeFlag([&args](const std::string& value) {
                         if (value=="foot") {
@@ -631,6 +665,11 @@ int main(int argc, char* argv[])
     return 0;
   }
 
+  osmscout::log.Debug(args.debug);
+  osmscout::log.Info(true);
+  osmscout::log.Warn(true);
+  osmscout::log.Error(true);
+
   osmscout::DatabaseParameter databaseParameter;
   osmscout::DatabaseRef       database=std::make_shared<osmscout::Database>(databaseParameter);
 
@@ -680,28 +719,30 @@ int main(int argc, char* argv[])
     break;
   }
 
-  osmscout::RoutePosition start=router->GetClosestRoutableNode(args.start,
-                                                               *routingProfile,
-                                                               osmscout::Distance::Of<osmscout::Kilometer>(1));
+  auto startResult=router->GetClosestRoutableNode(args.start,
+                                                  *routingProfile,
+                                                  osmscout::Kilometers(1));
 
-  if (!start.IsValid()) {
+  if (!startResult.IsValid()) {
     std::cerr << "Error while searching for routing node near start location!" << std::endl;
     return 1;
   }
 
+  osmscout::RoutePosition start=startResult.GetRoutePosition();
   if (start.GetObjectFileRef().GetType()==osmscout::refNode) {
     std::cerr << "Cannot find start node for start location!" << std::endl;
   }
 
-  osmscout::RoutePosition target=router->GetClosestRoutableNode(args.target,
-                                                               *routingProfile,
-                                                                osmscout::Distance::Of<osmscout::Kilometer>(1));
+  auto targetResult=router->GetClosestRoutableNode(args.target,
+                                                   *routingProfile,
+                                                   osmscout::Kilometers(1));
 
-  if (!target.IsValid()) {
+  if (!targetResult.IsValid()) {
     std::cerr << "Error while searching for routing node near target location!" << std::endl;
     return 1;
   }
 
+  osmscout::RoutePosition target=targetResult.GetRoutePosition();
   if (target.GetObjectFileRef().GetType()==osmscout::refNode) {
     std::cerr << "Cannot find start node for target location!" << std::endl;
   }
@@ -717,16 +758,17 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-#ifdef DATA_DEBUG
-  std::cout << "Route raw data:" << std::endl;
-  for (const auto &entry : result.GetRoute().Entries()) {
-    std::cout << entry.GetPathObject().GetName() << "[" << entry.GetCurrentNodeIndex() << "]" << " = " << entry.GetCurrentNodeId() << " => " << entry.GetTargetNodeIndex() << std::endl;
+  if (args.dataDebug) {
+    std::cout << "Route raw data:" << std::endl;
+    for (const auto &entry : result.GetRoute().Entries()) {
+      std::cout << entry.GetPathObject().GetName() << "[" << entry.GetCurrentNodeIndex() << "]" << " = "
+                << entry.GetCurrentNodeId() << " => " << entry.GetTargetNodeIndex() << std::endl;
+    }
   }
-#endif
 
   auto routeDescriptionResult=router->TransformRouteDataToRouteDescription(result.GetRoute());
 
-  if (!routeDescriptionResult.success) {
+  if (!routeDescriptionResult.Success()) {
     std::cerr << "Error during generation of route description" << std::endl;
     return 1;
   }
@@ -739,6 +781,8 @@ int main(int argc, char* argv[])
     std::make_shared<osmscout::RoutePostprocessor::WayTypePostprocessor>(),
     std::make_shared<osmscout::RoutePostprocessor::CrossingWaysPostprocessor>(),
     std::make_shared<osmscout::RoutePostprocessor::DirectionPostprocessor>(),
+    std::make_shared<osmscout::RoutePostprocessor::LanesPostprocessor>(),
+    std::make_shared<osmscout::RoutePostprocessor::SuggestedLanesPostprocessor>(),
     std::make_shared<osmscout::RoutePostprocessor::MotorwayJunctionPostprocessor>(),
     std::make_shared<osmscout::RoutePostprocessor::DestinationPostprocessor>(),
     std::make_shared<osmscout::RoutePostprocessor::MaxSpeedPostprocessor>(),
@@ -751,7 +795,7 @@ int main(int argc, char* argv[])
   if(args.gpx) {
     osmscout::RoutePointsResult routePointsResult=router->TransformRouteDataToPoints(result.GetRoute());
 
-    if (routePointsResult.success) {
+    if (routePointsResult.Success()) {
       std::cout.precision(8);
       std::cout << R"(<?xml version="1.0" encoding="UTF-8" standalone="no" ?>)" << std::endl;
       std::cout
@@ -771,7 +815,7 @@ int main(int argc, char* argv[])
       std::cout << "\t<trk>" << std::endl;
       std::cout << "\t\t<name>Route</name>" << std::endl;
       std::cout << "\t\t<trkseg>" << std::endl;
-      for (const auto& point : routePointsResult.points->points) {
+      for (const auto& point : routePointsResult.GetPoints()->points) {
         std::cout << "\t\t\t<trkpt lat=\"" << point.GetLat() << "\" lon=\"" << point.GetLon() << "\">" << std::endl;
         std::cout << "\t\t\t\t<fix>2d</fix>" << std::endl;
         std::cout << "\t\t\t</trkpt>" << std::endl;
@@ -798,7 +842,7 @@ int main(int argc, char* argv[])
   std::vector<osmscout::RoutingProfileRef> profiles{routingProfile};
   std::vector<osmscout::DatabaseRef>       databases{database};
 
-  if (!postprocessor.PostprocessRouteDescription(*routeDescriptionResult.description,
+  if (!postprocessor.PostprocessRouteDescription(*routeDescriptionResult.GetDescription(),
                                                  profiles,
                                                  databases,
                                                  postprocessors,
@@ -812,11 +856,11 @@ int main(int argc, char* argv[])
 
   std::cout << "Postprocessing time: " << postprocessTimer.ResultString() << std::endl;
 
-  osmscout::StopClock                 generateTimer;
-  osmscout::RouteDescriptionGenerator generator;
-  RouteDescriptionGeneratorCallback   generatorCallback;
+  osmscout::StopClock                     generateTimer;
+  osmscout::RouteDescriptionPostprocessor generator;
+  RouteDescriptionGeneratorCallback       generatorCallback(args.routeDebug);
 
-  generator.GenerateDescription(*routeDescriptionResult.description,
+  generator.GenerateDescription(*routeDescriptionResult.GetDescription(),
                                 generatorCallback);
 
   generateTimer.Stop();

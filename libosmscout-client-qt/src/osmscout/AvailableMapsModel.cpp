@@ -17,14 +17,16 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307  USA
 */
 
-#include <QString>
-#include <QtAlgorithms>
-
 #include <osmscout/util/String.h>
 #include <osmscout/AvailableMapsModel.h>
 #include <osmscout/PersistentCookieJar.h>
 #include <osmscout/DBThread.h>
 #include <osmscout/OSMScoutQt.h>
+
+#include <QString>
+#include <QtAlgorithms>
+
+#include <algorithm>
 
 namespace osmscout {
 
@@ -33,7 +35,7 @@ MapProvider AvailableMapsModelMap::getProvider() const
   return provider;
 }
 
-size_t AvailableMapsModelMap::getSize() const
+uint64_t AvailableMapsModelMap::getSize() const
 {
   return size;
 }
@@ -63,7 +65,6 @@ AvailableMapsModel::AvailableMapsModel()
   SettingsRef settings = OSMScoutQt::GetInstance().GetSettings();
   mapProviders = settings->GetMapProviders();
 
-  connect(&webCtrl, SIGNAL (finished(QNetworkReply*)),  this, SLOT(listDownloaded(QNetworkReply*)));
   diskCache.setCacheDirectory(settings->GetHttpCacheDir());
   webCtrl.setCache(&diskCache);
   webCtrl.setCookieJar(new PersistentCookieJar(settings));
@@ -77,15 +78,20 @@ void AvailableMapsModel::reload()
 
   QLocale locale;
   for (auto &provider: mapProviders){
-    QUrl url = provider.getListUri(osmscout::TypeConfig::MIN_FORMAT_VERSION,
+    QUrl url = provider.getListUri(osmscout::TypeConfig::MAX_FORMAT_VERSION,
                                    osmscout::TypeConfig::MAX_FORMAT_VERSION,
                                    locale.name());
     QNetworkRequest request(url);
-    requests[url]=provider;
 
     request.setHeader(QNetworkRequest::UserAgentHeader, OSMScoutQt::GetInstance().GetUserAgent());
+    request.setAttribute(QNetworkRequest::FollowRedirectsAttribute, true);
     //request.setAttribute(QNetworkRequest::HttpPipeliningAllowedAttribute, true);
-    webCtrl.get(request);
+
+    QNetworkReply *reply = webCtrl.get(request);
+    requests++;
+    connect(reply, &QNetworkReply::finished, [provider, this, reply](){
+      this->listDownloaded(provider, reply);
+    });
   }
   emit loadingChanged();
 }
@@ -112,7 +118,7 @@ void AvailableMapsModel::append(AvailableMapsModelItem *item)
   }
 }
 
-bool itemLessThan(const AvailableMapsModelItem *i1, const AvailableMapsModelItem *i2)
+bool availableMapsModelItemLessThan(const AvailableMapsModelItem *i1, const AvailableMapsModelItem *i2)
 {
   if (i1->isDirectory() && !i2->isDirectory())
     return true;
@@ -122,65 +128,61 @@ bool itemLessThan(const AvailableMapsModelItem *i1, const AvailableMapsModelItem
   return i1->getName().localeAwareCompare(i2->getName()) < 0;
 }
 
-void AvailableMapsModel::listDownloaded(QNetworkReply* reply)
+void AvailableMapsModel::listDownloaded(const MapProvider &provider, QNetworkReply* reply)
 {
   beginResetModel();
-  
+  requests--;
+
   QUrl url = reply->url();
-  if (!requests.contains(url)){
-    qWarning() << "Response from non-requested url: " << url;
+  if (reply->error() != QNetworkReply::NoError){
+    qWarning() << "Downloading " << url << "failed with " << reply->errorString();
+    fetchError=reply->errorString();
   }else{
-    MapProvider provider=requests.value(url);
-    requests.remove(url);
-    if (reply->error() != QNetworkReply::NoError){
-      qWarning() << "Downloading " << url << "failed with " << reply->errorString();
-      fetchError=reply->errorString();
-    }else{
-      QByteArray downloadedData = reply->readAll();
-      QJsonDocument doc = QJsonDocument::fromJson(downloadedData);
-      for (const QJsonValueRef &ref: doc.array()){
-        if (!ref.isObject())
-          continue;
-        QJsonObject obj=ref.toObject();
-        auto dir=obj.value("dir");
-        auto name=obj.value("name");
-        auto description=obj.value("description");
-        if (!name.isString())
-          continue;
-        if (dir.isString()){
-          append(new AvailableMapsModelDir(name.toString(), dir.toString().split('/'), description.toString()));
+    QByteArray downloadedData = reply->readAll();
+    QJsonDocument doc = QJsonDocument::fromJson(downloadedData);
+    for (const QJsonValueRef &ref: doc.array()){
+      if (!ref.isObject())
+        continue;
+      QJsonObject obj=ref.toObject();
+      auto dir=obj.value("dir");
+      auto name=obj.value("name");
+      auto description=obj.value("description");
+      if (!name.isString())
+        continue;
+      if (dir.isString()){
+        append(new AvailableMapsModelDir(name.toString(), dir.toString().split('/'), description.toString()));
+      }else{
+        auto map=obj.value("map");
+        auto sizeObj=obj.value("size");
+        auto serverDirectory=obj.value("directory");
+        auto timestamp=obj.value("timestamp");
+        auto version=obj.value("version");
+
+        double size=0;
+        if (sizeObj.isDouble()){
+          size=sizeObj.toDouble();
+        }else if (sizeObj.isString()){
+          size=sizeObj.toString().toDouble();
+        }
+        if (map.isString() && serverDirectory.isString() &&
+            timestamp.isDouble() && version.isDouble()){
+
+          QDateTime creation;
+          creation.setTime_t(timestamp.toDouble());
+
+          append(new AvailableMapsModelMap(name.toString(), map.toString().split('/'), description.toString(),
+                                           provider, size, serverDirectory.toString(),
+                                           creation, version.toDouble()));
         }else{
-          auto map=obj.value("map");
-          auto sizeObj=obj.value("size");
-          auto serverDirectory=obj.value("directory");
-          auto timestamp=obj.value("timestamp");
-          auto version=obj.value("version");
-          
-          double size=0;
-          if (sizeObj.isDouble()){
-            size=sizeObj.toDouble();
-          }else if (sizeObj.isString()){
-            size=sizeObj.toString().toDouble();
-          }
-          if (map.isString() && serverDirectory.isString() &&
-              timestamp.isDouble() && version.isDouble()){
-            
-            QDateTime creation;
-            creation.setTime_t(timestamp.toDouble());
-            
-            append(new AvailableMapsModelMap(name.toString(), map.toString().split('/'), description.toString(), 
-                                             provider, size, serverDirectory.toString(), 
-                                             creation, version.toDouble()));
-          }else{
-            qWarning() << "Invalid item:" << obj;
-          }
+          qWarning() << "Invalid item:" << obj;
         }
       }
     }
   }
-  qSort(items.begin(), items.end(), itemLessThan);
+
+  std::sort(items.begin(), items.end(), availableMapsModelItemLessThan);
   reply->deleteLater();
-  
+
   emit loadingChanged();
   endResetModel();
 }
@@ -236,7 +238,7 @@ QModelIndex AvailableMapsModel::parent(const QModelIndex &index) const
   if (parentPath.isEmpty())
     return QModelIndex();
   parentDir.removeLast();
-  
+
   QList<AvailableMapsModelItem*> parentSiblings=findChildrenByPath(parentDir);
   for (int row=0;row<parentSiblings.size();row++){
     auto parentCandidate=parentSiblings[row];
@@ -244,7 +246,7 @@ QModelIndex AvailableMapsModel::parent(const QModelIndex &index) const
       return createIndex(row, 0, parentCandidate);
   }
   return QModelIndex(); // should not happen
-  
+
 }
 
 int AvailableMapsModel::rowCount(const QModelIndex &parentIndex) const
@@ -273,7 +275,7 @@ QVariant AvailableMapsModel::data(const QModelIndex &index, int role) const
   }
   const AvailableMapsModelItem *item=static_cast<AvailableMapsModelItem*>(index.internalPointer());
   const AvailableMapsModelMap *map=dynamic_cast<const AvailableMapsModelMap*>(item);
-    
+
   switch (role) {
     case Qt::DisplayRole:
     case NameRole:
@@ -283,24 +285,24 @@ QVariant AvailableMapsModel::data(const QModelIndex &index, int role) const
     case DirRole:
       return item->isDirectory(); // isDir? true: false
     case ServerDirectoryRole:
-      return map==NULL ? QVariant(): map->getServerDirectory();// server path for this map
+      return map==nullptr ? QVariant(): map->getServerDirectory();// server path for this map
     case TimeRole:
-      return map==NULL ? QVariant(): map->getCreation();// QTime of map creation 
+      return map==nullptr ? QVariant(): map->getCreation();// QTime of map creation
     case VersionRole:
-      return map==NULL ? QVariant(): map->getVersion();
+      return map==nullptr ? QVariant(): map->getVersion();
     case ByteSizeRole:
-      return map==NULL ? QVariant(): QVariant((double)map->getSize());
+      return map==nullptr ? QVariant(): QVariant((double)map->getSize());
     case SizeRole:
-      return map==NULL ? "": QVariant(map->getSizeHuman());
+      return map==nullptr ? "": QVariant(map->getSizeHuman());
     case ProviderUriRole:
-      return map==NULL ? QVariant(): map->getProvider().getName();
+      return map==nullptr ? QVariant(): map->getProvider().getName();
     case DescriptionRole:
       return item->getDescription();
     case MapRole:
       return QVariant::fromValue(map==nullptr ? nullptr: new AvailableMapsModelMap(*map));
     default:
         break;
-  }  
+  }
   return QVariant();
 }
 

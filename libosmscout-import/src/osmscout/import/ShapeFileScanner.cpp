@@ -21,6 +21,11 @@
 
 #include <osmscout/util/Exception.h>
 
+#include <cstring>
+#include <array>
+#include <cstdint>
+#include <limits>
+
 namespace osmscout {
 
   ShapeFileVisitor::~ShapeFileVisitor()
@@ -114,7 +119,8 @@ namespace osmscout {
   double ShapeFileScanner::ReadDoubleLE()
   {
     double         value;
-    unsigned char* valueBytes=(unsigned char*)&value;
+
+    std::array<uint8_t, 8> valueBytes;
 
     valueBytes[0]=ReadByte();
     valueBytes[1]=ReadByte();
@@ -124,6 +130,16 @@ namespace osmscout {
     valueBytes[5]=ReadByte();
     valueBytes[6]=ReadByte();
     valueBytes[7]=ReadByte();
+
+    static_assert(sizeof(double)==8, "Only 64 bit IEEE doubles are supported");
+    static_assert(std::numeric_limits<double>::is_iec559, "Only 64 bit IEEE doubles are supported");
+
+    // we need to do this:
+    //   value=*(reinterpret_cast<double*>(valueBytes.data()));
+    // but type punning is undefined behavior in C++17 (and older)
+    // memcpy is the only way howto do it safely, luckily compilers
+    // are smart enough to generate the same assembly
+    std::memcpy(&value, valueBytes.data(), 8);
 
     return value;
   }
@@ -173,15 +189,10 @@ namespace osmscout {
     visitor.OnFileBoundingBox(GeoBox(GeoCoord(yMin,xMin),
                                      GeoCoord(yMax,xMax)));
 
-    double zMin=ReadDoubleLE();
-    double zMax=ReadDoubleLE();
-    double mMin=ReadDoubleLE();
-    double mMax=ReadDoubleLE();
-
-    unused(zMin);
-    unused(zMax);
-    unused(mMin);
-    unused(mMax);
+    [[maybe_unused]] double zMin=ReadDoubleLE();
+    [[maybe_unused]] double zMax=ReadDoubleLE();
+    [[maybe_unused]] double mMin=ReadDoubleLE();
+    [[maybe_unused]] double mMax=ReadDoubleLE();
 
     long filePos=ftell(file);
 
@@ -192,11 +203,9 @@ namespace osmscout {
     while (filePos+1<fileLength) {
       visitor.OnProgress(filePos,fileLength);
 
-      int32_t recordNumber   =ReadIntegerBE();
-      int32_t length         =ReadIntegerBE();
-      int32_t recordShapeType=ReadIntegerLE();
-
-      unused(length);
+      int32_t recordNumber           =ReadIntegerBE();
+      [[maybe_unused]] int32_t length=ReadIntegerBE();
+      int32_t recordShapeType        =ReadIntegerLE();
 
       if (recordShapeType==3) {
         if (recordShapeType!=shapeType) {
@@ -218,10 +227,8 @@ namespace osmscout {
         int32_t numPoints=ReadIntegerLE();
 
         for (int32_t i=1; i<=numParts; i++) {
-          int32_t startIndex=ReadIntegerLE();
-
+          [[maybe_unused]] int32_t startIndex=ReadIntegerLE();
           // We current do not evaluate start index
-          unused(startIndex);
         }
 
         buffer.clear();

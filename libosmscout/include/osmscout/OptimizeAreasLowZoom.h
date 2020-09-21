@@ -42,7 +42,7 @@ namespace osmscout {
   class OSMSCOUT_API OptimizeAreasLowZoom
   {
   public:
-    static const char* FILE_AREASOPT_DAT;
+    static const char* const FILE_AREASOPT_DAT;
 
   private:
     struct TypeData
@@ -112,7 +112,7 @@ namespace osmscout {
                   TypeInfoSet& loadedAreaTypes) const;
   };
 
-  typedef std::shared_ptr<OptimizeAreasLowZoom> OptimizeAreasLowZoomRef;
+  using OptimizeAreasLowZoomRef = std::shared_ptr<OptimizeAreasLowZoom>;
 }
 
 #endif

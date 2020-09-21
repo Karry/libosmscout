@@ -53,13 +53,13 @@ private:
 public:
   POILookupModule(QThread *thread,DBThreadRef dbThread);
 
-  virtual ~POILookupModule();
+  ~POILookupModule() override;
 
 private:
-  QList<LocationEntry> lookupPOIRequest(DBInstanceRef database,
-                                        osmscout::GeoBox searchBoundingBox,
-                                        osmscout::BreakerRef breaker,
-                                        QStringList types);
+  QList<LocationEntry> doPOIlookup(DBInstanceRef db,
+                                   osmscout::GeoBox searchBoundingBox,
+                                   osmscout::BreakerRef breaker,
+                                   QStringList types);
 
 };
 

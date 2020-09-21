@@ -36,9 +36,9 @@
 
 namespace osmscout {
 
-  typedef uint16_t TagId;
+  using TagId = uint16_t;
 
-  typedef std::unordered_map<TagId,std::string> TagMap;
+  using TagMap = std::unordered_map<TagId, std::string>;
 
   /**
    * \ingroup type
@@ -55,7 +55,7 @@ namespace osmscout {
   class OSMSCOUT_API TagCondition
   {
   public:
-    virtual ~TagCondition();
+    virtual ~TagCondition() = default;
 
     virtual bool Evaluate(const TagMap& tagMap) const = 0;
   };
@@ -65,7 +65,7 @@ namespace osmscout {
    *
    * Reference counted reference to a tag condition
    */
-  typedef std::shared_ptr<TagCondition> TagConditionRef;
+  using TagConditionRef = std::shared_ptr<TagCondition>;
 
   /**
    * \ingroup type
@@ -117,7 +117,7 @@ namespace osmscout {
    *
    * Reference counted reference to a tag condition
    */
-  typedef std::shared_ptr<TagBoolCondition> TagBoolConditionRef;
+  using TagBoolConditionRef = std::shared_ptr<TagBoolCondition>;
 
   /**
    * \ingroup type
@@ -195,7 +195,7 @@ namespace osmscout {
    *
    * Reference counted reference to a tag condition
    */
-  typedef std::shared_ptr<TagIsInCondition> TagIsInConditionRef;
+  using TagIsInConditionRef = std::shared_ptr<TagIsInCondition>;
 
   /**
    * \ingroup type
@@ -252,7 +252,7 @@ namespace osmscout {
                           uint32_t priority);
     TagId RegisterNameAltTag(const std::string& tagName,
                              uint32_t priority);
-
+      
     TagId GetTagId(const char* name) const;
     TagId GetTagId(const std::string& name) const;
 
@@ -267,7 +267,11 @@ namespace osmscout {
     //@{
     void RegisterSurfaceToGradeMapping(const std::string& surface,
                                        size_t grade);
-    bool GetGradeForSurface(const std::string& surface,
+    /**
+     * \note surface has multiple values often ("asphalt;ground;gravel")
+     * use first that is matching to some grade
+     */
+    bool GetGradeForSurface(const std::string& surfaceValue,
                             size_t& grade) const;
     //@}
 

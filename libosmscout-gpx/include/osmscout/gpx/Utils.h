@@ -26,12 +26,11 @@
 #include <memory>
 #include <vector>
 
-namespace osmscout {
-namespace gpx {
+namespace osmscout::gpx {
 
 class OSMSCOUT_GPX_API ProcessCallback {
 public:
-  virtual ~ProcessCallback(){};
+  virtual ~ProcessCallback() = default;
 
   /**
    * Callback for reporting import progress
@@ -46,7 +45,7 @@ public:
   virtual void Error(const std::string& error);
 };
 
-typedef std::shared_ptr<ProcessCallback> ProcessCallbackRef;
+using ProcessCallbackRef = std::shared_ptr<ProcessCallback>;
 
 /**
  * Filter out following points that are not distant more than minDistance.
@@ -55,7 +54,8 @@ typedef std::shared_ptr<ProcessCallback> ProcessCallbackRef;
  * @param points
  * @param minDistance
  */
-extern OSMSCOUT_GPX_API void FilterNearPoints(std::vector<TrackPoint> &points, Distance minDistance=Distance::Of<Meter>(0));
+extern OSMSCOUT_GPX_API void FilterNearPoints(std::vector<TrackPoint> &points,
+                                              const Distance &minDistance=Meters(0));
 
 /**
  * Filter out points with horizontal dilution (or position dilution if horizontal is not presented)
@@ -67,7 +67,6 @@ extern OSMSCOUT_GPX_API void FilterNearPoints(std::vector<TrackPoint> &points, D
 extern OSMSCOUT_GPX_API void FilterInaccuratePoints(std::vector<TrackPoint> &points,
                                                     double maxDilution=30);
 
-}
 }
 
 #endif //LIBOSMSCOUT_GPX_UTILS_H

@@ -30,6 +30,7 @@ namespace osmscout {
     {
       AddAttribute(std::make_shared<StyleColorAttributeDescriptor>("color",LineStyle::attrLineColor));
       AddAttribute(std::make_shared<StyleColorAttributeDescriptor>("gapColor",LineStyle::attrGapColor));
+      AddAttribute(std::make_shared<StyleBoolAttributeDescriptor>("preferColorFeature",LineStyle::attrPreferColorFeature));
       AddAttribute(std::make_shared<StyleUDisplayAttributeDescriptor>("displayWidth",LineStyle::attrDisplayWidth));
       AddAttribute(std::make_shared<StyleUMapAttributeDescriptor>("width",LineStyle::attrWidth));
       AddAttribute(std::make_shared<StyleDisplayAttributeDescriptor>("displayOffset",LineStyle::attrDisplayOffset));
@@ -48,6 +49,7 @@ namespace osmscout {
   LineStyle::LineStyle()
    : lineColor(1.0,0.0,0.0,0.0),
      gapColor(1,0.0,0.0,0.0),
+     preferColorFeature(false),
      displayWidth(0.0),
      width(0.0),
      displayOffset(0.0),
@@ -56,7 +58,7 @@ namespace osmscout {
      endCap(capRound),
      priority(0),
      zIndex(0),
-     offsetRel(base)
+     offsetRel(OffsetRel::base)
   {
     // no code
   }
@@ -65,6 +67,7 @@ namespace osmscout {
   : slot(style.slot),
     lineColor(style.lineColor),
     gapColor(style.gapColor),
+    preferColorFeature(style.preferColorFeature),
     displayWidth(style.displayWidth),
     width(style.width),
     displayOffset(style.displayOffset),
@@ -147,6 +150,18 @@ namespace osmscout {
     }
   }
 
+  void LineStyle::SetBoolValue(int attribute, bool value)
+  {
+    switch (attribute) {
+    case attrPreferColorFeature:
+      preferColorFeature=value;
+      break;
+    default:
+      assert(false);
+    }
+  }
+
+
   LineStyle& LineStyle::SetSlot(const std::string& slot)
   {
     this->slot=slot;
@@ -167,6 +182,14 @@ namespace osmscout {
 
     return *this;
   }
+
+  LineStyle& LineStyle::SetPreferColorFeature(bool value)
+  {
+    preferColorFeature=value;
+
+    return *this;
+  }
+
 
   LineStyle& LineStyle::SetDisplayWidth(double value)
   {
@@ -253,6 +276,9 @@ namespace osmscout {
         break;
       case attrGapColor:
         gapColor=other.gapColor;
+        break;
+      case attrPreferColorFeature:
+        preferColorFeature=other.preferColorFeature;
         break;
       case attrDisplayWidth:
         displayWidth=other.displayWidth;
@@ -566,7 +592,8 @@ namespace osmscout {
     : color(1.0,0.0,0.0,0.0),
       width(0.0),
       displayOffset(0.0),
-      offset(0.0)
+      offset(0.0),
+      priority(std::numeric_limits<int>::max())
   {
     // no code
   }
@@ -1633,11 +1660,7 @@ namespace osmscout {
   }
 
   Symbol::Symbol(const std::string& name)
-  : name(name),
-    minX(std::numeric_limits<double>::max()),
-    minY(std::numeric_limits<double>::max()),
-    maxX(-std::numeric_limits<double>::max()),
-    maxY(-std::numeric_limits<double>::max())
+  : name(name)
   {
     // no code
   }
@@ -1651,11 +1674,16 @@ namespace osmscout {
 
     primitive->GetBoundingBox(minX,minY,maxX,maxY);
 
-    this->minX=std::min(this->minX,minX);
-    this->minY=std::min(this->minY,minY);
-
-    this->maxX=std::max(this->maxX,maxX);
-    this->maxY=std::max(this->maxY,maxY);
+    switch (primitive->GetProjectionMode()){
+      case DrawPrimitive::ProjectionMode::MAP:
+        mapBoundingBox.Update(minX,minY,maxX,maxY);
+        break;
+      case DrawPrimitive::ProjectionMode::GROUND:
+        groundBoundingBox.Update(minX,minY,maxX,maxY);
+        break;
+      default:
+        assert(false);
+    }
 
     primitives.push_back(primitive);
   }
@@ -1668,6 +1696,8 @@ namespace osmscout {
       AddAttribute(std::make_shared<StyleSymbolAttributeDescriptor>("symbol",IconStyle::attrSymbol));
       AddAttribute(std::make_shared<StyleStringAttributeDescriptor>("name",IconStyle::attrIconName));
       AddAttribute(std::make_shared<StyleUIntAttributeDescriptor>("position",IconStyle::attrPosition));
+      AddAttribute(std::make_shared<StyleUIntAttributeDescriptor>("priority",IconStyle::attrPriority));
+      AddAttribute(std::make_shared<StyleBoolAttributeDescriptor>("overlay",IconStyle::attrOverlay));
     }
   };
 
@@ -1677,7 +1707,9 @@ namespace osmscout {
    : iconId(0),
      width(14),
      height(14),
-     position(0)
+     position(0),
+     priority(std::numeric_limits<size_t>::max()),
+     overlay(false)
   {
     // no code
   }
@@ -1687,9 +1719,22 @@ namespace osmscout {
     iconId(style.iconId),
     width(style.width),
     height(style.height),
-    position(style.position)
+    position(style.position),
+    priority(style.priority),
+    overlay(style.overlay)
   {
     // no code
+  }
+
+  void IconStyle::SetBoolValue(int attribute, bool value)
+  {
+    switch (attribute) {
+    case attrOverlay:
+      SetOverlay(value);
+      break;
+    default:
+      assert(false);
+    }
   }
 
   void IconStyle::SetStringValue(int attribute,
@@ -1722,6 +1767,9 @@ namespace osmscout {
     switch (attribute) {
     case attrPosition:
       SetPosition(value);
+      break;
+    case attrPriority:
+      SetPriority(value);
       break;
     default:
       assert(false);
@@ -1770,6 +1818,20 @@ namespace osmscout {
     return *this;
   }
 
+  IconStyle& IconStyle::SetPriority(size_t priority)
+  {
+    this->priority=priority;
+
+    return *this;
+  }
+
+  IconStyle& IconStyle::SetOverlay(bool overlay)
+  {
+    this->overlay=overlay;
+
+    return *this;
+  }
+
   StyleDescriptorRef IconStyle::GetDescriptor()
   {
     return iconStyleDescriptor;
@@ -1790,6 +1852,12 @@ namespace osmscout {
       case attrPosition:
         position=other.position;
         break;
+      case attrPriority:
+        priority=other.priority;
+        break;
+      case attrOverlay:
+        overlay=other.overlay;
+        break;
       }
     }
   }
@@ -1803,7 +1871,7 @@ namespace osmscout {
       AddAttribute(std::make_shared<StyleUDisplayAttributeDescriptor>("symbolSpace",PathSymbolStyle::attrSymbolSpace));
       AddAttribute(std::make_shared<StyleDisplayAttributeDescriptor>("displayOffset",PathSymbolStyle::attrDisplayOffset));
       AddAttribute(std::make_shared<StyleUMapAttributeDescriptor>("offset",PathSymbolStyle::attrOffset));
-    }
+      AddAttribute(std::make_shared<OffsetRelAttributeDescriptor>("offsetRel",PathSymbolStyle::attrOffsetRel));    }
   };
 
   static StyleDescriptorRef pathSymbolStyleDescriptor=std::make_shared<PathSymbolStyleDescriptor>();
@@ -1820,9 +1888,17 @@ namespace osmscout {
   : symbol(style.symbol),
     symbolSpace(style.symbolSpace),
     displayOffset(style.displayOffset),
-    offset(style.offset)
+    offset(style.offset),
+    offsetRel(style.offsetRel)
   {
     // no code
+  }
+
+  PathSymbolStyle& PathSymbolStyle::SetSlot(const std::string& slot)
+  {
+    this->slot=slot;
+
+    return *this;
   }
 
   PathSymbolStyle& PathSymbolStyle::SetSymbol(const SymbolRef& symbol)
@@ -1853,6 +1929,13 @@ namespace osmscout {
     return *this;
   }
 
+  PathSymbolStyle& PathSymbolStyle::SetOffsetRel(OffsetRel offsetRel)
+  {
+    this->offsetRel=offsetRel;
+
+    return *this;
+  }
+
   StyleDescriptorRef PathSymbolStyle::GetDescriptor()
   {
     return pathSymbolStyleDescriptor;
@@ -1873,6 +1956,9 @@ namespace osmscout {
         displayOffset=other.displayOffset;
         break;
       case attrOffset:
+        offset=other.offset;
+        break;
+      case attrOffsetRel:
         offset=other.offset;
         break;
       }
@@ -1908,5 +1994,17 @@ namespace osmscout {
       assert(false);
     }
   }
+
+  void PathSymbolStyle::SetIntValue(int attribute, int value)
+  {
+    switch (attribute) {
+      case attrOffsetRel:
+        SetOffsetRel((OffsetRel)value);
+        break;
+      default:
+        assert(false);
+    }
+  }
+
 }
 

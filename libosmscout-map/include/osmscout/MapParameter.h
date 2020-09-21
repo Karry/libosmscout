@@ -108,6 +108,8 @@ namespace osmscout {
 
     bool                                showAltLanguage;           //!< if true, display alternative language (needs support by style sheet and import)
 
+    Locale                              locale;                     //!< Locale used by the renderer, for example peak elevation
+
     std::vector<FillStyleProcessorRef > fillProcessors;            //!< List of processors for FillStyles for types
 
     BreakerRef                          breaker;                   //!< Breaker to abort processing on external request
@@ -166,6 +168,8 @@ namespace osmscout {
     void SetWarningCoordCountLimit(size_t limit);
 
     void SetShowAltLanguage(bool showAltLanguage);
+
+    void SetLocale(const Locale &locale);
 
     void RegisterFillStyleProcessor(size_t typeIndex,
                                     const FillStyleProcessorRef& processor);
@@ -315,12 +319,12 @@ namespace osmscout {
       return contourLabelSpace;
     }
 
-    inline double GetRenderBackground() const
+    inline bool GetRenderBackground() const
     {
       return renderBackground;
     }
 
-    inline double GetRenderSeaLand() const
+    inline bool GetRenderSeaLand() const
     {
       return renderSeaLand;
     }
@@ -355,14 +359,23 @@ namespace osmscout {
       return showAltLanguage;
     }
 
+    inline Locale GetLocale() const
+    {
+      return locale;
+    }
+
+    inline Locale& GetLocaleRef()
+    {
+      return locale;
+    }
+
     bool IsAborted() const
     {
       if (breaker) {
         return breaker->IsAborted();
       }
-      else {
-        return false;
-      }
+
+      return false;
     }
   };
 }

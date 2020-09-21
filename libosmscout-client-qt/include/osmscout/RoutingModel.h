@@ -90,12 +90,7 @@ private:
   osmscout::BreakerRef  breaker;
 
 public:
-  enum Roles {
-    ShortDescriptionRole = Qt::UserRole + 1,
-    DescriptionRole = Qt::UserRole + 2,
-    TypeRole = Qt::UserRole + 3
-  };
-  Q_ENUM(Roles)
+  using Roles = RouteStep::Roles;
 
 public:
   RoutingListModel(QObject* parent = 0);
@@ -105,8 +100,16 @@ public:
 
   int rowCount(const QModelIndex &parent = QModelIndex()) const;
 
+  /**
+   * Route length in meters
+   * @return
+   */
   double getRouteLength() const;
 
+  /**
+   * Route duration in seconds
+   * @return
+   */
   double getRouteDuration() const;
 
   Qt::ItemFlags flags(const QModelIndex &index) const;
@@ -146,7 +149,7 @@ public:
   inline OverlayWay* getRouteWay()
   {
     if (!route){
-      return NULL;
+      return nullptr;
     }
     return new OverlayWay(route.routeWay().nodes);
   }

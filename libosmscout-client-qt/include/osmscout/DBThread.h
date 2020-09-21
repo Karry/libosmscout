@@ -51,7 +51,7 @@ namespace osmscout {
 struct MapViewStruct
 {
   osmscout::GeoCoord      coord;
-  double                  angle;
+  osmscout::Bearing       angle; // canvas clockwise
   osmscout::Magnification magnification;
   size_t                  width;
   size_t                  height;
@@ -64,7 +64,8 @@ inline bool operator!=(const MapViewStruct &r1, const MapViewStruct &r2)
       r1.angle!=r2.angle ||
       r1.magnification!=r2.magnification ||
       r1.width!=r2.width ||
-      r1.height!=r2.height;
+      r1.height!=r2.height ||
+      r1.dpi!=r2.dpi;
 }
 
 /**
@@ -107,11 +108,10 @@ class OSMSCOUT_CLIENT_QT_API DBThread : public QObject
   Q_PROPERTY(QString stylesheetFilename READ GetStylesheetFilename NOTIFY stylesheetFilenameChanged)
 
 public:
-  typedef std::function<void(const std::list<DBInstanceRef>&)> SynchronousDBJob;
+  using SynchronousDBJob = std::function<void (const std::list<DBInstanceRef> &)>;
 
 signals:
   void initialisationFinished(const DatabaseLoadedResponse& response);
-  void TriggerInitialRendering();
   void stylesheetFilenameChanged();
   void databaseLoadFinished(osmscout::GeoBox boundingBox);
   void styleErrorsChanged();
@@ -126,6 +126,11 @@ public slots:
                  const QString &suffix="");
   void Initialize();
   void onDatabaseListChanged(QList<QDir> databaseDirectories);
+
+  /**
+   * Flush all caches for database that was not used in recent idleMs
+   */
+  void FlushCaches(qint64 idleMs);
 
 protected:
   QThread                            *backgroundThread;
@@ -156,8 +161,6 @@ protected:
 
 protected:
 
-  void CancelCurrentDataLoading();
-
   bool isInitializedInternal();
 
 public:
@@ -168,7 +171,7 @@ public:
            MapManagerRef mapManager,
            const std::vector<std::string> &customPoiTypes);
 
-  virtual ~DBThread();
+  ~DBThread() override;
 
   bool isInitialized();
 
@@ -233,7 +236,7 @@ public:
 
 };
 
-typedef std::shared_ptr<DBThread> DBThreadRef;
+using DBThreadRef = std::shared_ptr<DBThread>;
 
 }
 

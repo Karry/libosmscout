@@ -15,6 +15,9 @@ TEST_CASE("TileIdBox calculation") {
 
   osmscout::TileIdBox box(tile1,tile2);
 
+  REQUIRE(box.GetBoundingBox(magnification).Includes(coord1));
+  REQUIRE(box.GetBoundingBox(magnification).Includes(coord2));
+
   osmscout::TileId min=box.GetMin();
   osmscout::TileId max=box.GetMax();
 
@@ -35,6 +38,51 @@ TEST_CASE("TileIdBox calculation") {
     REQUIRE(tile.GetY()>=min.GetY());
     REQUIRE(tile.GetY()<=max.GetY());
   }
+}
+
+TEST_CASE("TileIdBox intersection") {
+  osmscout::TileIdBox a(osmscout::TileId(0,0),
+                        osmscout::TileId(9,10));
+  osmscout::TileIdBox b(osmscout::TileId(5,6),
+                        osmscout::TileId(15,15));
+
+  osmscout::TileIdBox intersection = a.Intersection(b);
+  REQUIRE(intersection == b.Intersection(a));
+  REQUIRE(intersection.GetMin() == osmscout::TileId(5,6));
+  REQUIRE(intersection.GetMax() == osmscout::TileId(9,10));
+}
+
+TEST_CASE("TileIdBox inclusion") {
+  osmscout::TileIdBox a(osmscout::TileId(0,0),
+                        osmscout::TileId(10,10));
+  osmscout::TileIdBox b(osmscout::TileId(5,6),
+                        osmscout::TileId(15,15));
+
+  REQUIRE(a.Include(b) == b.Include(a));
+
+  REQUIRE(a.Include(b) == osmscout::TileIdBox(osmscout::TileId(0,0),
+                                              osmscout::TileId(15,15)));
+
+  REQUIRE(a.Include(osmscout::TileId(11,12)) == osmscout::TileIdBox(osmscout::TileId(0,0),
+                                                                    osmscout::TileId(11,12)));
+
+  REQUIRE(b.Include(osmscout::TileId(1,2)) == osmscout::TileIdBox(osmscout::TileId(1,2),
+                                                                  osmscout::TileId(15,15)));
+
+}
+
+TEST_CASE("TileIdBox intersects") {
+  osmscout::TileIdBox a(osmscout::TileId(1,1),
+                        osmscout::TileId(10,10));
+
+  REQUIRE(a.Intersects(osmscout::TileIdBox(osmscout::TileId(1,1),
+                                           osmscout::TileId(1,1))));
+  REQUIRE(a.Intersects(osmscout::TileIdBox(osmscout::TileId(10,10),
+                                           osmscout::TileId(10,10))));
+  REQUIRE_FALSE(a.Intersects(osmscout::TileIdBox(osmscout::TileId(0,0),
+                                                 osmscout::TileId(0,0))));
+  REQUIRE_FALSE(a.Intersects(osmscout::TileIdBox(osmscout::TileId(11,11),
+                                                 osmscout::TileId(11,11))));
 }
 
 TEST_CASE("OSMTileIdBox calculation") {

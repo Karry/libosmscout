@@ -53,7 +53,7 @@ namespace osmscout {
     virtual ~NavigationMessage();
   };
 
-  typedef std::shared_ptr<NavigationMessage> NavigationMessageRef;
+  using NavigationMessageRef = std::shared_ptr<NavigationMessage>;
 
   /**
    * Message send once at the beginning to make sure everything initializes correctly
@@ -83,7 +83,7 @@ namespace osmscout {
     virtual std::list<NavigationMessageRef> Process(const NavigationMessageRef& message) = 0;
   };
 
-  typedef std::shared_ptr<NavigationAgent> NavigationAgentRef;
+  using NavigationAgentRef = std::shared_ptr<NavigationAgent>;
 
   class OSMSCOUT_API NavigationEngine
   {
@@ -91,7 +91,7 @@ namespace osmscout {
     std::vector<NavigationAgentRef> agents;
 
   public:
-    NavigationEngine(std::initializer_list<NavigationAgentRef> agents);
+    explicit NavigationEngine(std::initializer_list<NavigationAgentRef> agents);
     std::list<NavigationMessageRef> Process(const NavigationMessageRef& message);
   };
 }

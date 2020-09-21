@@ -33,7 +33,9 @@
 #include <osmscout/Point.h>
 #include <osmscout/OSMScoutTypes.h>
 
+#include <osmscout/util/Color.h>
 #include <osmscout/util/Exception.h>
+#include <osmscout/util/GeoBox.h>
 
 namespace osmscout {
 
@@ -106,6 +108,8 @@ namespace osmscout {
       Write(level.Get());
     }
 
+    void Write(const Color& color);
+
     void WriteFileOffset(FileOffset offset);
     void WriteFileOffset(FileOffset offset,
                          size_t bytes);
@@ -123,6 +127,22 @@ namespace osmscout {
       WriteNumber(level.Get());
     }
 
+    /**
+     * Writes GeoBox instance.
+     * It have to valid.
+     *
+     * @see FileScanner::ReadBox
+     * @throws IOException
+     */
+    void WriteBox(const GeoBox &bbox);
+
+    /**
+     * Writes GeoCoord instance.
+     * It have to normalised (latitude <-90, 90>, longitude <-180, 180>)
+     *
+     * @see FileScanner::ReadCoord
+     * @throws IOException
+     */
     void WriteCoord(const GeoCoord& coord);
     void WriteInvalidCoord();
 

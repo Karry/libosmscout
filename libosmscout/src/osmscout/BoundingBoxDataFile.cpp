@@ -25,15 +25,10 @@
 
 namespace osmscout {
 
-  const char* BoundingBoxDataFile::BOUNDINGBOX_DAT="bounding.dat";
+  const char* const BoundingBoxDataFile::BOUNDINGBOX_DAT="bounding.dat";
 
   BoundingBoxDataFile::BoundingBoxDataFile()
   : isLoaded(false)
-  {
-    // no code
-  }
-
-  BoundingBoxDataFile::~BoundingBoxDataFile()
   {
     // no code
   }

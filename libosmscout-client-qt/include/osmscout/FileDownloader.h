@@ -30,35 +30,76 @@
 #include <QByteArray>
 #include <QTime>
 #include <QFileInfo>
+#include <QTimer>
+#include <QDir>
 
 #include <osmscout/ClientQtImportExport.h>
 
+#include <chrono>
+
 namespace osmscout {
+
+namespace FileDownloaderConfig {
+
+static constexpr uint64_t BufferNetwork{1024*1024*1}; ///< Size of network ring buffer
+static constexpr std::chrono::seconds DownloadReadTimeout{60}; ///< Download read timeout in seconds
+static constexpr std::chrono::seconds BackOffInitial{1}; ///< Initial back-off time
+static constexpr std::chrono::seconds BackOffMax{300}; ///< Maximum back-off time
+static constexpr int MaxDownloadRetries{-1}; ///< Maximal number of download retries before cancelling download
+}
 
 /// \brief Downloads a file specified by URL
 ///
 /// Downloads a file as specified by URL and stores in a given path.
 /// If the required directories do not exist, creates all parent directories
-/// as needed. If specified that the format is BZ2, the downloader pipes
-/// the internet stream through a process running bunzip2.
+/// as needed.
 class OSMSCOUT_CLIENT_QT_API FileDownloader : public QObject
 {
   Q_OBJECT
 
-public:
-  enum Type { Plain=0, BZ2=1 };
+#ifdef OSMSCOUT_CLIENT_QT_FILEDOWNLOADER_TEST
+public: // make possible to modify internal state in test
+#else
+private:
+#endif
+
+  struct BackOff {
+    int downloadRetries{0};
+
+    std::chrono::seconds backOffTime{FileDownloaderConfig::BackOffInitial};
+    QTimer restartTimer;
+
+    bool scheduleRestart();
+    void recover();
+  };
+
+  BackOff backOff;
+
+  QNetworkAccessManager *manager;
+  QUrl url;
+  QString path;
+
+  QNetworkReply *reply{nullptr};
+
+  QFile file;
+
+  bool isOk{true};
+  bool finishedSuccessfully{false};
+
+  uint64_t downloaded{0};
+
+  QTimer timeoutTimer;
 
 public:
   explicit FileDownloader(QNetworkAccessManager *manager,
                           QString url,
                           QString path,
-                          const Type mode = Plain,
-                          QObject *parent = 0);
-  ~FileDownloader();
+                          QObject *parent = nullptr);
+  ~FileDownloader() override;
 
-  operator bool() const { return m_isok; }
-  QString getFileName() const { return QFileInfo(m_path).fileName(); }
-  QString getFilePath() const { return m_path; }
+  operator bool() const { return isOk; }
+  QString getFileName() const { return QFileInfo(path).fileName(); }
+  QString getFilePath() const { return path; }
   uint64_t getBytesDownloaded() const;
 
 signals:
@@ -74,67 +115,101 @@ protected slots:
   void onNetworkReadyRead();
   void onDownloaded();
   void onNetworkError(QNetworkReply::NetworkError code);
-
-  void onProcessStarted();
-  void onProcessRead();
-  void onProcessStopped(int exitCode); ///< Called on error while starting or when process has stopped
-  void onBytesWritten(qint64);
+  void onTimeout();
 
 protected:
-  void onProcessStateChanged(QProcess::ProcessState newState); ///< Called when state of the process has changed
-  void onProcessReadError();
-
   void onFinished();
   void onError(const QString &err);
 
-  bool restartDownload(bool force = false); ///< Restart download if download retries are not used up
+  bool restartDownload(); ///< Restart download if download retries are not used up
+};
 
-  virtual void timerEvent(QTimerEvent *event);
+
+/**
+ * Class that provide abstraction for download job of multiple files in sequence.
+ */
+class OSMSCOUT_CLIENT_QT_API DownloadJob: public QObject
+{
+  Q_OBJECT
 
 protected:
-  QNetworkAccessManager *m_manager;
-  QUrl m_url;
-  QString m_path;
+  QList<FileDownloader*>  jobs;
+  QNetworkAccessManager   *webCtrl;
 
-  QNetworkReply *m_reply{nullptr};
+  QDir                    target;
 
-  QProcess *m_process{nullptr};
-  bool m_process_started{false};
+  bool                    done{false};
+  bool                    started{false};
+  bool                    successful{false};
+  bool                    canceledByUser{false};
 
-  QFile m_file;
+  uint64_t                downloadedBytes{0};
 
-  bool m_pipe_to_process{false};
-  bool m_isok{true};
+  QString                 error;
 
-  QByteArray m_cache_safe;
-  QByteArray m_cache_current;
-  bool m_clear_all_caches{false};
-  bool m_pause_network_io{false};
+  bool                    replaceExisting;
 
-  uint64_t m_downloaded{0};
-  uint64_t m_written{0};
-  uint64_t m_downloaded_gui{0};
+signals:
+  void finished(); // successfully
+  void failed(QString error);
+  void canceled();
+  void downloadProgress();
 
-  uint64_t m_download_throttle_bytes{0};
-  QTime m_download_throttle_time_start;
-  double m_download_throttle_max_speed{0};
+public slots:
+  void onJobFailed(QString errorMessage, bool recoverable);
+  void onJobFinished(QString path);
+  void onDownloadProgress(uint64_t);
+  void downloadNextFile();
 
-  uint64_t m_downloaded_last_error{0};
-  size_t m_download_retries{0};
-  QTime m_download_last_read_time;
-  int m_timeout_timer_id{-1};
+public:
+  DownloadJob(QNetworkAccessManager *webCtrl, QDir target, bool replaceExisting);
+  ~DownloadJob() override;
 
-  const size_t const_max_download_retries{5};          ///< Maximal number of download retries before cancelling download
-  const double const_download_retry_sleep_time{30.0};  ///< Time between retries in seconds
+  DownloadJob(const DownloadJob&) = delete;
+  DownloadJob(DownloadJob&&) = delete;
 
-  const qint64 const_cache_size_before_swap{1024*1024*1}; ///< Size at which cache is promoted from network to file/process
-  const qint64 const_buffer_size_io{1024*1024*3};         ///< Size of the buffers that should not be significantly exceeded
-  const qint64 const_buffer_network{1024*1024*1};         ///< Size of network ring buffer
+  DownloadJob& operator=(const DownloadJob&) = delete;
+  DownloadJob& operator==(const DownloadJob&&) = delete;
 
-  /// \brief Factor determining whether cancel download when network buffer is too large
-  const qint64 const_buffer_network_max_factor_before_cancel{10};
+  void start(const QString &serverBasePath, const QStringList &files);
 
-  const int const_download_timeout{60};                ///< Download timeout in seconds
+  void cancel();
+
+  virtual size_t expectedSize() const = 0;
+
+  inline bool isDone() const
+  {
+    return done;
+  }
+
+  inline bool isSuccessful() const
+  {
+    return successful;
+  }
+
+  inline bool isDownloading() const
+  {
+    return started && !done;
+  }
+
+  inline QString getError() const
+  {
+    return error;
+  }
+
+  inline bool isReplaceExisting() const
+  {
+    return replaceExisting;
+  }
+
+  inline QDir getDestinationDirectory() const
+  {
+    return target;
+  }
+
+  double getProgress();
+  QString getDownloadingFile();
+
 };
 
 }

@@ -28,6 +28,7 @@
 #include <cstdint>
 
 #include <osmscout/GroundTile.h>
+#include <osmscout/WaterIndex.h>
 #include <osmscout/OSMScoutTypes.h>
 
 #include <osmscout/util/FileScanner.h>

@@ -53,6 +53,11 @@ namespace osmscout {
    */
   static const TypeId typeIgnore      = 0;
 
+  class TypeInfo;
+
+  using TypeInfoRef = std::shared_ptr<TypeInfo>;
+
+
   /**
    * \ingroup type
    *
@@ -66,7 +71,14 @@ namespace osmscout {
     static const uint8_t typeNode     = 1u << 0u; //!< Condition applies to nodes
     static const uint8_t typeWay      = 1u << 1u; //!< Condition applies to ways
     static const uint8_t typeArea     = 1u << 2u; //!< Condition applies to areas
-    static const uint8_t typeRelation = 1u << 3u; //!< Condition applies to releations
+    static const uint8_t typeRelation = 1u << 3u; //!< Condition applies to relations
+
+    enum class SpecialType : uint8_t {
+      none         = 0,
+      multipolygon = 1,
+      routeMaster  = 2,
+      route        = 3
+    };
 
   public:
     /**
@@ -83,47 +95,53 @@ namespace osmscout {
     };
 
   private:
-    TypeId                                      nodeId;                  //!< Type if in case the object is a node
-    TypeId                                      wayId;                   //!< Type if in case the object is a way
-    TypeId                                      areaId;                  //!< Type if in case the object is a area
-    std::string                                 name;                    //!< Name of the type
-    size_t                                      index;                   //!< Internal unique index of the type
+    TypeId                                      nodeId=0;                      //!< Type if in case the object is a node
+    TypeId                                      wayId=0;                       //!< Type if in case the object is a way
+    TypeId                                      areaId=0;                      //!< Type if in case the object is a area
+    TypeId                                      routeId=0;                     //!< Type if in case the object is a route
+    std::string                                 name;                          //!< Name of the type
+    size_t                                      index=0;                       //!< Internal unique index of the type
 
-    bool                                        internal;                //!< This type is only internally used, there is no OSM date for this type
+    bool                                        internal=false;                //!< This type is only internally used, there is no OSM date for this type
 
-    std::list<TypeCondition>                    conditions;              //!< One of this conditions must be fulfilled for a object to match this type
+    std::list<TypeCondition>                    conditions;                    //!< One of this conditions must be fulfilled for a object to match this type
     std::unordered_map<std::string,size_t>      nameToFeatureMap;
-    std::vector<FeatureInstance>                features;                //!< List of feature this type has
-    size_t                                      featureMaskBytes;        //!< Size of the feature bitmask in bytes
-    size_t                                      specialFeatureMaskBytes; //!< Size of the feature bitmask in bytes
-    size_t                                      valueBufferSize;         //!< Size of the value buffer holding values for all feature of the type
+    std::vector<FeatureInstance>                features;                      //!< List of feature this type has
+    size_t                                      featureMaskBytes=0;            //!< Size of the feature bitmask in bytes
+    size_t                                      specialFeatureMaskBytes=0;     //!< Size of the feature bitmask in bytes
+    size_t                                      valueBufferSize=0;             //!< Size of the value buffer holding values for all feature of the type
 
-    bool                                        canBeNode;               //!< Type can be a node
-    bool                                        canBeWay;                //!< Type can be a way
-    bool                                        canBeArea;               //!< Type can be a area
-    bool                                        canBeRelation;
-    bool                                        isPath;                  //!< Type has path characteristics (features like bridges, tunnels, names,...)
-    bool                                        canRouteFoot;            //!< Object of this type are by default routable for foot
-    bool                                        canRouteBicycle;         //!< Object of this type are by default routable for bicylce
-    bool                                        canRouteCar;             //!< Object of this type are by default routable for car
-    bool                                        indexAsAddress;          //!< Objects of this type are addressable
-    bool                                        indexAsLocation;         //!< Objects of this type are defining a location (e.g. street)
-    bool                                        indexAsRegion;           //!< Objects of this type are defining a administrative region (e.g. city, county,...)
-    bool                                        indexAsPOI;              //!< Objects of this type are defining a POI
-    bool                                        optimizeLowZoom;         //!< Optimize objects of this type for low zoom rendering
-    bool                                        multipolygon;
-    bool                                        pinWay;                  //!< If there is no way/area information treat this object as way even it the way is closed
-    bool                                        mergeAreas;              //!< Areas of this type are merged under certain conditions
-    bool                                        ignoreSeaLand;           //!< Ignore objects of this type for sea/land calculation
-    bool                                        ignore;                  //!< Ignore objects of this type
-    uint8_t                                     lanes;                   //!< Number of expected lanes (default: 1)
-    uint8_t                                     onewayLanes;             //!< Number of expected lanes (default: 1)
+    bool                                        canBeNode=false;               //!< Type can be a node
+    bool                                        canBeWay=false;                //!< Type can be a way
+    bool                                        canBeArea=false;               //!< Type can be a area
+    bool                                        canBeRelation=false;           //!< Type can be a relation, specialType specialise type
+    bool                                        isPath=false;                  //!< Type has path characteristics (features like bridges, tunnels, names,...)
+    bool                                        canRouteFoot=false;            //!< Object of this type are by default routable for foot
+    bool                                        canRouteBicycle=false;         //!< Object of this type are by default routable for bicylce
+    bool                                        canRouteCar=false;             //!< Object of this type are by default routable for car
+    bool                                        indexAsAddress=false;          //!< Objects of this type are addressable
+    bool                                        indexAsLocation=false;         //!< Objects of this type are defining a location (e.g. street)
+    bool                                        indexAsRegion=false;           //!< Objects of this type are defining a administrative region (e.g. city, county,...)
+    bool                                        indexAsPOI=false;              //!< Objects of this type are defining a POI
+    bool                                        optimizeLowZoom=false;         //!< Optimize objects of this type for low zoom rendering
+    SpecialType                                 specialType=SpecialType::none; //!< Special logical OSM type
+    bool                                        pinWay=false;                  //!< If there is no way/area information treat this object as way even it the way is closed
+    bool                                        mergeAreas=false;              //!< Areas of this type are merged under certain conditions
+    bool                                        ignoreSeaLand=false;           //!< Ignore objects of this type for sea/land calculation
+    bool                                        ignore=false;                  //!< Ignore objects of this type
+    uint8_t                                     lanes=1;                       //!< Number of expected lanes (default: 1)
+    uint8_t                                     onewayLanes=1;                 //!< Number of expected lanes (default: 1)
 
-    std::unordered_set<std::string>             groups;                  //!< Set of idents that server as categorizing groups
-    std::unordered_map<std::string,std::string> descriptions;            //!< Map of descriptions for given language codes
+    std::unordered_set<std::string>             groups;                        //!< Set of idents that server as categorizing groups
+    std::unordered_map<std::string,std::string> descriptions;                  //!< Map of descriptions for given language codes
 
   private:
-    TypeInfo(const TypeInfo& other);
+    /**
+     * We forbid copying of TypeInfo instances
+     */
+    TypeInfo(const TypeInfo& other) = delete;
+
+    TypeInfo& operator=(const TypeInfo& other) = delete;
 
   public:
     explicit TypeInfo(const std::string& name);
@@ -142,6 +160,11 @@ namespace osmscout {
      * Set the id of this type
      */
     TypeInfo& SetAreaId(TypeId id);
+
+    /**
+     * Set the id of this type
+     */
+    TypeInfo& SetRouteId(TypeId id);
 
     /**
      * Set the index of this type. The index is assured to in the interval [0..GetTypeCount()[
@@ -260,11 +283,18 @@ namespace osmscout {
 
     /**
      * Returns the unique id of this type. You should not use the type id as an index.
-
      */
     inline TypeId GetAreaId() const
     {
       return areaId;
+    }
+
+    /**
+     * Returns the unique id of this type. You should not use the type id as an index.
+     */
+    inline TypeId GetRouteId() const
+    {
+      return routeId;
     }
 
     /**
@@ -526,20 +556,60 @@ namespace osmscout {
       return optimizeLowZoom;
     }
 
-    /**
-     * If set to 'true', an object is handled as multipolygon even though it may not have
-     * type=multipolygon set explicitly.
-     */
-    inline TypeInfo& SetMultipolygon(bool multipolygon)
-    {
-      this->multipolygon=multipolygon;
+    inline TypeInfo& SetSpecialType(SpecialType specialType) {
+      this->specialType=specialType;
 
       return *this;
     }
 
-    inline bool GetMultipolygon() const
+    inline SpecialType GetSpecialType() const
     {
-      return multipolygon;
+      return specialType;
+    }
+    /**
+     * An object is handled as multipolygon even though it may not have
+     * type=multipolygon set explicitly.
+     */
+    inline TypeInfo& SetMultipolygon()
+    {
+      this->specialType=SpecialType::multipolygon;
+
+      return *this;
+    }
+
+    /**
+     * An object is handled as route master.
+     */
+    inline TypeInfo& SetRouteMaster()
+    {
+      this->specialType=SpecialType::routeMaster;
+
+      return *this;
+    }
+
+    /**
+     * An object is handled as route.
+     */
+    inline TypeInfo& SetRoute()
+    {
+      this->specialType=SpecialType::route;
+
+      return *this;
+    }
+
+    inline bool IsMultipolygon() const
+    {
+      return specialType==SpecialType::multipolygon;
+    }
+
+    inline bool IsRouteMaster() const
+    {
+      return specialType==SpecialType::routeMaster;
+    }
+
+    inline bool IsRoute() const
+    {
+      return specialType==SpecialType::route;
     }
 
     inline TypeInfo& SetPinWay(bool pinWay)
@@ -643,9 +713,9 @@ namespace osmscout {
     };
 
     std::string GetDescription(const std::string& languageCode) const;
-  };
 
-  typedef std::shared_ptr<TypeInfo> TypeInfoRef;
+    static TypeInfoRef Read(FileScanner& scanner, uint32_t fileFormatVersion);
+  };
 
   /**
    * A FeatureValueBuffer is instantiated by an object and holds information
@@ -781,7 +851,7 @@ namespace osmscout {
 
     template<class T> const T* findValue() const
     {
-      for (auto& featureInstance :GetType()->GetFeatures()) {
+      for (const auto& featureInstance :GetType()->GetFeatures()) {
         if (HasFeature(featureInstance.GetIndex())) {
           osmscout::FeatureRef feature=featureInstance.GetFeature();
           if (feature->HasValue()) {
@@ -798,9 +868,9 @@ namespace osmscout {
     }
   };
 
-  typedef std::shared_ptr<FeatureValueBuffer> FeatureValueBufferRef;
+  using FeatureValueBufferRef = std::shared_ptr<FeatureValueBuffer>;
 
-  static const uint32_t FILE_FORMAT_VERSION = 19;
+  static const uint32_t FILE_FORMAT_VERSION = 21;
   static const uint32_t FILE_FORMAT_MIN_VERSION = 6;
 
   // Forward declaration
@@ -832,11 +902,13 @@ namespace osmscout {
     std::vector<TypeInfoRef>                    nodeTypes;
     std::vector<TypeInfoRef>                    wayTypes;
     std::vector<TypeInfoRef>                    areaTypes;
+    std::vector<TypeInfoRef>                    routeTypes;
 
-    uint8_t                                     nodeTypeIdBytes;
-    uint8_t                                     wayTypeIdBytes;
-    uint8_t                                     areaTypeIdBits;
-    uint8_t                                     areaTypeIdBytes;
+    uint8_t                                     nodeTypeIdBytes=1;
+    uint8_t                                     wayTypeIdBytes=1;
+    uint8_t                                     areaTypeIdBits=1;
+    uint8_t                                     areaTypeIdBytes=1;
+    uint8_t                                     routeTypeIdBytes=1;
 
     std::unordered_map<std::string,TypeInfoRef> nameToTypeMap;
 
@@ -847,6 +919,7 @@ namespace osmscout {
     std::unordered_map<std::string,FeatureRef>  nameToFeatureMap;
 
     FeatureRef                                  featureName;
+    FeatureRef                                  featureNameShort;
     FeatureRef                                  featureRef;
     FeatureRef                                  featureLocation;
     FeatureRef                                  featureAddress;
@@ -1004,6 +1077,19 @@ namespace osmscout {
     }
 
     /**
+     * Returns an array of the (ignore=false) route types available
+     */
+    inline const std::vector<TypeInfoRef>& GetRouteTypes() const
+    {
+      return routeTypes;
+    }
+
+    inline uint8_t GetRouteTypeIdBytes() const
+    {
+      return routeTypeIdBytes;
+    }
+
+    /**
      * Returns the number of types available. The index of a type is guaranteed to be in the interval
      * [0..GetTypeCount()[
      */
@@ -1020,7 +1106,7 @@ namespace osmscout {
     /**
      * Returns the type definition for the given type id
      */
-    inline const TypeInfoRef GetTypeInfo(size_t index) const
+    inline TypeInfoRef GetTypeInfo(size_t index) const
     {
       assert(index<types.size());
 
@@ -1030,46 +1116,57 @@ namespace osmscout {
     /**
      * Returns the type definition for the given type id
      */
-    inline const TypeInfoRef GetNodeTypeInfo(TypeId id) const
+    inline TypeInfoRef GetNodeTypeInfo(TypeId id) const
     {
       assert(id<=nodeTypes.size());
 
       if (id==typeIgnore) {
         return typeInfoIgnore;
       }
-      else {
-        return nodeTypes[id-1];
-      }
+
+      return nodeTypes[id-1];
     }
 
     /**
      * Returns the type definition for the given type id
      */
-    inline const TypeInfoRef GetWayTypeInfo(TypeId id) const
+    inline TypeInfoRef GetWayTypeInfo(TypeId id) const
     {
       assert(id<=wayTypes.size());
 
       if (id==typeIgnore) {
         return typeInfoIgnore;
       }
-      else {
-        return wayTypes[id-1];
-      }
+
+      return wayTypes[id-1];
     }
 
     /**
      * Returns the type definition for the given type id
      */
-    inline const TypeInfoRef GetAreaTypeInfo(TypeId id) const
+    inline TypeInfoRef GetAreaTypeInfo(TypeId id) const
     {
       assert(id<=areaTypes.size());
 
       if (id==typeIgnore) {
         return typeInfoIgnore;
       }
-      else {
-        return areaTypes[id-1];
+
+      return areaTypes[id-1];
+    }
+
+    /**
+     * Returns the type definition for the given type id
+     */
+    inline TypeInfoRef GetRouteTypeInfo(TypeId id) const
+    {
+      assert(id<=routeTypes.size());
+
+      if (id==typeIgnore) {
+        return typeInfoIgnore;
       }
+
+      return routeTypes[id-1];
     }
 
     /**
@@ -1140,7 +1237,7 @@ namespace osmscout {
 
   //! \ingroup type
   //! Reference counted reference to a TypeConfig instance
-  typedef std::shared_ptr<TypeConfig> TypeConfigRef;
+  using TypeConfigRef = std::shared_ptr<TypeConfig>;
 
   /**
    * \defgroup type Object type related data structures and services

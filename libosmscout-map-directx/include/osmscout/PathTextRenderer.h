@@ -1,8 +1,56 @@
 #pragma once
 
+#define NOMINMAX 1
+
 #include <d2d1.h>
 #include <dwrite.h>
-#include "osmscout/MapPainter.h"
+
+#include <osmscout/MapPainter.h>
+
+/**
+ * Helper class for drawing contours. Allows the MapPainter base class
+ * to inject itself at certain points in the contour label rendering code of
+ * the actual backend.
+ */
+class ContourLabelHelper
+{
+private:
+  double contourLabelOffset;
+  double contourLabelSpace;
+  double pathLength;
+  double textWidth;
+  double currentOffset;
+public:
+  explicit ContourLabelHelper(double contourLabelOffset, double contourLabelSpace);
+
+  bool Init(double pathLength,
+            double textWidth);
+
+  inline bool ContinueDrawing() const
+  {
+    return currentOffset<pathLength;
+  }
+
+  inline double GetCurrentOffset() const
+  {
+    return currentOffset;
+  }
+
+  inline void AdvancePartial(double width)
+  {
+    currentOffset+=width;
+  }
+
+  inline void AdvanceText()
+  {
+    currentOffset+=textWidth;
+  }
+
+  inline void AdvanceSpace()
+  {
+    currentOffset+=contourLabelSpace;
+  }
+};
 
 /*
  * This structure is needed to hold the renderer context. It is passed around as a void* pointer,
@@ -10,7 +58,7 @@
  */
 struct PathTextDrawingContext
 {
-    osmscout::MapPainter::ContourLabelHelper* helper;
+    ContourLabelHelper* helper;
     ID2D1RenderTarget* d2DContext;
     ID2D1Geometry* geometry;
     ID2D1Brush* brush;

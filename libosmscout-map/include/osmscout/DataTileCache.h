@@ -31,6 +31,7 @@
 #include <osmscout/Node.h>
 #include <osmscout/Way.h>
 #include <osmscout/Area.h>
+#include <osmscout/Route.h>
 
 #include <osmscout/TypeInfoSet.h>
 
@@ -45,7 +46,7 @@ namespace osmscout {
   /**
    * \ingroup tiledcache
    *
-   * Temlate for storing sets of data of the same type in a tile. Normally data will either be NodeRef, WayRef or AreaRef.
+   * Template for storing sets of data of the same type in a tile. Normally data will either be NodeRef, WayRef or AreaRef.
    */
   template<typename O>
   class OSMSCOUT_MAP_API TileData
@@ -58,17 +59,13 @@ namespace osmscout {
     std::vector<O>     prefillData;
     std::vector<O>     data;
 
-    bool               complete;
+    bool               complete=false;
 
   public:
     /**
      * Create an empty and unassigned TileData
      */
-    TileData()
-    : complete(false)
-    {
-      // no code
-    }
+    TileData() = default;
 
     bool IsEmpty() const
     {
@@ -142,6 +139,20 @@ namespace osmscout {
     }
 
     /**
+     * Add data to the tile and mark the tile as completed.
+     */
+    void AddData(const TypeInfoSet& types,
+                 const std::vector<O>& data)
+    {
+      std::lock_guard<std::mutex> guard(mutex);
+
+      this->data.insert(this->data.end(), data.begin(), data.end());
+      this->types.Add(types);
+
+      complete=true;
+    }
+
+    /**
      * Assign data to the tile and mark the tile as completed.
      */
     void SetData(const TypeInfoSet& types,
@@ -150,7 +161,7 @@ namespace osmscout {
       std::lock_guard<std::mutex> guard(mutex);
 
       this->data=data;
-      this->types.Add(types);
+      this->types=types;
 
       complete=true;
     }
@@ -164,7 +175,7 @@ namespace osmscout {
       std::lock_guard<std::mutex> guard(mutex);
 
       this->data=std::move(data);
-      this->types.Add(types);
+      this->types=types;
 
       complete=true;
     }
@@ -196,7 +207,7 @@ namespace osmscout {
      * Note that it is stll possibly that there is no acutal data for this type in the
      * TileData stored.
      */
-    const TypeInfoSet GetTypes() const
+    TypeInfoSet GetTypes() const
     {
       std::lock_guard<std::mutex> guard(mutex);
 
@@ -224,21 +235,28 @@ namespace osmscout {
    *
    * TileData for nodes
    */
-  typedef TileData<NodeRef> TileNodeData;
+  using TileNodeData = TileData<NodeRef>;
 
   /**
    * \ingroup tiledcache
    *
    * TileData for ways
    */
-  typedef TileData<WayRef>  TileWayData;
+  using TileWayData = TileData<WayRef>;
 
   /**
    * \ingroup tiledcache
    *
    * TileData for areas
    */
-  typedef TileData<AreaRef> TileAreaData;
+  using TileAreaData = TileData<AreaRef>;
+
+  /**
+   * \ingroup tiledcache
+   *
+   * TileData for routes
+   */
+  using TileRouteData = TileData<RouteRef>;
 
   // Forward declaration of DataTileCache for friend declaration in Tile
   class DataTileCache;
@@ -258,11 +276,12 @@ namespace osmscout {
     TileNodeData  nodeData;          //!< Node data
     TileWayData   wayData;           //!< Way data
     TileAreaData  areaData;          //!< Area data
+    TileRouteData routeData;         //!< Route data
     TileWayData   optimizedWayData;  //!< Optimized way data
     TileAreaData  optimizedAreaData; //!< Optimized area data
 
   private:
-    Tile(const TileKey& key);
+    explicit Tile(const TileKey& key);
 
   public:
     friend class DataTileCache;
@@ -318,6 +337,14 @@ namespace osmscout {
     }
 
     /**
+     * Return a read-only reference to the route data
+     */
+    inline const TileRouteData& GetRouteData() const
+    {
+      return routeData;
+    }
+
+    /**
      * Return a read-only reference to the optimized way data
      */
     inline const TileWayData& GetOptimizedWayData() const
@@ -358,6 +385,14 @@ namespace osmscout {
     }
 
     /**
+     * Return a read-write reference to the area data
+     */
+    inline TileRouteData& GetRouteData()
+    {
+      return routeData;
+    }
+
+    /**
      * Return a read-write reference to the optimized way data
      */
     inline TileWayData& GetOptimizedWayData()
@@ -381,6 +416,7 @@ namespace osmscout {
       return nodeData.IsComplete() &&
              wayData.IsComplete() &&
              areaData.IsComplete() &&
+             routeData.IsComplete() &&
              optimizedWayData.IsComplete() &&
              optimizedAreaData.IsComplete();
     }
@@ -393,6 +429,7 @@ namespace osmscout {
       return nodeData.IsEmpty() &&
              wayData.IsEmpty() &&
              areaData.IsEmpty() &&
+             routeData.IsEmpty() &&
              optimizedWayData.IsEmpty() &&
              optimizedAreaData.IsEmpty();
     }
@@ -403,7 +440,7 @@ namespace osmscout {
    *
    * Reference counted reference to a tile
    */
-  typedef std::shared_ptr<Tile> TileRef;
+  using TileRef = std::shared_ptr<Tile>;
 
   /**
    * \ingroup tiledcache
@@ -438,13 +475,13 @@ namespace osmscout {
     };
 
     //! A list of cached tiles
-    typedef std::list<CacheEntry>      Cache;
+    using Cache = std::list<CacheEntry>;
 
     //! References to a tile in above list
-    typedef Cache::iterator            CacheRef;
+    using CacheRef = Cache::iterator;
 
     //! An index from TileIds to cache entries
-    typedef std::map<TileKey,CacheRef> CacheIndex;
+    using CacheIndex = std::map<TileKey, CacheRef>;
 
   private:
     size_t             cacheSize;
@@ -464,6 +501,10 @@ namespace osmscout {
                                 const Tile& parentTile,
                                 const GeoBox& boundingBox,
                                 const TypeInfoSet& areaTypes);
+    void ResolveRoutesFromParent(Tile& route,
+                                 const Tile& parentTile,
+                                 const GeoBox& boundingBox,
+                                 const TypeInfoSet& routeTypes);
 
   public:
     explicit DataTileCache(size_t cacheSize);
@@ -495,6 +536,7 @@ namespace osmscout {
                               const TypeInfoSet& nodeTypes,
                               const TypeInfoSet& wayTypes,
                               const TypeInfoSet& areaTypes,
+                              const TypeInfoSet& routeTypes,
                               const TypeInfoSet& optimizedWayTypes,
                               const TypeInfoSet& optimizedAreaTypes);
   };
@@ -504,7 +546,7 @@ namespace osmscout {
    *
    * Reference counted reference to a DataTileCache instance
    */
-  typedef std::shared_ptr<DataTileCache> TiledDataCacheRef;
+  using TiledDataCacheRef = std::shared_ptr<DataTileCache>;
 
   /**
    * \defgroup tiledcache Classes for caching map data per tile

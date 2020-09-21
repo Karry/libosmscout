@@ -34,7 +34,7 @@
 
 namespace p2t {
 
-SweepContext::SweepContext(std::vector<Point*> polyline) :
+SweepContext::SweepContext(const std::vector<Point*> &polyline) :
   front_(0),
   head_(0),
   tail_(0),
@@ -177,7 +177,7 @@ void SweepContext::MeshClean(Triangle& triangle)
 	Triangle *t = triangles.back();
 	triangles.pop_back();
 
-    if (t != NULL && !t->IsInterior()) {
+    if (t != nullptr && !t->IsInterior()) {
       t->IsInterior(true);
       triangles_.push_back(t);
       for (int i = 0; i < 3; i++) {

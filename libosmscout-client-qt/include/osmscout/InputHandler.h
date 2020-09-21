@@ -24,13 +24,15 @@
 #include <QVector2D>
 #include <QTouchEvent>
 #include <QTimer>
-#include <QTime>
+#include <QElapsedTimer>
 #include <QQueue>
 
+#include <osmscout/util/Bearing.h>
 #include <osmscout/util/GeoBox.h>
 #include <osmscout/util/Magnification.h>
 
 #include <osmscout/ClientQtImportExport.h>
+#include <osmscout/VehiclePosition.h>
 
 namespace osmscout {
 
@@ -86,14 +88,12 @@ public:
           moveTolerance(15)
   {
     timer.setSingleShot(true);
-    connect(&timer, SIGNAL(timeout()), this, SLOT(onTimeout()));
+    connect(&timer, &QTimer::timeout, this, &TapRecognizer::onTimeout);
   }
 
-  virtual inline ~TapRecognizer()
-  {
-  }
+  ~TapRecognizer() override = default;
 
-  void touch(QTouchEvent *event);
+  void touch(const QTouchEvent &event);
 
   inline void setPhysicalDpi(double physicalDpi)
   {
@@ -113,7 +113,7 @@ signals:
 struct AccumulatorEvent
 {
   QPointF pos;
-  QTime time;
+  QElapsedTimer time;
 };
 
 /**
@@ -144,7 +144,7 @@ public:
     memory(memory), factor(factor), vectorLengthTreshold(vectorLengthTreshold)
   {
   }
-  virtual inline ~MoveAccumulator(){}
+  ~MoveAccumulator() override = default;
 
   MoveAccumulator& operator+=(const QPointF p);
   QVector2D collect();
@@ -159,20 +159,27 @@ class OSMSCOUT_CLIENT_QT_API MapView: public QObject
 {
   Q_OBJECT
 
-  Q_PROPERTY(double   lat       READ GetLat)
-  Q_PROPERTY(double   lon       READ GetLon)
-  Q_PROPERTY(double   angle     READ GetAngle)
-  Q_PROPERTY(double   mag       READ GetMag)
-  Q_PROPERTY(uint32_t magLevel  READ GetMagLevel)
-  Q_PROPERTY(double   mapDpi    READ GetMapDpi)
+  Q_PROPERTY(double   lat       READ GetLat       CONSTANT)
+  Q_PROPERTY(double   lon       READ GetLon       CONSTANT)
+  Q_PROPERTY(double   angle     READ GetAngle     CONSTANT)
+  Q_PROPERTY(double   mag       READ GetMag       CONSTANT)
+  Q_PROPERTY(uint32_t magLevel  READ GetMagLevel  CONSTANT)
+  Q_PROPERTY(double   mapDpi    READ GetMapDpi    CONSTANT)
 
 public:
-  inline MapView(QObject *parent=0): QObject(parent) {}
+  inline MapView(QObject *parent=nullptr): QObject(parent) {}
 
-  inline MapView(QObject *parent, osmscout::GeoCoord center, double angle, osmscout::Magnification magnification, double mapDpi):
+  inline MapView(QObject *parent,
+                 const osmscout::GeoCoord &center,
+                 const Bearing &angle,
+                 const osmscout::Magnification &magnification,
+                 double mapDpi):
     QObject(parent), center(center), angle(angle), magnification(magnification), mapDpi(mapDpi) {}
 
-  inline MapView(osmscout::GeoCoord center, double angle, osmscout::Magnification magnification, double mapDpi):
+  inline MapView(const osmscout::GeoCoord &center,
+                 const Bearing &angle,
+                 const osmscout::Magnification &magnification,
+                 double mapDpi):
     center(center), angle(angle), magnification(magnification), mapDpi(mapDpi) {}
 
   /**
@@ -183,27 +190,29 @@ public:
   inline MapView(const MapView &mv):
     QObject(), center(mv.center), angle(mv.angle), magnification(mv.magnification), mapDpi(mv.mapDpi) {}
 
-  virtual inline ~MapView(){}
+  ~MapView() override = default;
 
-  inline double GetLat(){ return center.GetLat(); }
-  inline double GetLon(){ return center.GetLon(); }
-  inline double GetAngle(){ return angle; }
-  inline double GetMag(){ return magnification.GetMagnification(); }
-  inline double GetMagLevel(){ return magnification.GetLevel(); }
-  inline double GetMapDpi(){ return mapDpi; }
+  inline double GetLat() const{ return center.GetLat(); }
+  inline double GetLon() const{ return center.GetLon(); }
+  inline double GetAngle() const{ return angle.AsRadians(); }
+  inline double GetMag() const{ return magnification.GetMagnification(); }
+  inline double GetMagLevel() const{ return magnification.GetLevel(); }
+  inline double GetMapDpi() const{ return mapDpi; }
 
-  inline bool IsValid(){ return mapDpi > 0; }
+  inline bool IsValid() const{ return mapDpi > 0; }
 
-  void inline operator=(const MapView &mv)
+  inline MapView& operator=(const MapView &mv)
   {
     center = mv.center;
     angle = mv.angle;
     magnification = mv.magnification;
     mapDpi = mv.mapDpi;
+
+    return *this;
   }
 
   osmscout::GeoCoord           center;
-  double                       angle{0};
+  Bearing                      angle; // canvas clockwise
   osmscout::Magnification      magnification;
   double                       mapDpi{0};
 };
@@ -237,21 +246,24 @@ inline bool operator!=(const MapView& a, const MapView& b)
 class OSMSCOUT_CLIENT_QT_API InputHandler : public QObject{
     Q_OBJECT
 public:
-    InputHandler(MapView view);
-    virtual ~InputHandler();
+    InputHandler(const MapView &view);
+    ~InputHandler() override;
 
     virtual void painted();
     virtual bool animationInProgress();
 
-    virtual bool showCoordinates(osmscout::GeoCoord coord, osmscout::Magnification magnification);
-    virtual bool zoom(double zoomFactor, const QPoint widgetPosition, const QRect widgetDimension);
-    virtual bool move(QVector2D vector); // move vector in pixels
+    virtual bool showCoordinates(const osmscout::GeoCoord &coord, const osmscout::Magnification &magnification, const osmscout::Bearing &bearing);
+    virtual bool zoom(double zoomFactor, const QPoint &widgetPosition, const QRect &widgetDimension);
+    virtual bool move(const QVector2D &vector); // move vector in pixels
     virtual bool rotateTo(double angle);
     virtual bool rotateBy(double angleChange);
-    virtual bool touch(QTouchEvent *event);
-    virtual bool currentPosition(bool locationValid, osmscout::GeoCoord currentPosition, double moveTolerance);
+    virtual bool touch(const QTouchEvent &event);
+    virtual bool currentPosition(bool locationValid, osmscout::GeoCoord currentPosition);
+    virtual bool vehiclePosition(const VehiclePosition &vehiclePosition);
     virtual bool isLockedToPosition();
+    virtual bool isFollowVehicle();
     virtual bool focusOutEvent(QFocusEvent *event);
+    virtual void widgetResized(const QSizeF &widgetSize);
 
 signals:
     void viewChanged(const MapView &view);
@@ -270,7 +282,7 @@ class OSMSCOUT_CLIENT_QT_API MoveHandler : public InputHandler {
     Q_OBJECT
 
 private:
-    QTime animationStart;
+    QElapsedTimer animationStart;
     QTimer timer;
     MapView startMapView;
     QVector2D _move;
@@ -287,10 +299,10 @@ private slots:
     void onTimeout();
 
 public:
-    MoveHandler(MapView view);
-    virtual ~MoveHandler();
+    MoveHandler(const MapView &view);
+    ~MoveHandler() override;
 
-    virtual bool animationInProgress();
+    bool animationInProgress() override;
 
     /**
      * Called from DragHandler or MultitouchHandler when gesture moves with map
@@ -298,14 +310,13 @@ public:
      * @param vector
      * @return
      */
-    bool moveNow(QVector2D vector); // move vector in pixels, without animation
+    bool moveNow(const QVector2D &vector); // move vector in pixels, without animation
 
-    virtual bool zoom(double zoomFactor, const QPoint widgetPosition, const QRect widgetDimension);
-    virtual bool move(QVector2D vector); // move vector in pixels
-    virtual bool rotateTo(double angle);
-    virtual bool rotateBy(double angleChange);
-    virtual bool touch(QTouchEvent *event);
-
+    bool zoom(double zoomFactor, const QPoint &widgetPosition, const QRect &widgetDimension) override;
+    bool move(const QVector2D &vector) override; // move vector in pixels
+    bool rotateTo(double angle) override;
+    bool rotateBy(double angleChange) override;
+    bool touch(const QTouchEvent &event) override;
 };
 
 /**
@@ -317,23 +328,30 @@ class OSMSCOUT_CLIENT_QT_API JumpHandler : public InputHandler {
     Q_OBJECT
 
 private:
-    QTime animationStart;
+    QElapsedTimer animationStart;
     QTimer timer;
     MapView startMapView;
     MapView targetMapView;
+    double angleDiff; // radians
 
-    const int ANIMATION_DURATION = 1000; // ms
-    const int ANIMATION_TICK = 16;
+    double moveAnimationDuration;
+    double zoomAnimationDuration;
+
+    static constexpr int ANIMATION_DURATION = 1000; // ms
+    static constexpr int ANIMATION_TICK = 16; // ms
 
 private slots:
     void onTimeout();
 
 public:
-    JumpHandler(MapView view);
-    virtual ~JumpHandler();
+    JumpHandler(const MapView &view,
+                double moveAnimationDuration = (double)ANIMATION_DURATION,
+                double zoomAnimationDuration = (double)ANIMATION_DURATION);
 
-    virtual bool animationInProgress();
-    virtual bool showCoordinates(osmscout::GeoCoord coord, osmscout::Magnification magnification);
+    ~JumpHandler() override;
+
+    bool animationInProgress() override;
+    bool showCoordinates(const osmscout::GeoCoord &coord, const osmscout::Magnification &magnification, const osmscout::Bearing &bearing) override;
 };
 
 /**
@@ -344,16 +362,16 @@ public:
 class OSMSCOUT_CLIENT_QT_API DragHandler : public MoveHandler {
     Q_OBJECT
 public:
-    DragHandler(MapView view);
-    virtual ~DragHandler();
+    DragHandler(const MapView &view);
+    ~DragHandler() override;
 
-    virtual bool animationInProgress();
+    bool animationInProgress() override;
 
-    virtual bool zoom(double zoomFactor, const QPoint widgetPosition, const QRect widgetDimension);
-    virtual bool move(QVector2D vector); // move vector in pixels
-    virtual bool rotateBy(double angleChange);
+    bool zoom(double zoomFactor, const QPoint &widgetPosition, const QRect &widgetDimension) override;
+    bool move(const QVector2D &vector) override; // move vector in pixels
+    bool rotateBy(double angleChange) override;
 
-    virtual bool touch(QTouchEvent *event);
+    bool touch(const QTouchEvent &event) override;
 
 private:
     bool moving;
@@ -374,16 +392,17 @@ private:
 class OSMSCOUT_CLIENT_QT_API MultitouchHandler : public MoveHandler {
     Q_OBJECT
 public:
-    MultitouchHandler(MapView view);
-    virtual ~MultitouchHandler();
+    MultitouchHandler(const MapView &view);
+    ~MultitouchHandler() override;
 
-    virtual bool animationInProgress();
+    bool animationInProgress() override;
 
-    virtual bool zoom(double zoomFactor, const QPoint widgetPosition, const QRect widgetDimension);
-    virtual bool move(QVector2D vector); // move vector in pixels
-    virtual bool rotateBy(double angleChange);
+    bool zoom(double zoomFactor, const QPoint &widgetPosition, const QRect &widgetDimension) override;
+    bool move(const QVector2D &vector) override; // move vector in pixels
+    bool rotateBy(double angleChange) override;
 
-    virtual bool touch(QTouchEvent *event);
+    bool touch(const QTouchEvent &event) override;
+
 private:
     bool moving;
     MapView startView;
@@ -404,14 +423,36 @@ private:
 class OSMSCOUT_CLIENT_QT_API LockHandler : public JumpHandler {
     Q_OBJECT
 public:
-    inline LockHandler(MapView view):
-      JumpHandler(view)
+    inline LockHandler(const MapView &view, const QSizeF &widgetSize):
+      JumpHandler(view), window(widgetSize)
     {};
 
-    virtual bool currentPosition(bool locationValid, osmscout::GeoCoord currentPosition, double moveTolerance);
-    virtual bool showCoordinates(osmscout::GeoCoord coord, osmscout::Magnification magnification);
-    virtual bool isLockedToPosition();
-    virtual bool focusOutEvent(QFocusEvent *event);
+    bool currentPosition(bool locationValid, osmscout::GeoCoord currentPosition) override;
+    bool showCoordinates(const osmscout::GeoCoord &coord, const osmscout::Magnification &magnification, const osmscout::Bearing &bearing) override;
+    bool isLockedToPosition() override;
+    bool focusOutEvent(QFocusEvent *event) override;
+    void widgetResized(const QSizeF &widgetSize) override;
+private:
+    QSizeF window;
+};
+
+/**
+ * \ingroup QtAPI
+ *
+ * Input handler that follow vehicle.
+ */
+class OSMSCOUT_CLIENT_QT_API VehicleFollowHandler : public JumpHandler {
+Q_OBJECT
+public:
+  VehicleFollowHandler(const MapView &view, const QSizeF &widgetSize);
+
+  bool vehiclePosition(const VehiclePosition &vehiclePosition) override;
+  bool isLockedToPosition() override;
+  bool isFollowVehicle() override;
+  void widgetResized(const QSizeF &widgetSize) override;
+
+private:
+  QSizeF window;
 };
 
 }

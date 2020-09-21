@@ -27,7 +27,6 @@
 #include <osmscout/routing/RoutingService.h>
 #include <osmscout/routing/SimpleRoutingService.h>
 #include <osmscout/routing/MultiDBRoutingService.h>
-#include <osmscout/Pixel.h>
 
 #include <osmscout/system/Assert.h>
 
@@ -38,10 +37,6 @@
 //#define DEBUG_ROUTING
 
 namespace osmscout {
-
-  const size_t MultiDBRoutingService::CELL_MAGNIFICATION=65536; // 2^16
-  const double MultiDBRoutingService::LAT_CELL_FACTOR=180.0/ MultiDBRoutingService::CELL_MAGNIFICATION;
-  const double MultiDBRoutingService::LON_CELL_FACTOR=360.0/ MultiDBRoutingService::CELL_MAGNIFICATION;
 
   MultiDBRoutingService::MultiDBRoutingService(const RouterParameter& parameter,
                                                const std::vector<DatabaseRef> &databasesArg):
@@ -126,24 +121,20 @@ namespace osmscout {
     isOpen=false;
   }
 
-  RoutePosition MultiDBRoutingService::GetClosestRoutableNode(const GeoCoord& coord,
-                                                              Distance radius) const
+  RoutePositionResult MultiDBRoutingService::GetClosestRoutableNode(const GeoCoord& coord,
+                                                                    const Distance &radius) const
   {
-    RoutePosition position, closestPosition;
-
-    Distance minDistance=Distance::Max();
+    RoutePositionResult position, closestPosition;
 
     for (auto& handle : handles) {
-      Distance distance = radius;
       position=handle.router->GetClosestRoutableNode(coord,
                                                      *handle.profile,
-                                                     distance);
-      if (position.IsValid() && distance < minDistance) {
-        closestPosition=RoutePosition(position.GetObjectFileRef(),
-                                      position.GetNodeIndex(),
-                                      /*database*/
-                                      handle.dbId);
-        minDistance=distance;
+                                                     radius);
+      if (position.IsValid() && position.GetDistance() < closestPosition.GetDistance()) {
+        closestPosition=RoutePositionResult(RoutePosition(position.GetRoutePosition().GetObjectFileRef(),
+                                                          position.GetRoutePosition().GetNodeIndex(),
+                                                          /*database*/ handle.dbId),
+                                            position.GetDistance());
       }
     }
 
@@ -175,12 +166,14 @@ namespace osmscout {
   double MultiDBRoutingService::GetCosts(const MultiDBRoutingState& /*state*/,
                                          const DatabaseId databaseId,
                                          const RouteNode& routeNode,
-                                         size_t pathIndex)
+                                         size_t inPathIndex,
+                                         size_t outPathIndex)
   {
     assert(handles.size()>databaseId);
     return handles[databaseId].profile->GetCosts(routeNode,
                                                  handles[databaseId].routingDatabase->GetObjectVariantData(),
-                                                 pathIndex);
+                                                 inPathIndex,
+                                                 outPathIndex);
   }
 
   double MultiDBRoutingService::GetCosts(const MultiDBRoutingState& /*state*/,
@@ -208,6 +201,16 @@ namespace osmscout {
     RoutingProfileRef profile=handles[database].profile;
     return profile->GetCosts(profile->GetCostLimitDistance()) + profile->GetCosts(targetDistance) * profile->GetCostLimitFactor();
   }
+
+  std::string MultiDBRoutingService::GetCostString(const MultiDBRoutingState& /*state*/,
+                                                   DatabaseId database,
+                                                   double cost) const
+  {
+    assert(handles.size()>database);
+    RoutingProfileRef profile=handles[database].profile;
+    return profile->GetCostString(cost);
+  }
+
 
   bool MultiDBRoutingService::CanUse(const MultiDBRoutingState& /*state*/,
                                      const DatabaseId databaseId,
@@ -426,8 +429,8 @@ namespace osmscout {
       assert(!via.empty());
 
       for (const auto& etap : via) {
-        RoutePosition target=GetClosestRoutableNode(etap,
-                                                    radius);
+        auto posRes=GetClosestRoutableNode(etap,radius);
+        RoutePosition target=posRes.GetRoutePosition();
 
         if (!target.IsValid()) {
           return result;
@@ -500,6 +503,15 @@ namespace osmscout {
                                                           motorwayTypeNames,
                                                           motorwayLinkTypeNames,
                                                           junctionTypeNames);
+  }
+
+  std::map<DatabaseId, std::string> MultiDBRoutingService::GetDatabaseMapping() const
+  {
+    std::map<DatabaseId, std::string> mapping;
+    for (auto &handle:handles){
+      mapping[handle.dbId]=handle.database->GetPath();
+    }
+    return mapping;
   }
 
   // FIXME: I don't understand why these methods should be here...

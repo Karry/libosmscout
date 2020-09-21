@@ -28,16 +28,18 @@ MapStyleModel::MapStyleModel():
   QAbstractListModel()
 {
   styleModule=OSMScoutQt::GetInstance().MakeStyleModule();
-  connect(styleModule,SIGNAL(stylesheetFilenameChanged()),
-          this,SIGNAL(styleChanged()),
+
+  connect(styleModule, &StyleModule::stylesheetFilenameChanged,
+          this, &MapStyleModel::styleChanged,
           Qt::QueuedConnection);
-  connect(this,SIGNAL(loadStyleRequested(QString,std::unordered_map<std::string,bool>)),
-          styleModule,SLOT(loadStyle(QString,std::unordered_map<std::string,bool>)),
+
+  connect(this, &MapStyleModel::loadStyleRequested,
+          styleModule, &StyleModule::loadStyle,
           Qt::QueuedConnection);
 
   SettingsRef settings=OSMScoutQt::GetInstance().GetSettings();
 
-  QDirIterator dirIt(settings->GetStyleSheetDirectory(), QDirIterator::FollowSymlinks);
+  QDirIterator dirIt(settings->GetStyleSheetDirectory(), QDir::Files, QDirIterator::FollowSymlinks);
   while (dirIt.hasNext()) {
     dirIt.next();
     QFileInfo fInfo(dirIt.filePath());
@@ -49,9 +51,9 @@ MapStyleModel::MapStyleModel():
 
 MapStyleModel::~MapStyleModel()
 {
-  if (styleModule!=NULL){
+  if (styleModule!=nullptr){
     styleModule->deleteLater();
-    styleModule=NULL;
+    styleModule=nullptr;
   }
 }
 

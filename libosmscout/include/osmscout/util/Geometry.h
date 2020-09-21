@@ -21,6 +21,7 @@
 */
 
 #include <algorithm>
+#include <array>
 #include <functional>
 #include <list>
 #include <unordered_map>
@@ -39,6 +40,7 @@
 
 #include <osmscout/util/GeoBox.h>
 #include <osmscout/util/Distance.h>
+#include <osmscout/util/Bearing.h>
 
 namespace osmscout {
 
@@ -82,8 +84,10 @@ namespace osmscout {
   {
     double diff = std::abs(a - b);
 
-    if (diff > M_PI)
+    if (diff > M_PI) {
       return 2 * M_PI - diff;
+    }
+
     return diff;
   }
 
@@ -231,9 +235,8 @@ namespace osmscout {
                aBox.Includes(b1,false) ||
                aBox.Includes(b2,false);
       }
-      else {
-        return false;
-      }
+
+      return false;
     }
 
     double ua=ua_numr/denr;
@@ -315,9 +318,8 @@ namespace osmscout {
 
         return false;
       }
-      else {
-        return false;
-      }
+
+      return false;
     }
 
     double ua=ua_numr/denr;
@@ -598,7 +600,8 @@ namespace osmscout {
       if (relPos>0) {
         return true;
       }
-      else if (relPos<0) {
+
+      if (relPos<0) {
         return false;
       }
     }
@@ -680,8 +683,9 @@ namespace osmscout {
       }
     }
 
-    if (pro == 0 && contra == 0 && count > 0)
+    if (pro == 0 && contra == 0 && count > 0) {
       return true;
+    }
 
     return pro/20.0>contra;
   }
@@ -1074,7 +1078,8 @@ namespace osmscout {
    * coordinates of the resulting point in the (WGS-84) ellipsoid.
    */
   extern OSMSCOUT_API void GetEllipsoidalDistance(double lat1, double lon1,
-                                                  double bearing, const Distance &distance,
+                                                  const Bearing &bearing,
+                                                  const Distance &distance,
                                                   double& lat2, double& lon2);
 
   /**
@@ -1083,7 +1088,7 @@ namespace osmscout {
    * coordinates of the resulting point in the (WGS-84) ellipsoid.
    */
   extern OSMSCOUT_API GeoCoord GetEllipsoidalDistance(const GeoCoord& position,
-                                                      double bearing,
+                                                      const Bearing &bearing,
                                                       const Distance &distance);
 
   /**
@@ -1091,27 +1096,22 @@ namespace osmscout {
    * Calculates the initial bearing for a line from one coordinate to the other coordinate
    * on a sphere.
    */
-  extern OSMSCOUT_API double GetSphericalBearingInitial(const GeoCoord& a,
-                                                        const GeoCoord& b);
+  extern OSMSCOUT_API Bearing GetSphericalBearingInitial(const GeoCoord& a,
+                                                         const GeoCoord& b);
 
   /**
    * \ingroup Geometry
    *Calculates the final bearing for a line from one coordinate two the other coordinate
    *on a sphere.
    */
-  extern OSMSCOUT_API double GetSphericalBearingFinal(const GeoCoord& a,
-                                                      const GeoCoord& b);
-
-  /**
-   * COnvert the bearing to to a direction description in releation tothe compass.
-   */
-  extern OSMSCOUT_API std::string BearingDisplayString(double bearing);
+  extern OSMSCOUT_API Bearing GetSphericalBearingFinal(const GeoCoord& a,
+                                                       const GeoCoord& b);
 
   /**
    * \ingroup Geometry
-   * Normalizes the given bearing to be in the interval [-180.0 - 180.0]
+   * Normalizes the given angle (in degrees) to be in the interval [-180.0 - 180.0]
    */
-  extern OSMSCOUT_API double NormalizeRelativeAngel(double angle);
+  extern OSMSCOUT_API double NormalizeRelativeAngle(double angle);
 
   struct OSMSCOUT_API ScanCell
   {
@@ -1136,7 +1136,8 @@ namespace osmscout {
       if (y<other.y) {
         return true;
       }
-      else if (y==other.y) {
+
+      if (y==other.y) {
         return x<other.x;
       }
 
@@ -1446,7 +1447,7 @@ namespace osmscout {
   const size_t CELL_DIMENSION_MAX   = 25;
   const size_t CELL_DIMENSION_COUNT = CELL_DIMENSION_MAX+1;
 
-  extern OSMSCOUT_API CellDimension cellDimension[CELL_DIMENSION_COUNT];
+  extern OSMSCOUT_API std::array<CellDimension,CELL_DIMENSION_COUNT> cellDimension;
 
   /**
    * Helper class to divide a given GeoBox in multiple equally sized parts. The partitioning

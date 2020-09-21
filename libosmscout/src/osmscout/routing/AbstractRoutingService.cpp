@@ -34,6 +34,7 @@
 
 #include <iomanip>
 #include <iostream>
+#include <limits>
 
 //#define DEBUG_ROUTING
 
@@ -654,7 +655,25 @@ namespace osmscout {
                                                        const Distance &overallDistance,
                                                        const double &costLimit)
   {
+    assert(current);
+    assert(currentRouteNode=current->node);
     DatabaseId dbId=current->id.database;
+
+    // find incoming path (its index) to current node
+    bool inPathValid=false;
+    size_t inPathIndex=0; // use std::optional with c++17
+    if (current->prev.IsValid() && dbId==current->prev.database) {
+      for (const auto &path : currentRouteNode->paths) {
+        if (path.id==current->prev.id && // this is path from previous node
+            currentRouteNode->objects[path.objectIndex].object == current->object) { // with used object
+          break;
+        }
+        inPathIndex++;
+      }
+      // in case of roundabout, node don't contains path back
+      inPathValid=inPathIndex < currentRouteNode->paths.size();
+    }
+
     size_t i=0;
     for (const auto& path : currentRouteNode->paths) {
       if (path.id==current->prev.id) {
@@ -739,7 +758,11 @@ namespace osmscout {
         }
       }
 
-      double currentCost=current->currentCost+GetCosts(state,dbId,*currentRouteNode,i);
+      double currentCost=current->currentCost+GetCosts(state,
+                                                       dbId,
+                                                       *currentRouteNode,
+                                                       inPathValid ? inPathIndex : i,
+                                                       i);
 
       auto openEntry=openMap.find(DBId(current->id.database,
                                        path.id));
@@ -937,7 +960,7 @@ namespace osmscout {
     if (targetForwardRouteNode) {
       std::cout << "TargetForwardNode:  " << target.GetObjectFileRef().GetName() << " " << targetForwardRouteNode->GetId() << std::endl;
     }
-    if (startBackwardNode) {
+    if (targetBackwardRouteNode) {
       std::cout << "TargetBackwardNode: " << target.GetObjectFileRef().GetName() << " " << targetBackwardRouteNode->GetId() << std::endl;
     }
 #endif
@@ -1168,12 +1191,12 @@ namespace osmscout {
 
       std::cout << "Time:                " << clock << std::endl;
 
-      std::cout << "Air-line distance:   " << std::fixed << std::setprecision(1) << overallDistance.As<Kilometer>() << "km" << std::endl;
-      std::cout << "Minimum cost:        " << overallCost << std::endl;
+      std::cout << "Air-line distance:   " << std::fixed << std::setprecision(1) << overallDistance.As<Kilometer>() << " km" << std::endl;
+      std::cout << "Minimum cost:        " << GetCostString(state, start.GetDatabaseId(), overallCost) << std::endl;
       if (targetFinalNode) {
-        std::cout << "Actual cost:         " << targetFinalNode->currentCost << std::endl;
+        std::cout << "Actual cost:         " << GetCostString(state, start.GetDatabaseId(), targetFinalNode->currentCost) << std::endl;
       }
-      std::cout << "Cost limit:          " << costLimit << std::endl;
+      std::cout << "Cost limit:          " << GetCostString(state, start.GetDatabaseId(), costLimit) << std::endl;
       std::cout << "Route nodes loaded:  " << nodesLoadedCount << std::endl;
       std::cout << "Route nodes ignored: " << nodesIgnoredCount << std::endl;
       std::cout << "Max. OpenList size:  " << maxOpenList << std::endl;
@@ -1629,6 +1652,7 @@ namespace osmscout {
   RouteDescriptionResult AbstractRoutingService<RoutingState>::TransformRouteDataToRouteDescription(const RouteData& data)
   {
     RouteDescriptionRef description=std::make_shared<RouteDescription>();
+    description->SetDatabaseMapping(GetDatabaseMapping());
 
     if (data.Entries().empty()) {
       return RouteDescriptionResult(description);
@@ -1659,13 +1683,14 @@ namespace osmscout {
   {
     RoutePointsResult routePointsResult=TransformRouteDataToPoints(data);
 
-    if (!routePointsResult.success) {
+    if (!routePointsResult.Success()) {
       return {};
     }
 
     WayRef way=std::make_shared<Way>();
 
-    way->nodes.assign(routePointsResult.points->points.begin(),routePointsResult.points->points.end());
+    way->nodes.assign(routePointsResult.GetPoints()->points.begin(),
+                      routePointsResult.GetPoints()->points.end());
 
     return RouteWayResult(way);
   }

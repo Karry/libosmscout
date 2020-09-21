@@ -30,6 +30,7 @@
 #include <osmscout/PlaneMapRenderer.h>
 #include <osmscout/TiledMapRenderer.h>
 #include <osmscout/OverlayObject.h>
+#include <osmscout/util/Distance.h>
 
 #include <osmscout/AvailableMapsModel.h>
 #include <osmscout/LocationInfoModel.h>
@@ -45,34 +46,33 @@
 #include <osmscout/NavigationModel.h>
 #include <osmscout/NearPOIModel.h>
 #include <osmscout/InstalledMapsModel.h>
+#include <osmscout/AvailableVoicesModel.h>
+#include <osmscout/InstalledVoicesModel.h>
+
+#include <optional>
 
 namespace osmscout {
 
-static OSMScoutQt* osmScoutInstance=NULL;
+static OSMScoutQt* osmScoutInstance=nullptr;
 
-OSMScoutQtBuilder::OSMScoutQtBuilder():
-  settingsStorage(NULL),
-  onlineTileCacheSize(100),
-  offlineTileCacheSize(200),
-  styleSheetDirectoryConfigured(false),
-  styleSheetFileConfigured(false),
-  appName("UnspecifiedApp"),
-  appVersion("v?")
+OSMScoutQtBuilder::OSMScoutQtBuilder()
 {
   QString documentsLocation = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
   mapLookupDirectories << QDir::currentPath();
   mapLookupDirectories << QDir(documentsLocation).filePath("Maps");
 
   cacheLocation = QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
+
+  voiceLookupDirectory = QStandardPaths::writableLocation(QStandardPaths::DataLocation) + QDir::separator() + "voices";
 }
 
-  OSMScoutQtBuilder::~OSMScoutQtBuilder()
+OSMScoutQtBuilder::~OSMScoutQtBuilder()
 {
 }
 
 bool OSMScoutQtBuilder::Init()
 {
-  if (osmScoutInstance!=NULL){
+  if (osmScoutInstance!=nullptr){
     return false;
   }
 
@@ -85,6 +85,9 @@ bool OSMScoutQtBuilder::Init()
   if (!mapProviders.isEmpty()){
     settings->loadMapProviders(mapProviders);
   }
+  if (!voiceProviders.isEmpty()){
+    settings->loadVoiceProviders(voiceProviders);
+  }
 
   // setup style sheet
   if (styleSheetFileConfigured){
@@ -93,6 +96,9 @@ bool OSMScoutQtBuilder::Init()
   if (styleSheetDirectoryConfigured){
     settings->SetStyleSheetDirectory(styleSheetDirectory);
   }
+
+  // setup voice
+  settings->SetVoiceLookupDirectory(voiceLookupDirectory);
 
   MapManagerRef mapManager=std::make_shared<MapManager>(mapLookupDirectories, settings);
 
@@ -126,12 +132,18 @@ void OSMScoutQt::RegisterQmlTypes(const char *uri,
   qRegisterMetaType<DatabaseLoadedResponse>("DatabaseLoadedResponse");
   qRegisterMetaType<LocationEntryRef>("LocationEntryRef");
   qRegisterMetaType<osmscout::BreakerRef>("osmscout::BreakerRef");
+  qRegisterMetaType<osmscout::Distance>("osmscout::Distance");
+  qRegisterMetaType<osmscout::Bearing>("osmscout::Bearing");
+  qRegisterMetaType<std::shared_ptr<osmscout::Bearing>>("std::shared_ptr<osmscout::Bearing>");
+  qRegisterMetaType<std::optional<osmscout::Bearing>>("std::optional<osmscout::Bearing>");
   qRegisterMetaType<osmscout::GeoBox>("osmscout::GeoBox");
   qRegisterMetaType<osmscout::GeoCoord>("osmscout::GeoCoord");
   qRegisterMetaType<osmscout::LocationDescription>("osmscout::LocationDescription");
   qRegisterMetaType<osmscout::MapData>("osmscout::MapData");
   qRegisterMetaType<osmscout::TileRef>("osmscout::TileRef");
   qRegisterMetaType<osmscout::Vehicle>("osmscout::Vehicle");
+  qRegisterMetaType<osmscout::PositionAgent::PositionState>("osmscout::PositionAgent::PositionState");
+  qRegisterMetaType<osmscout::LaneAgent::Lane>("osmscout::LaneAgent::Lane");
   qRegisterMetaType<QList<LocationEntry>>("QList<LocationEntry>");
   qRegisterMetaType<QList<QDir>>("QList<QDir>");
   qRegisterMetaType<MapViewStruct>("MapViewStruct");
@@ -145,11 +157,13 @@ void OSMScoutQt::RegisterQmlTypes(const char *uri,
   qRegisterMetaType<LocationEntry>("LocationEntry");
   qRegisterMetaType<OnlineTileProvider>("OnlineTileProvider");
   qRegisterMetaType<RouteStep>("RouteStep");
+  qRegisterMetaType<std::list<RouteStep>>("std::list<RouteStep>");
   qRegisterMetaType<OverlayWay*>("OverlayWay*");
   qRegisterMetaType<OverlayArea*>("OverlayArea*");
   qRegisterMetaType<OverlayNode*>("OverlayNode*");
+  qRegisterMetaType<QList<LookupModule::ObjectInfo>>("QList<LookupModule::ObjectInfo>");
 
-  // regiester osmscout types for usage in QML
+  // register osmscout types for usage in QML
   qmlRegisterType<AvailableMapsModel>(uri, versionMajor, versionMinor, "AvailableMapsModel");
   qmlRegisterType<LocationEntry>(uri, versionMajor, versionMinor, "LocationEntry");
   qmlRegisterType<LocationInfoModel>(uri, versionMajor, versionMinor, "LocationInfoModel");
@@ -170,6 +184,8 @@ void OSMScoutQt::RegisterQmlTypes(const char *uri,
   qmlRegisterType<TiledMapOverlay>(uri, versionMajor, versionMinor, "TiledMapOverlay");
   qmlRegisterType<NearPOIModel>(uri, versionMajor, versionMinor, "NearPOIModel");
   qmlRegisterType<InstalledMapsModel>(uri, versionMajor, versionMinor, "InstalledMapsModel");
+  qmlRegisterType<AvailableVoicesModel>(uri, versionMajor, versionMinor, "AvailableVoicesModel");
+  qmlRegisterType<InstalledVoicesModel>(uri, versionMajor, versionMinor, "InstalledVoicesModel");
 }
 
 OSMScoutQtBuilder OSMScoutQt::NewInstance()
@@ -179,6 +195,7 @@ OSMScoutQtBuilder OSMScoutQt::NewInstance()
 
 OSMScoutQt& OSMScoutQt::GetInstance()
 {
+  assert(osmScoutInstance);
   return *osmScoutInstance;
 }
 
@@ -189,7 +206,7 @@ void OSMScoutQt::FreeInstance()
     osmscout::log.Warn() << "Some resources still acquired by other components";
   }
   delete osmScoutInstance;
-  osmScoutInstance=NULL;
+  osmScoutInstance=nullptr;
   osmscout::log.Debug() << "OSMScoutQt freed";
 }
 
@@ -225,7 +242,9 @@ OSMScoutQt::OSMScoutQt(SettingsRef settings,
                                       mapManager,
                                       customPoiTypeVector);
 
-  dbThread->connect(thread, SIGNAL(started()), SLOT(Initialize()));
+  connect(thread, &QThread::started,
+          dbThread.get(), &DBThread::Initialize);
+
   dbThread->moveToThread(thread);
 
   thread->start();
@@ -267,14 +286,22 @@ MapManagerRef OSMScoutQt::GetMapManager() const
   return mapManager;
 }
 
+VoiceManagerRef OSMScoutQt::GetVoiceManager()
+{
+  if (!voiceManager){
+    voiceManager = std::make_shared<VoiceManager>();
+  }
+  return voiceManager;
+}
+
 QThread *OSMScoutQt::makeThread(QString name)
 {
   QThread *thread=new QThread();
   thread->setObjectName(name);
-  QObject::connect(thread, SIGNAL(finished()),
-                   thread, SLOT(deleteLater()));
-  connect(thread, SIGNAL(finished()),
-          this, SLOT(threadFinished()));
+  QObject::connect(thread, &QThread::finished,
+                   thread, &QThread::deleteLater);
+  connect(thread, &QThread::finished,
+          this, &OSMScoutQt::threadFinished);
 
   liveBackgroundThreads++;
   return thread;
@@ -362,17 +389,23 @@ NavigationModule* OSMScoutQt::MakeNavigation()
   return navigation;
 }
 
-QString OSMScoutQt::GetUserAgent(){
+QString OSMScoutQt::GetUserAgent() const
+{
   return userAgent;
 }
 
-QString OSMScoutQt::GetCacheLocation()
+QString OSMScoutQt::GetCacheLocation() const
 {
   return cacheLocation;
 }
 
-size_t OSMScoutQt::GetOnlineTileCacheSize()
+size_t OSMScoutQt::GetOnlineTileCacheSize() const
 {
   return onlineTileCacheSize;
+}
+
+QString OSMScoutQt::GetIconDirectory() const
+{
+  return iconDirectory;
 }
 }

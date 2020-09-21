@@ -38,7 +38,7 @@ namespace osmscout {
   class OSMSCOUT_API OptimizeWaysLowZoom
   {
   public:
-    static const char* FILE_WAYSOPT_DAT;
+    static const char* const FILE_WAYSOPT_DAT;
 
   private:
     struct TypeData
@@ -67,7 +67,7 @@ namespace osmscout {
     };
 
   private:
-    TypeConfigRef                              typeConfig;    //!< Metadata information for loading the actual obejcts
+    TypeConfigRef                              typeConfig;    //!< Metadata information for loading the actual objects
     std::string                                datafilename;  //!< complete filename for data file
     mutable FileScanner                        scanner;       //!< File stream to the data file
 
@@ -108,7 +108,7 @@ namespace osmscout {
                  TypeInfoSet& loadedWayTypes) const;
   };
 
-  typedef std::shared_ptr<OptimizeWaysLowZoom> OptimizeWaysLowZoomRef;
+  using OptimizeWaysLowZoomRef = std::shared_ptr<OptimizeWaysLowZoom>;
 }
 
 #endif

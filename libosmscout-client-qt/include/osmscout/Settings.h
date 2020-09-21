@@ -28,6 +28,7 @@
 #include <osmscout/InputHandler.h>
 #include <osmscout/OnlineTileProvider.h>
 #include <osmscout/MapProvider.h>
+#include <osmscout/VoiceProvider.h>
 
 #include <osmscout/ClientQtImportExport.h>
 
@@ -40,17 +41,17 @@ namespace osmscout {
 
 /**
  * \ingroup QtAPI
- * 
+ *
  * Settings provides central point mutable configuration of OSMScout library.
  * It uses Qt's QSettings for persistency. It may be accessed from DBThread instance.
- * 
+ *
  * List of online tile providers should be initialized at applicaiton start.
  * ```
  *   Settings::GetInstance()->loadOnlineTileProviders(
  *     ":/resources/online-tile-providers.json");
  * ```
- * 
- * Before program exit, resources shoudl be released by calling Settings::FreeInstance.
+ *
+ * Before program exit, resources should be released by calling Settings::FreeInstance.
  */
 class OSMSCOUT_CLIENT_QT_API Settings: public QObject
 {
@@ -64,6 +65,11 @@ class OSMSCOUT_CLIENT_QT_API Settings: public QObject
   Q_PROPERTY(QString  styleSheetFile      READ GetStyleSheetFile      WRITE SetStyleSheetFile      NOTIFY StyleSheetFileChanged)
   Q_PROPERTY(QString  fontName    READ GetFontName            WRITE SetFontName     NOTIFY FontNameChanged)
   Q_PROPERTY(double   fontSize    READ GetFontSize            WRITE SetFontSize     NOTIFY FontSizeChanged)
+  Q_PROPERTY(bool     showAltLanguage READ GetShowAltLanguage WRITE SetShowAltLanguage NOTIFY ShowAltLanguageChanged)
+  /// metrics or imperial
+  Q_PROPERTY(QString  units       READ GetUnits               WRITE SetUnits        NOTIFY UnitsChanged)
+  Q_PROPERTY(QString  voiceLookupDirectory READ GetVoiceLookupDirectory WRITE SetVoiceLookupDirectory NOTIFY VoiceLookupDirectoryChanged)
+  Q_PROPERTY(QString  voiceDir    READ GetVoiceDir            WRITE SetVoiceDir     NOTIFY VoiceDirChanged)
 
 signals:
   void MapDPIChange(double dpi);
@@ -74,8 +80,12 @@ signals:
   void RenderSeaChanged(bool);
   void StyleSheetDirectoryChanged(const QString dir);
   void StyleSheetFileChanged(const QString file);
+  void VoiceLookupDirectoryChanged(const QString dir);
+  void VoiceDirChanged(const QString voice);
   void FontNameChanged(const QString fontName);
   void FontSizeChanged(double fontSize);
+  void ShowAltLanguageChanged(bool showAltLanguage);
+  void UnitsChanged(const QString units);
 
 private:
   QSettings *storage;
@@ -83,41 +93,50 @@ private:
   QMap<QString, OnlineTileProvider> onlineProviderMap;
   QList<OnlineTileProvider> onlineProviders;
   QList<MapProvider> mapProviders;
+  QList<VoiceProvider> voiceProviders;
 
 public:
-  Settings(QSettings *providedStorage=NULL);
-  virtual ~Settings();
+  Settings(QSettings *providedStorage=nullptr);
+  ~Settings() override;
 
   double GetPhysicalDPI() const;
-  
+
   void SetMapDPI(double dpi);
   double GetMapDPI() const;
 
   osmscout::Vehicle GetRoutingVehicle() const;
   void SetRoutingVehicle(const osmscout::Vehicle& vehicle);
-  
+
   bool GetOnlineTilesEnabled() const;
   void SetOnlineTilesEnabled(bool b);
-  
+
   const QList<OnlineTileProvider> GetOnlineProviders() const;
-  const OnlineTileProvider GetOnlineTileProvider() const; 
+  const OnlineTileProvider GetOnlineTileProvider() const;
 
   const QList<MapProvider> GetMapProviders() const;
+  const QList<VoiceProvider> GetVoiceProviders() const;
 
-  const QString GetOnlineTileProviderId() const; 
+  const QString GetOnlineTileProviderId() const;
   void SetOnlineTileProviderId(QString id);
-  
+
   bool loadOnlineTileProviders(QString path);
   bool loadMapProviders(QString path);
-  
+  bool loadVoiceProviders(QString path);
+
   bool GetOfflineMap() const;
   void SetOfflineMap(bool);
-  
+
   bool GetRenderSea() const;
   void SetRenderSea(bool);
 
   const QString GetStyleSheetDirectory() const;
   void SetStyleSheetDirectory(const QString dir);
+
+  const QString GetVoiceLookupDirectory() const;
+  void SetVoiceLookupDirectory(const QString &voiceLookupDirectory);
+
+  const QString GetVoiceDir() const;
+  void SetVoiceDir(const QString &voice);
 
   const QString GetStyleSheetFile() const;
   const QString GetStyleSheetAbsoluteFile() const;
@@ -134,31 +153,37 @@ public:
   double GetFontSize() const;
   void SetFontSize(double fontSize);
 
+  bool GetShowAltLanguage() const;
+  void SetShowAltLanguage(bool showAltLanguage);
+
   const QString GetHttpCacheDir() const;
-  
+
   const QByteArray GetCookieData() const;
   void SetCookieData(QByteArray data);
+
+  QString GetUnits() const;
+  void SetUnits(const QString units);
 };
 
 /**
  * \ingroup QtAPI
  */
-typedef std::shared_ptr<Settings> SettingsRef;
+using SettingsRef = std::shared_ptr<Settings>;
 
 /**
  * \ingroup QtAPI
- * 
- * Provides interface to Settings object from QML. It should be registered 
+ *
+ * Provides interface to Settings object from QML. It should be registered
  * by qmlRegisterType before first use.
- * 
+ *
  * ```
  * qmlRegisterType<QmlSettings>("net.sf.libosmscout.map", 1, 0, "Settings");
  * ```
- * 
+ *
  * It may be imported and used in QML then:
  * ```
  * import net.sf.libosmscout.map 1.0
- * 
+ *
  * Settings {
  *   id: settings
  * }
@@ -174,6 +199,9 @@ class OSMSCOUT_CLIENT_QT_API QmlSettings: public QObject{
   Q_PROPERTY(bool     renderSea  READ GetRenderSea  WRITE SetRenderSea  NOTIFY RenderSeaChanged)
   Q_PROPERTY(QString  fontName    READ GetFontName            WRITE SetFontName     NOTIFY FontNameChanged)
   Q_PROPERTY(double   fontSize    READ GetFontSize            WRITE SetFontSize     NOTIFY FontSizeChanged)
+  Q_PROPERTY(bool     showAltLanguage READ GetShowAltLanguage WRITE SetShowAltLanguage NOTIFY ShowAltLanguageChanged)
+  /// metrics or imperial
+  Q_PROPERTY(QString  units       READ GetUnits               WRITE SetUnits        NOTIFY UnitsChanged)
 
 private:
   SettingsRef settings;
@@ -186,28 +214,30 @@ signals:
   void RenderSeaChanged(bool);
   void FontNameChanged(const QString fontName);
   void FontSizeChanged(double fontSize);
+  void ShowAltLanguageChanged(bool showAltLanguage);
+  void UnitsChanged(const QString units);
 
 public:
   QmlSettings();
-  
-  virtual inline ~QmlSettings(){};
+
+  ~QmlSettings() override = default;
 
   double GetPhysicalDPI() const;
 
   void SetMapDPI(double dpi);
-  double GetMapDPI() const;  
-    
+  double GetMapDPI() const;
+
   bool GetOnlineTilesEnabled() const;
   void SetOnlineTilesEnabled(bool b);
-  
-  const QString GetOnlineTileProviderId() const; 
+
+  const QString GetOnlineTileProviderId() const;
   void SetOnlineTileProviderId(QString id);
-  
+
   Q_INVOKABLE QString onlineProviderCopyright();
-  
+
   bool GetOfflineMap() const;
   void SetOfflineMap(bool);
-  
+
   bool GetRenderSea() const;
   void SetRenderSea(bool);
 
@@ -216,6 +246,12 @@ public:
 
   double GetFontSize() const;
   void SetFontSize(double fontSize);
+
+  bool GetShowAltLanguage() const;
+  void SetShowAltLanguage(bool showAltLanguage);
+
+  QString GetUnits() const;
+  void SetUnits(const QString units);
 };
 
 }

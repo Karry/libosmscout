@@ -1,21 +1,29 @@
 %module libosmscout
 
 %include <typemaps.i>
+
 %include <stdint.i>
 %include <stl.i>
 
 %include <std_string.i>
-%include <std_shared_ptr.i>
 %include <std_wstring.i>
+%include <std_shared_ptr.i>
+
+%include <std_list.i>
+%include <std_set.i>
+%include <std_unordered_map.i>
+//%include <std_unordered_set.i>
 %include <std_vector.i>
 
-#define OSMSCOUT_API
-#define CLASS_FINAL
+%include <osmscout/CoreImportExport.i>
 
 %include <osmscout/OSMScoutTypes.i>
 
+%include <osmscout/util/Color.i>
+%include <osmscout/util/Bearing.i>
 %include <osmscout/util/Distance.i>
 %include <osmscout/util/StringMatcher.i>
+%include <osmscout/util/Time.i>
 %include <osmscout/util/Breaker.i>
 
 %include <osmscout/ObjectRef.i>
@@ -26,8 +34,16 @@
 
 %include <osmscout/util/GeoBox.i>
 %include <osmscout/Point.i>
+%include <osmscout/Pixel.i>
 
 %include <osmscout/util/Geometry.i>
+
+%include <osmscout/util/Tiling.i>
+%include <osmscout/util/TileId.i>
+
+%include <osmscout/util/Projection.i>
+%include <osmscout/util/Transformation.i>
+
 %include <osmscout/util/FileScanner.i>
 %include <osmscout/util/FileWriter.i>
 %include <osmscout/util/Parsing.i>
@@ -46,6 +62,8 @@
 %include <osmscout/Way.i>
 %include <osmscout/Area.i>
 %include <osmscout/GroundTile.i>
+
+%include <osmscout/DataFile.i>
 
 %include <osmscout/NodeDataFile.i>
 %include <osmscout/WayDataFile.i>
@@ -73,4 +91,6 @@
 %include <osmscout/routing/RoutingProfile.i>
 %include <osmscout/routing/RoutePostprocessor.i>
 %include <osmscout/routing/RoutingService.i>
+%include <osmscout/routing/AbstractRoutingService.i>
+%include <osmscout/routing/SimpleRoutingService.i>
 

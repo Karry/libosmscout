@@ -1,7 +1,7 @@
 cppArgs = []
 
 if get_option('default_library')=='shared'
-  cppArgs += ['-DOSMSCOUT_CLIENT_QT_EXPORT_SYMBOLS']
+  cppArgs += ['-DOSMScoutClientQt_EXPORTS']
   
   if haveVisibility
     cppArgs += ['-fvisibility=hidden']
@@ -28,7 +28,7 @@ osmscoutclientqt = library('osmscout_client_qt',
                            osmscoutclientqtSrc,
                            include_directories: [osmscoutclientqtIncDir, osmscoutmapqtIncDir, osmscoutmapIncDir, osmscoutIncDir],
                            cpp_args: cppArgs,
-                           dependencies: [mathDep, threadDep, qt5GuiDep, qt5QmlDep, qt5QuickDep, qt5WidgetsDep, qt5NetworkDep],
+                           dependencies: [mathDep, threadDep, qt5GuiDep, qt5QmlDep, qt5QuickDep, qt5WidgetsDep, qt5NetworkDep, qt5SvgDep, qt5MultimediaDep],
                            link_with: [osmscout, osmscoutmap, osmscoutmapqt],
                            install: true)
         

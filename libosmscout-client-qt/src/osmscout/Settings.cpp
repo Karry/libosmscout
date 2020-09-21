@@ -17,6 +17,9 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307  USA
 */
 
+#include <osmscout/Settings.h>
+#include <osmscout/OSMScoutQt.h>
+
 #include <QScreen>
 #include <QGuiApplication>
 #include <QStandardPaths>
@@ -24,20 +27,15 @@
 #include <QObject>
 #include <QDebug>
 #include <QFileInfo>
-
 #include <QJsonDocument>
-#include <QJsonArray>
-#include <QJsonObject>
-
-#include <osmscout/Settings.h>
-#include <osmscout/OSMScoutQt.h>
+#include <QLocale>
 
 namespace osmscout {
 
 Settings::Settings(QSettings *providedStorage):
   storage(providedStorage)
 {
-    if (storage==NULL){
+    if (storage==nullptr){
       storage=new QSettings(this);
     }
     /* Warning: Sailfish OS before version 2.0.1 reports incorrect DPI (100)
@@ -99,12 +97,17 @@ void Settings::SetOnlineTilesEnabled(bool b)
 
 const QList<OnlineTileProvider> Settings::GetOnlineProviders() const
 {
-    return onlineProviders;
+  return onlineProviders;
 }
 
 const QList<MapProvider> Settings::GetMapProviders() const
 {
-    return mapProviders;
+  return mapProviders;
+}
+
+const QList<VoiceProvider> Settings::GetVoiceProviders() const
+{
+  return voiceProviders;
 }
 
 const OnlineTileProvider Settings::GetOnlineTileProvider() const
@@ -167,30 +170,44 @@ bool Settings::loadOnlineTileProviders(QString path)
     return true;
 }
 
+namespace { // anonymous namespace
+
+template <typename Provider>
+bool loadResourceProviders(const QString &path, QList<Provider> &providers)
+{
+  QFile loadFile(path);
+  if (!loadFile.open(QIODevice::ReadOnly)) {
+    qWarning() << "Couldn't open" << loadFile.fileName() << "file.";
+    return false;
+  }
+  qDebug() << "Loading providers from " << loadFile.fileName();
+
+  QJsonDocument doc = QJsonDocument::fromJson(loadFile.readAll());
+  for (auto obj: doc.array()){
+    Provider provider = Provider::fromJson(obj);
+    if (!provider.isValid()){
+      qWarning() << "Can't parse online provider from json value" << obj;
+    }else{
+      providers.append(provider);
+    }
+  }
+  return true;
+}
+}
+
 bool Settings::loadMapProviders(QString path)
 {
-    QFile loadFile(path);
-    if (!loadFile.open(QIODevice::ReadOnly)) {
-        qWarning() << "Couldn't open" << loadFile.fileName() << "file.";
-        return false;
-    }
-    qDebug() << "Loading map providers from " << loadFile.fileName();
-    
-    QJsonDocument doc = QJsonDocument::fromJson(loadFile.readAll());
-    for (auto obj: doc.array()){
-        MapProvider provider = MapProvider::fromJson(obj);
-        if (!provider.isValid()){
-            qWarning() << "Can't parse online provider from json value" << obj;
-        }else{    
-            mapProviders.append(provider);
-        }
-    }
-    return true;
+  return loadResourceProviders<MapProvider>(path, mapProviders);
+}
+
+bool Settings::loadVoiceProviders(QString path)
+{
+  return loadResourceProviders<VoiceProvider>(path, voiceProviders);
 }
 
 bool Settings::GetOfflineMap() const
 {
-    return storage->value("OSMScoutLib/Rendering/OfflineMap", true).toBool();
+  return storage->value("OSMScoutLib/Rendering/OfflineMap", true).toBool();
 }
 void Settings::SetOfflineMap(bool b)
 {
@@ -221,6 +238,30 @@ void Settings::SetStyleSheetDirectory(const QString dir)
   if (GetStyleSheetDirectory() != dir){
     storage->setValue("OSMScoutLib/Rendering/StylesheetDirectory", dir);
     emit StyleSheetDirectoryChanged(dir);
+  }
+}
+
+const QString Settings::GetVoiceLookupDirectory() const
+{
+  return storage->value("OSMScoutLib/Voice/LooukupDirectory", ".voices").toString();
+}
+void Settings::SetVoiceLookupDirectory(const QString &dir)
+{
+  if (GetVoiceLookupDirectory() != dir){
+    storage->setValue("OSMScoutLib/Voice/LooukupDirectory", dir);
+    emit VoiceLookupDirectoryChanged(dir);
+  }
+}
+
+const QString Settings::GetVoiceDir() const
+{
+  return storage->value("OSMScoutLib/Voice/VoiceDir", "disabled").toString();
+}
+void Settings::SetVoiceDir(const QString &voice)
+{
+  if (GetVoiceDir() != voice){
+    storage->setValue("OSMScoutLib/Voice/VoiceDir", voice);
+    emit VoiceDirChanged(voice);
   }
 }
 
@@ -291,6 +332,18 @@ void Settings::SetFontSize(double fontSize)
   }
 }
 
+bool Settings::GetShowAltLanguage() const
+{
+  return storage->value("OSMScoutLib/Rendering/ShowAltLanguage", false).toBool();
+}
+void Settings::SetShowAltLanguage(bool showAltLanguage)
+{
+  if (GetShowAltLanguage()!=showAltLanguage){
+    storage->setValue("OSMScoutLib/Rendering/ShowAltLanguage", showAltLanguage);
+    emit ShowAltLanguageChanged(showAltLanguage);
+  }
+}
+
 const QString Settings::GetHttpCacheDir() const
 {
   QString cacheLocation = QStandardPaths::writableLocation(QStandardPaths::CacheLocation);  
@@ -307,24 +360,52 @@ void Settings::SetCookieData(const QByteArray data)
   storage->setValue("OSMScoutLib/General/Cookies", data);
 }
 
+QString Settings::GetUnits() const
+{
+  QLocale locale;
+  QString defaultUnits;
+  switch (locale.measurementSystem()){
+    case QLocale::ImperialUSSystem:
+    case QLocale::ImperialUKSystem:
+      defaultUnits="imperial";
+      break;
+    case QLocale::MetricSystem:
+    default:
+      defaultUnits="metrics";
+  }
+  return storage->value("OSMScoutLib/General/Units", defaultUnits).toString();
+}
+
+void Settings::SetUnits(const QString units)
+{
+  if (GetUnits()!=units){
+    storage->setValue("OSMScoutLib/General/Units", units);
+    emit UnitsChanged(units);
+  }
+}
+
 QmlSettings::QmlSettings()
 {
     settings=OSMScoutQt::GetInstance().GetSettings();
 
-    connect(settings.get(), SIGNAL(MapDPIChange(double)),
-            this, SIGNAL(MapDPIChange(double)));
-    connect(settings.get(), SIGNAL(OnlineTilesEnabledChanged(bool)),
-            this, SIGNAL(OnlineTilesEnabledChanged(bool)));
-    connect(settings.get(), SIGNAL(OnlineTileProviderIdChanged(const QString)),
-            this, SIGNAL(OnlineTileProviderIdChanged(const QString)));
-    connect(settings.get(), SIGNAL(OfflineMapChanged(bool)),
-            this, SIGNAL(OfflineMapChanged(bool)));
-    connect(settings.get(), SIGNAL(RenderSeaChanged(bool)),
-            this, SIGNAL(RenderSeaChanged(bool)));
-    connect(settings.get(), SIGNAL(FontNameChanged(const QString)),
-            this, SIGNAL(FontNameChanged(const QString)));
-    connect(settings.get(), SIGNAL(FontSizeChanged(double)),
-            this, SIGNAL(FontSizeChanged(double)));
+    connect(settings.get(), &Settings::MapDPIChange,
+            this, &QmlSettings::MapDPIChange);
+    connect(settings.get(), &Settings::OnlineTilesEnabledChanged,
+            this, &QmlSettings::OnlineTilesEnabledChanged);
+    connect(settings.get(), &Settings::OnlineTileProviderIdChanged,
+            this, &QmlSettings::OnlineTileProviderIdChanged);
+    connect(settings.get(), &Settings::OfflineMapChanged,
+            this, &QmlSettings::OfflineMapChanged);
+    connect(settings.get(), &Settings::RenderSeaChanged,
+            this, &QmlSettings::RenderSeaChanged);
+    connect(settings.get(), &Settings::FontNameChanged,
+            this, &QmlSettings::FontNameChanged);
+    connect(settings.get(), &Settings::FontSizeChanged,
+            this, &QmlSettings::FontSizeChanged);
+    connect(settings.get(), &Settings::ShowAltLanguageChanged,
+            this, &QmlSettings::ShowAltLanguageChanged);
+    connect(settings.get(), &Settings::UnitsChanged,
+            this, &QmlSettings::UnitsChanged);
 }
 
 double QmlSettings::GetPhysicalDPI() const
@@ -403,5 +484,21 @@ double QmlSettings::GetFontSize() const
 void QmlSettings::SetFontSize(double fontSize)
 {
     settings->SetFontSize(fontSize);
+}
+bool QmlSettings::GetShowAltLanguage() const
+{
+    return settings->GetShowAltLanguage();
+}
+void QmlSettings::SetShowAltLanguage(bool showAltLanguage)
+{
+    settings->SetShowAltLanguage(showAltLanguage);
+}
+QString QmlSettings::GetUnits() const
+{
+    return settings->GetUnits();
+}
+void QmlSettings::SetUnits(const QString units)
+{
+    settings->SetUnits(units);
 }
 }

@@ -39,38 +39,41 @@ void ProcessCallback::Error(const std::string& error)
 
 
 void gpx::FilterNearPoints(std::vector<TrackPoint> &points,
-                           Distance minDistance)
+                           const Distance &minDistance)
 {
   if (points.empty()){
     return;
   }
-  auto it=points.begin();
-  GeoCoord latest=(*it).coord;
-  ++it;
-  while (it!=points.end()){
-    GeoCoord current=(*it).coord;
-    Distance distance=GetEllipsoidalDistance(latest, current);
-    if (distance <= minDistance){
-      it = points.erase(it);
-    }else {
-      latest=current;
-      ++it;
+  GeoCoord latest=points[0].coord;
+  std::vector<TrackPoint> copy;
+  copy.reserve(points.size());
+  bool modified = false;
+  for (const TrackPoint &current:points){
+    Distance distance=GetEllipsoidalDistance(latest, current.coord);
+    if (distance > minDistance){
+      latest = current.coord;
+      copy.push_back(current);
+    }else{
+      modified = true;
     }
+  }
+  if (modified) {
+    points = copy;
   }
 }
 
 void gpx::FilterInaccuratePoints(std::vector<TrackPoint> &points,
                                  double maxDilution)
 {
-  std::remove_if(points.begin(),
-                 points.end(),
-                 [&maxDilution](const TrackPoint &p) {
-                   if (p.hdop.hasValue()){
-                     return p.hdop.get() > maxDilution;
-                   }
-                   if (p.pdop.hasValue()){
-                     return p.pdop.get() > maxDilution;
-                   }
-                   return false;
-                 });
+  auto filter=[&maxDilution](const TrackPoint &p) {
+    if (p.hdop){
+      return *p.hdop > maxDilution;
+    }
+    if (p.pdop){
+      return *p.pdop > maxDilution;
+    }
+    return false;
+  };
+
+  points.erase(std::remove_if(points.begin(),points.end(),filter),points.end());
 }

@@ -56,7 +56,7 @@ ORDER WAYS
         leisure_track
   GROUP highway_steps, barrier_fence
   GROUP waterway_weir, route_ferry
-  GROUP waterway_river, waterway_canal, waterway_drain, waterway_stream
+  GROUP waterway_river, waterway_canal, waterway_drain, waterway_ditch, waterway_stream
   GROUP piste_downhill_easy, piste_downhill_intermediate, piste_downhill_advanced
   GROUP elevation_contour_major, elevation_contour_medium, elevation_contour_minor
 
@@ -524,14 +524,14 @@ STYLE
     [MAG suburb-] {
       [TYPE elevation_contour_major] {
         WAY {color: @majorContourColor; displayWidth: 0.150mm; }
-        WAY.TEXT { label: Ele.inMeter; color: @contourLabelColor; size: 0.7; priority: @labelPrioElevationContour; }
+        WAY.TEXT { label: Ele.inLocaleUnit; color: @contourLabelColor; size: 0.7; priority: @labelPrioElevationContour; }
       }
     }
 
     [MAG detail-] {
       [TYPE elevation_contour_medium] {
         WAY {color: @mediumContourColor; displayWidth: 0.100mm; }
-        WAY.TEXT { label: Ele.inMeter; color: @contourLabelColor; size: 0.8; priority: @labelPrioElevationContour; }
+        WAY.TEXT { label: Ele.inLocaleUnit; color: @contourLabelColor; size: 0.8; priority: @labelPrioElevationContour; }
       }
 
       [TYPE elevation_contour_minor] {
@@ -578,7 +578,7 @@ STYLE
 
       [TYPE natural_peak] {
         NODE.TEXT#peakName { label: Name.name; style: emphasize; color: @peakLabelColor; priority: @labelPrioPeak; size: 0.9; position: 1; }
-        NODE.TEXT#ele { label: Ele.inMeter; style: emphasize; color: @peakLabelColor; priority: @labelPrioPeak; size: 0.9; position: 2;}
+        NODE.TEXT#ele { label: Ele.inLocaleUnit; style: emphasize; color: @peakLabelColor; priority: @labelPrioPeak; size: 0.9; position: 2;}
       }
     }
 
@@ -639,11 +639,16 @@ STYLE
       [TYPE waterway_stream] {
         [SIZE 2m 0.25mm:3px<] WAY {color: @waterColor; width: 2m;}
         [SIZE 2m <0.25mm:3px] WAY {color: @waterColor; displayWidth: 0.25mm;}
+
+        [FEATURE Tunnel] {
+          WAY { dash: 0.4,4;}
+        }
       }
     }
 
     [MAG detail-] {
-      [TYPE waterway_drain] {
+      [TYPE waterway_drain,
+            waterway_ditch] {
         [SIZE 3m 0.1mm:3px<] WAY {color: @waterColor; width: 3m;}
         [SIZE 3m <0.1mm:3px] WAY {color: @waterColor; displayWidth: 0.1mm; }
         
@@ -665,6 +670,7 @@ STYLE
     [MAG veryClose-] {
       [TYPE waterway_stream,
             waterway_drain,
+            waterway_ditch,
             waterway_weir,
             waterway_river,
             waterway_canal]
@@ -1513,7 +1519,10 @@ STYLE
 
  [MAG closer-] {
    [TYPE amenity_hospital,
-         amenity_hospital_building] AREA.ICON { symbol: amenity_hospital;}
+         amenity_hospital_building] {
+     AREA.ICON { symbol: amenity_hospital; }
+     NODE.ICON { symbol: amenity_hospital; }
+   }
 
    [TYPE amenity_parking_building] {
      NODE.ICON { symbol: amenity_parking; name: parking; }
@@ -1575,7 +1584,10 @@ STYLE
          NODE.ICON { symbol: amenity; }
    }
 
-   [TYPE barrier_fence] WAY {color: #aaaaaa; displayWidth: 0.1mm;}
+   [TYPE barrier_fence] {
+      WAY {color: #aaaaaa; displayWidth: 0.1mm;}
+      AREA.BORDER {color: #aaaaaa; width: 0.1mm;}
+   }
  }
  
 // Aerialways
@@ -1685,6 +1697,8 @@ STYLE
            amenity_fuel_building,
            amenity_kindergarten_building,
            amenity_restaurant_building,
+           amenity_pub_building,
+           amenity_bar_building,
            amenity_school_building] {
            AREA { color: @amenityBuildingColor; }
            AREA.BORDER { color: @amenityBuildingBorderColor; width: 0.1mm;}
@@ -1807,7 +1821,6 @@ STYLE
            amenity_building,
            amenity_bank_building,
            amenity_bank,
-           amenity_building,
            amenity_cafe_building,
            amenity_cafe,
            amenity_fast_food_building,
@@ -1818,6 +1831,10 @@ STYLE
            amenity_kindergarten,
            amenity_restaurant_building,
            amenity_restaurant,
+           amenity_pub_building,
+           amenity_pub,
+           amenity_bar_building,
+           amenity_bar,
            amenity_school_building,
            amenity_school,
            amenity_taxi] {

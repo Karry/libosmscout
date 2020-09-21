@@ -31,22 +31,22 @@ namespace osmscout {
     optimizeErrorToleranceMm(0.5),
     drawFadings(true),
     drawWaysWithFixedWidth(false),
-    labelLineMinCharCount(15),
-    labelLineMaxCharCount(1000/*20*/),
+    labelLineMinCharCount(5),
+    labelLineMaxCharCount(15),
     labelLineFitToArea(true),
     labelLineFitToWidth(8000),
     labelPadding(1.0),
     plateLabelPadding(5.0),
     overlayLabelPadding(6.0),
     iconMode(IconMode::FixedSizePixmap),
-    iconSize(3.7),
+    iconSize(1.8),
     iconPixelSize(14),
     iconPadding(1.0),
     patternMode(PatternMode::OriginalPixmap),
     patternSize(3.7),
     dropNotVisiblePointLabels(true),
-    contourLabelOffset(5.0),
-    contourLabelSpace(30.0),
+    contourLabelOffset(50.0),
+    contourLabelSpace(100.0),
     contourLabelPadding(1.0),
     renderBackground(true),
     renderSeaLand(false),
@@ -55,7 +55,8 @@ namespace osmscout {
     debugPerformance(false),
     warnObjectCountLimit(0),
     warnCoordCountLimit(0),
-    showAltLanguage(false)
+    showAltLanguage(false),
+    locale{Locale::ByEnvironment()}
   {
     // no code
   }
@@ -233,6 +234,16 @@ namespace osmscout {
   void MapParameter::SetWarningCoordCountLimit(size_t limit)
   {
     warnCoordCountLimit=limit;
+  }
+
+  void MapParameter::SetShowAltLanguage(bool showAltLanguage)
+  {
+    this->showAltLanguage=showAltLanguage;
+  }
+
+  void MapParameter::SetLocale(const Locale &locale)
+  {
+    this->locale=locale;
   }
 
   void MapParameter::SetBreaker(const BreakerRef& breaker)

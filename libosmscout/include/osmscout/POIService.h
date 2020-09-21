@@ -39,16 +39,13 @@ namespace osmscout {
    * Currently this includes the following functionality:
    * - Locating POIs of given types in a given area
    */
-  class OSMSCOUT_API POIService
+  class OSMSCOUT_API POIService final
   {
   private:
     DatabaseRef database;
 
-
-
   public:
-    POIService(const DatabaseRef& database);
-    virtual ~POIService();
+    explicit POIService(const DatabaseRef& database);
 
     void GetPOIsInArea(const GeoBox& boundingBox,
                        const TypeInfoSet& nodeTypes,
@@ -70,7 +67,7 @@ namespace osmscout {
 
   //! \ingroup Service
   //! Reference counted reference to a POI service instance
-  typedef std::shared_ptr<POIService> POIServiceRef;
+  using POIServiceRef = std::shared_ptr<POIService>;
 }
 
 #endif

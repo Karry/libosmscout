@@ -274,8 +274,9 @@ namespace osmscout {
                                 const LabelData& label,
                                 const NativeLabel& layout)
   {
-    if (dynamic_cast<const TextStyle*>(label.style.get())!=nullptr) {
-      const TextStyle *style = dynamic_cast<const TextStyle *>(label.style.get());
+    if (const TextStyle *style = dynamic_cast<const TextStyle *>(label.style.get());
+        style != nullptr) {
+
       double r = style->GetTextColor().GetR();
       double g = style->GetTextColor().GetG();
       double b = style->GetTextColor().GetB();
@@ -379,8 +380,9 @@ namespace osmscout {
     double h=fontEngine->height();
     for (wchar_t i : label.text) {
       const agg::glyph_cache *glyph = fontCacheManager->glyph(i);
+      assert(glyph);
       fontCacheManager->add_kerning(&x, &y);
-      label.glyphs.emplace_back(std::move(MapPainterAgg::NativeGlyph{x, y, glyph}));
+      label.glyphs.emplace_back(MapPainterAgg::NativeGlyph{x, y, glyph});
 
       w += glyph->advance_x;
 
@@ -469,7 +471,7 @@ namespace osmscout {
     double centerX;
     double centerY;
 
-    symbol.GetBoundingBox(minX,minY,maxX,maxY);
+    symbol.GetBoundingBox(projection,minX,minY,maxX,maxY);
 
     centerX=(minX+maxX)/2;
     centerY=(minY+maxY)/2;
@@ -477,8 +479,9 @@ namespace osmscout {
     for (const auto& primitive : symbol.GetPrimitives()) {
       const DrawPrimitive *primitivePtr=primitive.get();
 
-      if (dynamic_cast<const PolygonPrimitive*>(primitivePtr)!=nullptr) {
-        const auto        *polygon=dynamic_cast<const PolygonPrimitive*>(primitivePtr);
+      if (const auto *polygon = dynamic_cast<const PolygonPrimitive*>(primitivePtr);
+          polygon != nullptr) {
+
         FillStyleRef      fillStyle=polygon->GetFillStyle();
         BorderStyleRef    borderStyle=polygon->GetBorderStyle();
         agg::path_storage path;
@@ -487,12 +490,12 @@ namespace osmscout {
              pixel!=polygon->GetCoords().end();
              ++pixel) {
           if (pixel==polygon->GetCoords().begin()) {
-            path.move_to(x+projection.ConvertWidthToPixel(pixel->GetX()-centerX),
-                         y+projection.ConvertWidthToPixel(pixel->GetY()-centerY));
+            path.move_to(x+projection.ConvertWidthToPixel(pixel->GetX())-centerX,
+                         y+projection.ConvertWidthToPixel(pixel->GetY())-centerY);
           }
           else {
-            path.line_to(x+projection.ConvertWidthToPixel(pixel->GetX()-centerX),
-                         y+projection.ConvertWidthToPixel(pixel->GetY()-centerY));
+            path.line_to(x+projection.ConvertWidthToPixel(pixel->GetX())-centerX,
+                         y+projection.ConvertWidthToPixel(pixel->GetY())-centerY);
           }
         }
 
@@ -506,13 +509,14 @@ namespace osmscout {
                  borderStyle,
                  path);
       }
-      else if (dynamic_cast<const RectanglePrimitive*>(primitivePtr)!=nullptr) {
-        const auto        *rectangle=dynamic_cast<const RectanglePrimitive*>(primitivePtr);
+      else if (const auto *rectangle = dynamic_cast<const RectanglePrimitive*>(primitivePtr);
+               rectangle != nullptr) {
+
         FillStyleRef      fillStyle=rectangle->GetFillStyle();
         BorderStyleRef    borderStyle=rectangle->GetBorderStyle();
         agg::path_storage path;
-        double            xPos=x+projection.ConvertWidthToPixel(rectangle->GetTopLeft().GetX()-centerX);
-        double            yPos=y+projection.ConvertWidthToPixel(rectangle->GetTopLeft().GetY()-centerY);
+        double            xPos=x+projection.ConvertWidthToPixel(rectangle->GetTopLeft().GetX())-centerX;
+        double            yPos=y+projection.ConvertWidthToPixel(rectangle->GetTopLeft().GetY())-centerY;
         double            width=projection.ConvertWidthToPixel(rectangle->GetWidth());
         double            height=projection.ConvertWidthToPixel(rectangle->GetHeight());
 
@@ -531,15 +535,16 @@ namespace osmscout {
                  borderStyle,
                  path);
       }
-      else if (dynamic_cast<const CirclePrimitive*>(primitivePtr)!=nullptr) {
-        const auto        *circle=dynamic_cast<const CirclePrimitive*>(primitivePtr);
+      else if (const auto *circle = dynamic_cast<const CirclePrimitive*>(primitivePtr);
+               circle != nullptr) {
+
         FillStyleRef      fillStyle=circle->GetFillStyle();
         BorderStyleRef    borderStyle=circle->GetBorderStyle();
         agg::path_storage path;
         double            radius=projection.ConvertWidthToPixel(circle->GetRadius());
 
-        agg::ellipse ellipse(x+projection.ConvertWidthToPixel(circle->GetCenter().GetX()-centerX),
-                             y+projection.ConvertWidthToPixel(circle->GetCenter().GetY()-centerY),
+        agg::ellipse ellipse(x+projection.ConvertWidthToPixel(circle->GetCenter().GetX())-centerX,
+                             y+projection.ConvertWidthToPixel(circle->GetCenter().GetY())-centerY,
                              radius,
                              radius);
 

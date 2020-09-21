@@ -29,58 +29,32 @@
 #include <osmscout/ClientQtImportExport.h>
 
 #include <osmscout/MapProvider.h>
+#include <osmscout/Settings.h>
 #include <osmscout/AvailableMapsModel.h>
 #include <osmscout/FileDownloader.h>
 
 #include <QtGlobal>
-#if QT_VERSION >= 0x050400
-#define HAS_QSTORAGE
 #include <QStorageInfo>
-#endif
 
 namespace osmscout {
 
 /**
  * Utility class for downloading map database described by AvailableMapsModelMap
- * over http. 
+ * over http.
  * \ingroup QtAPI
  */
-class OSMSCOUT_CLIENT_QT_API MapDownloadJob: public QObject
+class OSMSCOUT_CLIENT_QT_API MapDownloadJob: public DownloadJob
 {
   Q_OBJECT
 
-  QList<FileDownloader*>  jobs;
-  QNetworkAccessManager   *webCtrl;
-  
   AvailableMapsModelMap   map;
-  QDir                    target;
-  
-  bool                    done;
-  bool                    started;
-
-  uint64_t                downloadedBytes;
-
-  QString                 error;
-
-  bool                    replaceExisting;
-
-signals:
-  void finished();
-  void failed(QString error);
-  void downloadProgress();
-
-public slots:
-  void onJobFailed(QString errorMessage, bool recoverable);
-  void onJobFinished();
-  void downloadNextFile();
-  void onDownloadProgress(uint64_t);
 
 public:
   static const char* FILE_METADATA;
 
   MapDownloadJob(QNetworkAccessManager *webCtrl, AvailableMapsModelMap map, QDir target, bool replaceExisting);
-  virtual ~MapDownloadJob();
-  
+  ~MapDownloadJob() override;
+
   void start();
 
   inline QString getMapName() const
@@ -93,38 +67,10 @@ public:
     return map.getPath();
   }
 
-  inline size_t expectedSize() const
+  inline size_t expectedSize() const override
   {
     return map.getSize();
   }
-
-  inline QDir getDestinationDirectory() const
-  {
-    return target;
-  }
-
-  inline bool isDone() const
-  {
-    return done;
-  }
-
-  inline bool isDownloading() const
-  {
-    return started && !done;
-  }
-
-  inline QString getError() const
-  {
-    return error;
-  }
-
-  inline bool isReplaceExisting() const
-  {
-    return replaceExisting;
-  }
-
-  double getProgress();
-  QString getDownloadingFile();
 };
 
 /**
@@ -220,14 +166,14 @@ private:
 };
 
 /**
- * Manager of map databases. It provide database lookup 
+ * Manager of map databases. It provide database lookup
  * (in databaseDirectories) and simple scheduler for downloading maps.
  * \ingroup QtAPI
  */
 class OSMSCOUT_CLIENT_QT_API MapManager: public QObject
 {
   Q_OBJECT
-  
+
 private:
   QStringList databaseLookupDirs;
   QList<MapDirectory> databaseDirectories;
@@ -246,8 +192,8 @@ signals:
 
 public:
   MapManager(QStringList databaseLookupDirs, SettingsRef settings);
-  
-  virtual ~MapManager();
+
+  ~MapManager() override;
 
   /**
    * Start map downloading into local dir.
@@ -258,11 +204,11 @@ public:
    */
   void downloadMap(AvailableMapsModelMap map, QDir dir, bool replaceExisting = true);
   void downloadNext();
-  
+
   inline QList<MapDownloadJob*> getDownloadJobs() const {
     return downloadJobs;
   }
-  
+
   inline QStringList getLookupDirectories() const
   {
     return databaseLookupDirs;
@@ -277,7 +223,7 @@ public:
 /**
  * \ingroup QtAPI
  */
-typedef std::shared_ptr<MapManager> MapManagerRef;
+using MapManagerRef = std::shared_ptr<MapManager>;
 
 }
 

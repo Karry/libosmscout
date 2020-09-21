@@ -48,12 +48,7 @@ namespace osmscout {
     };
 
   public:
-    typedef std::function<RoutingProfileRef(const DatabaseRef&)> RoutingProfileBuilder;
-
-  private:
-    static const size_t CELL_MAGNIFICATION;
-    static const double LAT_CELL_FACTOR;
-    static const double LON_CELL_FACTOR;
+    using RoutingProfileBuilder = std::function<RoutingProfileRef (const DatabaseRef &)>;
 
   private:
     std::vector<DatabaseHandle> handles;
@@ -73,7 +68,8 @@ namespace osmscout {
     double GetCosts(const MultiDBRoutingState& state,
                     DatabaseId databaseId,
                     const RouteNode& routeNode,
-                    size_t pathIndex) override;
+                    size_t inPathIndex,
+                    size_t outPathIndex) override;
 
     double GetCosts(const MultiDBRoutingState& state,
                     DatabaseId database,
@@ -87,6 +83,10 @@ namespace osmscout {
     double GetCostLimit(const MultiDBRoutingState& state,
                         DatabaseId database,
                         const Distance &targetDistance) override;
+
+    std::string GetCostString(const MultiDBRoutingState& profile,
+                              DatabaseId database,
+                              double cost) const override;
 
     bool GetRouteNodes(const std::set<DBId> &routeNodeIds,
                        std::unordered_map<DBId,RouteNodeRef> &routeNodeMap) override;
@@ -126,8 +126,8 @@ namespace osmscout {
 
     void Close();
 
-    RoutePosition GetClosestRoutableNode(const GeoCoord &coord,
-                                         Distance radius=Distance::Of<Kilometer>(1)) const;
+    RoutePositionResult GetClosestRoutableNode(const GeoCoord &coord,
+                                               const Distance &radius=Kilometers(1)) const;
 
     RoutingResult CalculateRoute(const RoutePosition &start,
                                  const RoutePosition &target,
@@ -145,11 +145,13 @@ namespace osmscout {
 
     bool PostProcessRouteDescription(RouteDescription &description,
                                      const std::list<RoutePostprocessor::PostprocessorRef> &postprocessors);
+
+    std::map<DatabaseId, std::string> GetDatabaseMapping() const override;
   };
 
   //! \ingroup Service
   //! Reference counted reference to an RoutingService instance
-  typedef std::shared_ptr<MultiDBRoutingService> MultiDBRoutingServiceRef;
+  using MultiDBRoutingServiceRef = std::shared_ptr<MultiDBRoutingService>;
 
 }
 

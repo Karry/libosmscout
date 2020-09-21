@@ -21,11 +21,11 @@ if [ "${BUILDTOOL}" = "cmake" ] ; then
 
     mkdir -p build
     cd build
-    cmake ${CMAKE_ARGS} ..
-    make -j `nproc`
+    cmake "${CMAKE_ARGS}" ..
+    make -j "$(nproc)"
 fi
 if [ "${BUILDTOOL}" = "meson" ] ; then
-    meson debug
+    meson setup --buildtype debugoptimized --unity on debug
     cd debug
     ninja
 fi

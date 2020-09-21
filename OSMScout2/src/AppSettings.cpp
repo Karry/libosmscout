@@ -26,20 +26,20 @@
 
 using namespace osmscout;
 
-AppSettings::AppSettings(): view(NULL)
+AppSettings::AppSettings(): view(nullptr)
 {
 }
 
 MapView *AppSettings::GetMapView()
 {
-  if (view == NULL){
+  if (view == nullptr){
     double lat   = settings.value("settings/map/lat",   0).toDouble();
     double lon   = settings.value("settings/map/lon",   0).toDouble();
     double angle = settings.value("settings/map/angle", 0).toDouble();
     double mag   = settings.value("settings/map/mag",   pow(2.0,osmscout::Magnification::magContinent.Get())).toDouble();
     view = new MapView(this,
               osmscout::GeoCoord(lat, lon),
-              angle,
+              Bearing::Radians(angle),
               osmscout::Magnification(mag),
               OSMScoutQt::GetInstance().GetSettings()->GetMapDPI()
               );
@@ -57,16 +57,15 @@ void AppSettings::SetMapView(QObject *o)
   bool changed = false;
   if (view == nullptr){
     view = new MapView(this,
-              osmscout::GeoCoord(updated->GetLat(), updated->GetLon()),
-              updated->GetAngle(),
-              osmscout::Magnification(updated->GetMag()),
-              updated->GetMapDpi()
-              );
+                       updated->center,
+                       updated->angle,
+                       updated->magnification,
+                       updated->mapDpi);
     changed = true;
   }else{
     changed = *view != *updated;
     if (changed){
-        view->operator =( *updated );
+        *view = *updated;
     }
   }
   if (changed){

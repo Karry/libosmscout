@@ -38,23 +38,31 @@ MapRenderer::MapRenderer(QThread *thread,
   renderSea=settings->GetRenderSea();
   fontName=settings->GetFontName();
   fontSize=settings->GetFontSize();
+  showAltLanguage=settings->GetShowAltLanguage();
+  units=settings->GetUnits();
 
-  connect(settings.get(), SIGNAL(MapDPIChange(double)),
-          this, SLOT(onMapDPIChange(double)),
+  connect(settings.get(), &Settings::MapDPIChange,
+          this, &MapRenderer::onMapDPIChange,
           Qt::QueuedConnection);
-  connect(settings.get(), SIGNAL(RenderSeaChanged(bool)),
-          this, SLOT(onRenderSeaChanged(bool)),
+  connect(settings.get(), &Settings::RenderSeaChanged,
+          this, &MapRenderer::onRenderSeaChanged,
           Qt::QueuedConnection);
-  connect(settings.get(), SIGNAL(FontNameChanged(const QString)),
-          this, SLOT(onFontNameChanged(const QString)),
+  connect(settings.get(), &Settings::FontNameChanged,
+          this, &MapRenderer::onFontNameChanged,
           Qt::QueuedConnection);
-  connect(settings.get(), SIGNAL(FontSizeChanged(double)),
-          this, SLOT(onFontSizeChanged(double)),
+  connect(settings.get(), &Settings::FontSizeChanged,
+          this, &MapRenderer::onFontSizeChanged,
           Qt::QueuedConnection);
-  connect(thread, SIGNAL(started()),
-          this, SLOT(Initialize()));
-  connect(dbThread.get(), SIGNAL(stylesheetFilenameChanged()),
-          this, SLOT(onStylesheetFilenameChanged()),
+  connect(settings.get(), &Settings::ShowAltLanguageChanged,
+          this, &MapRenderer::onShowAltLanguageChanged,
+          Qt::QueuedConnection);
+  connect(settings.get(), &Settings::UnitsChanged,
+          this, &MapRenderer::onUnitsChanged,
+          Qt::QueuedConnection);
+  connect(thread, &QThread::started,
+          this, &MapRenderer::Initialize);
+  connect(dbThread.get(), &DBThread::stylesheetFilenameChanged,
+          this, &MapRenderer::onStylesheetFilenameChanged,
           Qt::QueuedConnection);
 }
 
@@ -64,7 +72,7 @@ MapRenderer::~MapRenderer()
     qWarning() << "Destroy" << this << "from non incorrect thread;" << thread << "!=" << QThread::currentThread();
   }
   qDebug() << "~MapRenderer";
-  if (thread!=NULL){
+  if (thread!=nullptr){
     thread->quit();
   }
 }
@@ -108,6 +116,26 @@ void MapRenderer::onFontSizeChanged(double fontSize)
   {
     QMutexLocker locker(&lock);
     this->fontSize=fontSize;
+  }
+  InvalidateVisualCache();
+  emit Redraw();
+}
+
+void MapRenderer::onShowAltLanguageChanged(bool showAltLanguage)
+{
+  {
+    QMutexLocker locker(&lock);
+    this->showAltLanguage=showAltLanguage;
+  }
+  InvalidateVisualCache();
+  emit Redraw();
+}
+
+void MapRenderer::onUnitsChanged(const QString units)
+{
+  {
+    QMutexLocker locker(&lock);
+    this->units=units;
   }
   InvalidateVisualCache();
   emit Redraw();
@@ -222,8 +250,8 @@ void DBRenderJob::Run(const osmscout::BasemapDatabaseRef& basemapDatabase,
   if (drawCanvasBackground){
     for (auto &db:databases){
       // fill background with "unknown" color
-      if (!backgroundRendered && db->styleConfig){
-          osmscout::FillStyleRef unknownFillStyle=db->styleConfig->GetUnknownFillStyle(renderProjection);
+      if (!backgroundRendered && db->GetStyleConfig()){
+          osmscout::FillStyleRef unknownFillStyle=db->GetStyleConfig()->GetUnknownFillStyle(renderProjection);
           if (unknownFillStyle){
             osmscout::Color backgroundColor=unknownFillStyle->GetFillColor();
             p->fillRect(QRectF(0,0,renderProjection.GetWidth(),renderProjection.GetHeight()),
@@ -284,7 +312,8 @@ void DBRenderJob::Run(const osmscout::BasemapDatabaseRef& basemapDatabase,
 
     std::list<osmscout::TileRef> tileList;
     if (tiles.contains(db->path)){
-      tileList=tiles[db->path].values().toStdList();
+      auto list = tiles[db->path].values();
+      tileList=std::list<osmscout::TileRef>(list.begin(), list.end());
     }else{
       if (!last){
         osmscout::log.Debug() << "Skip database " << db->path.toStdString();
@@ -293,14 +322,14 @@ void DBRenderJob::Run(const osmscout::BasemapDatabaseRef& basemapDatabase,
     }
 
     osmscout::MapDataRef data=std::make_shared<osmscout::MapData>();
-    db->mapService->AddTileDataToMapData(tileList,*data);
+    db->GetMapService()->AddTileDataToMapData(tileList,*data);
     if (last){
-      osmscout::TypeConfigRef typeConfig=db->database->GetTypeConfig();
+      osmscout::TypeConfigRef typeConfig=db->GetDatabase()->GetTypeConfig();
       for (auto const &o:overlayObjects){
 
         if (o->getObjectType()==osmscout::RefType::refWay){
           OverlayWay *ow=dynamic_cast<OverlayWay*>(o.get());
-          if (ow != NULL) {
+          if (ow != nullptr) {
             osmscout::WayRef w = std::make_shared<osmscout::Way>();
             if (ow->toWay(w, *typeConfig)) {
               data->poiWays.push_back(w);
@@ -308,7 +337,7 @@ void DBRenderJob::Run(const osmscout::BasemapDatabaseRef& basemapDatabase,
           }
         } else if (o->getObjectType()==osmscout::RefType::refArea){
           OverlayArea *oa=dynamic_cast<OverlayArea*>(o.get());
-          if (oa != NULL) {
+          if (oa != nullptr) {
             osmscout::AreaRef a = std::make_shared<osmscout::Area>();
             if (oa->toArea(a, *typeConfig)) {
               data->poiAreas.push_back(a);
@@ -316,7 +345,7 @@ void DBRenderJob::Run(const osmscout::BasemapDatabaseRef& basemapDatabase,
           }
         } else if (o->getObjectType()==osmscout::RefType::refNode){
           OverlayNode *oo=dynamic_cast<OverlayNode*>(o.get());
-          if (oo != NULL) {
+          if (oo != nullptr) {
             osmscout::NodeRef n = std::make_shared<osmscout::Node>();
             if (oo->toNode(n, *typeConfig)) {
               data->poiNodes.push_back(n);
@@ -327,7 +356,7 @@ void DBRenderJob::Run(const osmscout::BasemapDatabaseRef& basemapDatabase,
     }
 
     if (drawParameter->GetRenderSeaLand()) {
-      db->mapService->GetGroundTiles(renderProjection,
+      db->GetMapService()->GetGroundTiles(renderProjection,
                                      data->groundTiles);
     }
 

@@ -101,33 +101,69 @@ namespace osmscout {
     explicit RoutePoints(const std::list<Point>& points);
   };
 
-  typedef std::shared_ptr<RoutePoints> RoutePointsRef;
+  using RoutePointsRef = std::shared_ptr<RoutePoints>;
 
-  struct OSMSCOUT_API RoutePointsResult CLASS_FINAL
+  class OSMSCOUT_API RoutePointsResult CLASS_FINAL
   {
-    const bool           success;
-    const RoutePointsRef points;
+  private:
+    bool           success;
+    RoutePointsRef points;
 
+  public:
     RoutePointsResult();
     explicit RoutePointsResult(const RoutePointsRef& points);
+
+    inline bool Success() const
+    {
+      return success;
+    }
+
+    inline RoutePointsRef GetPoints() const
+    {
+      return points;
+    }
   };
 
-  struct OSMSCOUT_API RouteDescriptionResult CLASS_FINAL
+  class OSMSCOUT_API RouteDescriptionResult CLASS_FINAL
   {
-    const bool                success;
-    const RouteDescriptionRef description;
+  private:
+    bool                success;
+    RouteDescriptionRef description;
 
+  public:
     RouteDescriptionResult();
     explicit RouteDescriptionResult(const RouteDescriptionRef& description);
+
+    inline bool Success() const
+    {
+      return success;
+    }
+
+    inline RouteDescriptionRef GetDescription() const
+    {
+      return description;
+    }
   };
 
-  struct OSMSCOUT_API RouteWayResult CLASS_FINAL
+  class OSMSCOUT_API RouteWayResult CLASS_FINAL
   {
-    const bool   success;
-    const WayRef way;
+  private:
+    bool   success;
+    WayRef way;
 
+  public:
     RouteWayResult();
     explicit RouteWayResult(const WayRef& way);
+
+    inline bool Success() const
+    {
+      return success;
+    }
+
+    inline WayRef GetWay() const
+    {
+      return way;
+    }
   };
 
   /**
@@ -160,7 +196,8 @@ namespace osmscout {
     virtual double GetCosts(const RoutingState& state,
                             DatabaseId database,
                             const RouteNode& routeNode,
-                            size_t pathIndex) = 0;
+                            size_t inPathIndex,
+                            size_t outPathIndex) = 0;
 
     virtual double GetCosts(const RoutingState& state,
                             DatabaseId database,
@@ -174,6 +211,10 @@ namespace osmscout {
     virtual double GetCostLimit(const RoutingState& state,
                                 DatabaseId database,
                                 const Distance &targetDistance) = 0;
+
+    virtual std::string GetCostString(const RoutingState& state,
+                                      DatabaseId database,
+                                      double cost) const = 0;
 
     virtual bool GetRouteNodes(const std::set<DBId> &routeNodeIds,
                                std::unordered_map<DBId,RouteNodeRef> &routeNodeMap) = 0;
@@ -325,6 +366,14 @@ namespace osmscout {
     RouteDescriptionResult TransformRouteDataToRouteDescription(const RouteData& data);
     RoutePointsResult TransformRouteDataToPoints(const RouteData& data);
     RouteWayResult TransformRouteDataToWay(const RouteData& data);
+
+    /**
+     * Get current mapping of DatabaseId to database path than be used
+     * later for lookup objects in description
+     *
+     * @return
+     */
+    virtual std::map<DatabaseId, std::string> GetDatabaseMapping() const = 0;
   };
 
 }

@@ -199,6 +199,13 @@ int main(int argc, char* argv[])
     return 0;
   }
 
+  // setup c++ locale
+  try {
+    std::locale::global(std::locale(""));
+  } catch (const std::runtime_error& e) {
+    std::cerr << "Cannot set locale: \"" << e.what() << "\"" << std::endl;
+  }
+
   // install translator
   QTranslator translator;
   QLocale locale;
@@ -249,6 +256,7 @@ int main(int argc, char* argv[])
     .WithMapLookupDirectories(mapLookupDirectories)
     .WithOnlineTileProviders(":/resources/online-tile-providers.json")
     .WithMapProviders(":/resources/map-providers.json")
+    .WithVoiceProviders(":/resources/voice-providers.json")
     .WithUserAgent("OSMScout2DemoApp", "v?");
 
   if (!builder.Init()){

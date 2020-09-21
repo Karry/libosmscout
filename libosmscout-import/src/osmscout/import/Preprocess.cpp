@@ -50,13 +50,15 @@
 
 namespace osmscout {
 
-  const char* Preprocess::RAWCOORDS_DAT="rawcoords.dat";
-  const char* Preprocess::RAWNODES_DAT="rawnodes.dat";
-  const char* Preprocess::RAWWAYS_DAT="rawways.dat";
-  const char* Preprocess::RAWRELS_DAT="rawrels.dat";
-  const char* Preprocess::RAWCOASTLINE_DAT="rawcoastline.dat";
-  const char* Preprocess::RAWDATAPOLYGON_DAT="rawdatapolygon.dat";
-  const char* Preprocess::RAWTURNRESTR_DAT="rawturnrestr.dat";
+  const char* const Preprocess::RAWCOORDS_DAT="rawcoords.dat";
+  const char* const Preprocess::RAWNODES_DAT="rawnodes.dat";
+  const char* const Preprocess::RAWWAYS_DAT="rawways.dat";
+  const char* const Preprocess::RAWRELS_DAT="rawrels.dat";
+  const char* const Preprocess::RAWCOASTLINE_DAT="rawcoastline.dat";
+  const char* const Preprocess::RAWDATAPOLYGON_DAT="rawdatapolygon.dat";
+  const char* const Preprocess::RAWTURNRESTR_DAT="rawturnrestr.dat";
+  const char* const Preprocess::RAWROUTEMASTER_DAT="rawroutemaster.dat";
+  const char* const Preprocess::RAWROUTE_DAT="rawroute.dat";
 
   bool Preprocess::Callback::IsTurnRestriction(const TagMap& tags,
                                                TurnRestriction::Type& type) const
@@ -109,7 +111,7 @@ namespace osmscout {
     }
 
     bool isArea=type!=typeConfig->typeInfoIgnore &&
-                type->GetMultipolygon();
+                type->IsMultipolygon();
 
     if (!isArea) {
       auto typeTag=tags.find(typeConfig->tagType);
@@ -118,6 +120,32 @@ namespace osmscout {
     }
 
     return isArea;
+  }
+
+  bool Preprocess::Callback::IsRouteMaster(const TagMap& tags,
+                                           TypeInfoRef& type)
+  {
+    type=typeConfig->GetRelationType(tags);
+
+    if (type!=typeConfig->typeInfoIgnore &&
+        type->GetIgnore()) {
+      return false;
+    }
+
+    return type->IsRouteMaster();
+  }
+
+  bool Preprocess::Callback::IsRoute(const TagMap& tags,
+                                     TypeInfoRef& type)
+  {
+    type=typeConfig->GetRelationType(tags);
+
+    if (type!=typeConfig->typeInfoIgnore &&
+        type->GetIgnore()) {
+      return false;
+    }
+
+    return type->IsRoute();
   }
 
   Preprocess::Callback::Callback(const TypeConfigRef& typeConfig,
@@ -138,9 +166,17 @@ namespace osmscout {
     datapolygonCount(0),
     turnRestrictionCount(0),
     multipolygonCount(0),
+    routeMasterCount(0),
+    routeCount(0),
     lastNodeId(std::numeric_limits<OSMId>::min()),
     lastWayId(std::numeric_limits<OSMId>::min()),
     lastRelationId(std::numeric_limits<OSMId>::min()),
+    minNodeId(std::numeric_limits<OSMId>::max()),
+    maxNodeId(std::numeric_limits<OSMId>::min()),
+    minWayId(std::numeric_limits<OSMId>::max()),
+    maxWayId(std::numeric_limits<OSMId>::min()),
+    minRelationId(std::numeric_limits<OSMId>::max()),
+    maxRelationId(std::numeric_limits<OSMId>::min()),
     nodeSortingError(false),
     waySortingError(false),
     relationSortingError(false)
@@ -159,6 +195,7 @@ namespace osmscout {
     nodeStat.resize(typeConfig->GetTypeCount(),0);
     areaStat.resize(typeConfig->GetTypeCount(),0);
     wayStat.resize(typeConfig->GetTypeCount(),0);
+    relStat.resize(typeConfig->GetTypeCount(),0);
   }
 
   Preprocess::Callback::~Callback()
@@ -200,6 +237,14 @@ namespace osmscout {
       multipolygonWriter.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                               RAWRELS_DAT));
       multipolygonWriter.Write(multipolygonCount);
+
+      routeMasterWriter.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
+                                              RAWROUTEMASTER_DAT));
+      routeMasterWriter.Write(routeMasterCount);
+
+      routeWriter.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
+                                             RAWROUTE_DAT));
+      routeWriter.Write(routeCount);
     }
     catch (IOException& e) {
       progress.Error(e.GetDescription());
@@ -211,6 +256,8 @@ namespace osmscout {
       datapolygonWriter.CloseFailsafe();
       turnRestrictionWriter.CloseFailsafe();
       multipolygonWriter.CloseFailsafe();
+      routeMasterWriter.CloseFailsafe();
+      routeWriter.CloseFailsafe();
 
       return false;
     }
@@ -222,6 +269,9 @@ namespace osmscout {
                                          ProcessedData& processed)
   {
     RawCoord rawCoord;
+
+    minNodeId=std::min(minNodeId,data.id);
+    maxNodeId=std::max(maxNodeId,data.id);
 
     rawCoord.SetOSMId(data.id);
     rawCoord.SetCoord(data.coord);
@@ -255,6 +305,9 @@ namespace osmscout {
     RawWay      way;
     bool        isCoastline=false;
     bool        isDataPolygon=false;
+
+    minWayId=std::min(minWayId,data.id);
+    maxWayId=std::max(maxWayId,data.id);
 
     if (data.nodes.size()<2) {
       parameter.GetErrorReporter()->ReportWay(data.id,
@@ -470,12 +523,67 @@ namespace osmscout {
                    typeConfig->GetTagRegistry(),
                    tags);
 
-    processed.rawRelations.push_back(std::move(relation));
+    processed.multipolygons.push_back(std::move(relation));
+  }
+
+  void Preprocess::Callback::RouteMasterSubTask(const TagMap& tags,
+                                                const std::vector<RawRelation::Member>& members,
+                                                OSMId id,
+                                                const TypeInfoRef& type,
+                                                ProcessedData& processed)
+  {
+    RawRelation relation;
+
+    relation.SetId(id);
+
+    if (type->GetIgnore()) {
+      relation.SetType(typeConfig->typeInfoIgnore);
+    }
+    else {
+      relation.SetType(type);
+    }
+
+    relation.members=members;
+
+    relation.Parse(*parameter.GetErrorReporter(),
+                   typeConfig->GetTagRegistry(),
+                   tags);
+
+    processed.routeMasters.push_back(std::move(relation));
+  }
+
+  void Preprocess::Callback::RouteSubTask(const TagMap& tags,
+                                          const std::vector<RawRelation::Member>& members,
+                                          OSMId id,
+                                          const TypeInfoRef& type,
+                                          ProcessedData& processed)
+  {
+    RawRelation relation;
+
+    relation.SetId(id);
+
+    if (type->GetIgnore()) {
+      relation.SetType(typeConfig->typeInfoIgnore);
+    }
+    else {
+      relation.SetType(type);
+    }
+
+    relation.members=members;
+
+    relation.Parse(*parameter.GetErrorReporter(),
+                   typeConfig->GetTagRegistry(),
+                   tags);
+
+    processed.routes.push_back(std::move(relation));
   }
 
   void Preprocess::Callback::RelationSubTask(const RawRelationData& data,
                                              ProcessedData& processed)
   {
+    minRelationId=std::min(minRelationId,data.id);
+    maxRelationId=std::max(maxRelationId,data.id);
+
     if (data.members.empty()) {
       progress.Warning("Relation "+
                        std::to_string(data.id)+
@@ -495,15 +603,31 @@ namespace osmscout {
                              processed);
     }
 
-    TypeInfoRef multipolygonType;
+    TypeInfoRef type;
 
     if (IsMultipolygon(data.tags,
-                       multipolygonType)) {
+                       type)) {
       MultipolygonSubTask(data.tags,
                           data.members,
                           data.id,
-                          multipolygonType,
+                          type,
                           processed);
+    }
+    else if (IsRouteMaster(data.tags,
+                           type)) {
+      RouteMasterSubTask(data.tags,
+                          data.members,
+                          data.id,
+                          type,
+                          processed);
+    }
+    else if (IsRoute(data.tags,
+                     type)) {
+      RouteSubTask(data.tags,
+                   data.members,
+                   data.id,
+                   type,
+                   processed);
     }
   }
 
@@ -515,7 +639,7 @@ namespace osmscout {
     processed->rawCoords.reserve(data->nodeData.size());
     processed->rawNodes.reserve(data->nodeData.size());
     processed->rawWays.reserve(data->wayData.size());
-    processed->rawRelations.reserve(data->relationData.size());
+    processed->multipolygons.reserve(data->relationData.size());
     processed->turnRestriction.reserve(data->relationData.size());
 
     //std::cout << "Poping block " << data->nodeData.size() << " " << data->wayData.size() << " " << data->relationData.size() << std::endl;
@@ -590,7 +714,7 @@ namespace osmscout {
                 wayWriter);
     }
 
-    for (const auto& relation : processed->rawRelations) {
+    for (const auto& relation : processed->multipolygons) {
       areaStat[relation.GetType()->GetIndex()]++;
 
       relation.Write(*typeConfig,
@@ -602,6 +726,24 @@ namespace osmscout {
     for (const auto& turnRestriction : processed->turnRestriction) {
       turnRestriction.Write(turnRestrictionWriter);
       turnRestrictionCount++;
+    }
+
+    for (const auto& relation : processed->routeMasters) {
+      relStat[relation.GetType()->GetIndex()]++;
+
+      relation.Write(*typeConfig,
+                     routeMasterWriter);
+
+      routeMasterCount++;
+    }
+
+    for (const auto& relation : processed->routes) {
+      relStat[relation.GetType()->GetIndex()]++;
+
+      relation.Write(*typeConfig,
+                     routeWriter);
+
+      routeCount++;
     }
   }
 
@@ -734,8 +876,7 @@ namespace osmscout {
       writer.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                   BoundingBoxDataFile::BOUNDINGBOX_DAT));
 
-      writer.WriteCoord(minCoord);
-      writer.WriteCoord(maxCoord);
+      writer.WriteBox(GeoBox(minCoord, maxCoord));
 
       writer.Close();
     }
@@ -785,6 +926,12 @@ namespace osmscout {
     multipolygonWriter.SetPos(0);
     multipolygonWriter.Write(multipolygonCount);
 
+    routeMasterWriter.SetPos(0);
+    routeMasterWriter.Write(routeMasterCount);
+
+    routeWriter.SetPos(0);
+    routeWriter.Write(routeCount);
+
     try {
       rawCoordWriter.Close();
       nodeWriter.Close();
@@ -793,6 +940,8 @@ namespace osmscout {
       datapolygonWriter.Close();
       turnRestrictionWriter.Close();
       multipolygonWriter.Close();
+      routeMasterWriter.Close();
+      routeWriter.Close();
     }
     catch (IOException& e) {
       progress.Error(e.GetDescription());
@@ -804,6 +953,8 @@ namespace osmscout {
       datapolygonWriter.CloseFailsafe();
       turnRestrictionWriter.CloseFailsafe();
       multipolygonWriter.CloseFailsafe();
+      routeMasterWriter.CloseFailsafe();
+      routeMasterWriter.CloseFailsafe();
 
       return false;
     }
@@ -821,21 +972,61 @@ namespace osmscout {
       progress.Info(std::string("Turnrestrictions: ")+std::to_string(turnRestrictionCount));
       progress.Info(std::string("Multipolygons:    ")+std::to_string(multipolygonCount));
 
+      if (minNodeId!=std::numeric_limits<OSMId>::max() &&
+          maxNodeId!=std::numeric_limits<OSMId>::min()) {
+        progress.Info(std::string("Min. node id:     ")+std::to_string(minNodeId));
+        progress.Info(std::string("Max. node id:     ")+std::to_string(maxNodeId));
+
+        if (maxNodeId>std::numeric_limits<uint32_t>::max()) {
+          progress.Warning(std::string("Import contains node ids > uint32_t"));
+        }
+      }
+
+      if (minWayId!=std::numeric_limits<OSMId>::max() &&
+          maxWayId!=std::numeric_limits<OSMId>::min()) {
+        progress.Info(std::string("Min. way id:      ")+std::to_string(minWayId));
+        progress.Info(std::string("Max. way id:      ")+std::to_string(maxWayId));
+
+        if (maxWayId>std::numeric_limits<uint32_t>::max()) {
+          progress.Warning(std::string("Import contains way ids > uint32_t"));
+        }
+      }
+
+      if (minRelationId!=std::numeric_limits<OSMId>::max() &&
+          maxRelationId!=std::numeric_limits<OSMId>::min()) {
+        progress.Info(std::string("Min. relation id: ")+std::to_string(minRelationId));
+        progress.Info(std::string("Max. relation id: ")+std::to_string(maxRelationId));
+
+        if (maxNodeId>std::numeric_limits<uint32_t>::max()) {
+          progress.Warning(std::string("Import contains relation ids > uint32_t"));
+        }
+
+      }
+
       for (const auto &type : typeConfig->GetTypes()) {
         size_t      i=type->GetIndex();
         bool        isEmpty=(type->CanBeNode() && nodeStat[i]==0) ||
                             (type->CanBeArea() && areaStat[i]==0) ||
-                            (type->CanBeWay() && wayStat[i]==0);
+                            (type->CanBeWay() && wayStat[i]==0) ||
+                            (type->CanBeRelation() && relStat[i]==0);
         bool        isImportant=!type->GetIgnore() &&
                                 !type->GetName().empty() &&
                                 type->GetName()[0]!='_';
 
         if (isEmpty &&
             isImportant) {
-          progress.Warning("Type "+type->GetName()+ ": "+std::to_string(nodeStat[i])+" node(s), "+std::to_string(areaStat[i])+" area(s), "+std::to_string(wayStat[i])+" ways(s)");
+          progress.Warning("Type "+type->GetName()+": "+
+                           std::to_string(nodeStat[i])+" node(s), "+
+                           std::to_string(areaStat[i])+" area(s), "+
+                           std::to_string(wayStat[i])+" ways(s), "+
+                           std::to_string(relStat[i])+" rel(s)");
         }
         else {
-          progress.Info("Type "+type->GetName()+ ": "+std::to_string(nodeStat[i])+" node(s), "+std::to_string(areaStat[i])+" area(s), "+std::to_string(wayStat[i])+" ways(s)");
+          progress.Info("Type "+type->GetName()+": "+
+                        std::to_string(nodeStat[i])+" node(s), "+
+                        std::to_string(areaStat[i])+" area(s), "+
+                        std::to_string(wayStat[i])+" ways(s), "+
+                        std::to_string(relStat[i])+" rel(s)");
         }
       }
     }
@@ -887,6 +1078,8 @@ namespace osmscout {
     description.AddProvidedTemporaryFile(RAWCOASTLINE_DAT);
     description.AddProvidedTemporaryFile(RAWDATAPOLYGON_DAT);
     description.AddProvidedTemporaryFile(RAWTURNRESTR_DAT);
+    description.AddProvidedTemporaryFile(RAWROUTEMASTER_DAT);
+    description.AddProvidedTemporaryFile(RAWROUTE_DAT);
   }
 
   bool Preprocess::ProcessFiles(const TypeConfigRef& typeConfig,

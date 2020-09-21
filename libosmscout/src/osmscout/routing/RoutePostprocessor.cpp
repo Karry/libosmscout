@@ -27,6 +27,8 @@
 #include <osmscout/LocationDescriptionService.h>
 
 #include <iostream>
+#include <string_view>
+
 namespace osmscout {
 
   RoutePostprocessor::Postprocessor::~Postprocessor()
@@ -68,11 +70,6 @@ namespace osmscout {
     return true;
   }
 
-  RoutePostprocessor::DistanceAndTimePostprocessor::DistanceAndTimePostprocessor()
-  {
-    // no code
-  }
-
   bool RoutePostprocessor::DistanceAndTimePostprocessor::Process(const RoutePostprocessor& postprocessor,
                                                                  RouteDescription& description)
   {
@@ -86,7 +83,7 @@ namespace osmscout {
     WayRef        way;
 
     Distance      distance;
-    double        time=0.0;
+    Duration      time(0);
 
     for (auto& node : description.Nodes()) {
       // The last node does not have a pathWayId set, since we are not going anywhere!
@@ -126,7 +123,7 @@ namespace osmscout {
           Distance deltaDistance=GetEllipsoidalDistance(prevCoord,
                                                         curCoord);
 
-          double deltaTime=0.0;
+          Duration deltaTime(0);
 
           if (node.GetPathObject().GetType()==refArea) {
             deltaTime=postprocessor.GetTime(node.GetDatabaseId(),
@@ -153,11 +150,6 @@ namespace osmscout {
     }
 
     return true;
-  }
-
-  RoutePostprocessor::WayNamePostprocessor::WayNamePostprocessor()
-  {
-    // no code
   }
 
   bool RoutePostprocessor::WayNamePostprocessor::Process(const RoutePostprocessor& postprocessor,
@@ -210,11 +202,6 @@ namespace osmscout {
     return true;
   }
 
-  RoutePostprocessor::WayTypePostprocessor::WayTypePostprocessor()
-  {
-    // no code
-  }
-
   bool RoutePostprocessor::WayTypePostprocessor::Process(const RoutePostprocessor& postprocessor,
                                                          RouteDescription& description)
   {
@@ -245,11 +232,6 @@ namespace osmscout {
     }
 
     return true;
-  }
-
-  RoutePostprocessor::CrossingWaysPostprocessor::CrossingWaysPostprocessor()
-  {
-    // no code
   }
 
   void RoutePostprocessor::CrossingWaysPostprocessor::AddCrossingWaysDescriptions(const RoutePostprocessor& postprocessor,
@@ -384,11 +366,6 @@ namespace osmscout {
   const Distance RoutePostprocessor::DirectionPostprocessor::curveMaxDistance=Distance::Of<Kilometer>(0.300);
   const double RoutePostprocessor::DirectionPostprocessor::curveMinAngle=5.0;
 
-  RoutePostprocessor::DirectionPostprocessor::DirectionPostprocessor()
-  {
-    // no code
-  }
-
   bool RoutePostprocessor::DirectionPostprocessor::Process(const RoutePostprocessor& postprocessor,
                                                            RouteDescription& description)
   {
@@ -413,10 +390,10 @@ namespace osmscout {
         GeoCoord nextCoord=postprocessor.GetCoordinates(*nextNode,
                                                         nextNode->GetCurrentNodeIndex());
 
-        double inBearing=GetSphericalBearingFinal(prevCoord,coord)*180/M_PI;
-        double outBearing=GetSphericalBearingInitial(coord,nextCoord)*180/M_PI;
+        double inBearing=GetSphericalBearingFinal(prevCoord,coord).AsDegrees();
+        double outBearing=GetSphericalBearingInitial(coord,nextCoord).AsDegrees();
 
-        double turnAngle=NormalizeRelativeAngel(outBearing-inBearing);
+        double turnAngle= NormalizeRelativeAngle(outBearing - inBearing);
 
         double curveAngle=turnAngle;
 
@@ -452,10 +429,10 @@ namespace osmscout {
             GeoCoord lookupCoord=postprocessor.GetCoordinates(*lookup,
                                                               lookup->GetCurrentNodeIndex());
 
-            double lookupBearing=GetSphericalBearingInitial(curveBCoord,lookupCoord)*180/M_PI;
+            double lookupBearing=GetSphericalBearingInitial(curveBCoord,lookupCoord).AsDegrees();
 
 
-            double lookupAngle=NormalizeRelativeAngel(lookupBearing-currentBearing);
+            double lookupAngle= NormalizeRelativeAngle(lookupBearing - currentBearing);
 
             // The next node does not have enough direction change to be still part of a turn?
             if (fabs(lookupAngle)<curveMinAngle) {
@@ -468,7 +445,7 @@ namespace osmscout {
             }
 
             currentBearing=lookupBearing;
-            curveAngle=NormalizeRelativeAngel(currentBearing-inBearing);
+            curveAngle= NormalizeRelativeAngle(currentBearing - inBearing);
 
             curveB++;
             lookup++;
@@ -481,11 +458,6 @@ namespace osmscout {
     }
 
     return true;
-  }
-
-  RoutePostprocessor::MotorwayJunctionPostprocessor::MotorwayJunctionPostprocessor()
-  {
-    // no code
   }
 
   bool RoutePostprocessor::MotorwayJunctionPostprocessor::Process(const RoutePostprocessor& postprocessor,
@@ -554,11 +526,6 @@ namespace osmscout {
      }
 
      return true;
-  }
-
-  RoutePostprocessor::DestinationPostprocessor::DestinationPostprocessor()
-  {
-    // no code
   }
 
   bool RoutePostprocessor::DestinationPostprocessor::Process(const RoutePostprocessor& postprocessor,
@@ -657,9 +624,21 @@ namespace osmscout {
     return street;
   }
 
-  void RoutePostprocessor::InstructionPostprocessor::HandleRoundaboutEnter(RouteDescription::Node& node)
+  void RoutePostprocessor::InstructionPostprocessor::HandleRoundaboutEnter(const RoutePostprocessor& postprocessor,
+                                                                           RouteDescription::Node& node)
   {
-    RouteDescription::RoundaboutEnterDescriptionRef desc=std::make_shared<RouteDescription::RoundaboutEnterDescription>();
+    WayRef way;
+    auto pathObject=node.GetPathObject();
+    if(pathObject.GetType()==refWay){
+      way=postprocessor.GetWay(DBFileOffset{node.GetDatabaseId(), pathObject.GetFileOffset()});
+    }
+    roundaboutClockwise=false;
+    if (way && way->nodes.size()>=3){
+      // roundabout is closed ring, so we can use method for area
+      roundaboutClockwise=AreaIsClockwise(way->nodes);
+    }
+
+    RouteDescription::RoundaboutEnterDescriptionRef desc=std::make_shared<RouteDescription::RoundaboutEnterDescription>(roundaboutClockwise);
 
     node.AddDescription(RouteDescription::ROUNDABOUT_ENTER_DESC,
                         desc);
@@ -678,7 +657,7 @@ namespace osmscout {
 
   void RoutePostprocessor::InstructionPostprocessor::HandleRoundaboutLeave(RouteDescription::Node& node)
   {
-    RouteDescription::RoundaboutLeaveDescriptionRef desc=std::make_shared<RouteDescription::RoundaboutLeaveDescription>(roundaboutCrossingCounter);
+    RouteDescription::RoundaboutLeaveDescriptionRef desc=std::make_shared<RouteDescription::RoundaboutLeaveDescription>(roundaboutCrossingCounter, roundaboutClockwise);
 
     node.AddDescription(RouteDescription::ROUNDABOUT_LEAVE_DESC,
                         desc);
@@ -845,7 +824,7 @@ namespace osmscout {
         inRoundabout=true;
         roundaboutCrossingCounter=0;
 
-        HandleRoundaboutEnter(*node);
+        HandleRoundaboutEnter(postprocessor, *node);
 
         lastNode=node++;
 
@@ -1381,8 +1360,6 @@ namespace osmscout {
   {
     TypeInfoSet        nodeTypes;
     TypeInfoSet        areaTypes;
-    ObjectFileRef      prevObject;
-    ObjectFileRef      curObject;
     NodeRef            node;
     WayRef             way;
     AreaRef            area;
@@ -1467,6 +1444,172 @@ namespace osmscout {
                           poisAtRoute);
     }
 
+    return true;
+  }
+
+  bool RoutePostprocessor::LanesPostprocessor::Process(const RoutePostprocessor& postprocessor,
+                                                       RouteDescription& description)
+  {
+    ObjectFileRef              prevObject;
+    DatabaseId                 prevDb=0;
+    ObjectFileRef              curObject;
+    DatabaseId                 curDb;
+
+    RouteDescription::LaneDescriptionRef lanes;
+
+    for (auto& node : description.Nodes()) {
+      // The last node does not have a pathWayId set, since we are not going anywhere!
+      if (node.HasPathObject()) {
+        // Only load the next way, if it is different from the old one
+        curObject=node.GetPathObject();
+        curDb=node.GetDatabaseId();
+
+        if (curObject!=prevObject || curDb!=prevDb) {
+          lanes=postprocessor.GetLanes(node);
+        }
+        if (lanes) {
+          node.AddDescription(RouteDescription::LANES_DESC, lanes);
+        }
+
+        prevObject=curObject;
+        prevDb=curDb;
+      }
+    }
+
+    return true;
+  }
+
+  bool RoutePostprocessor::SuggestedLanesPostprocessor::Process(const RoutePostprocessor& /*postprocessor*/,
+                                                                RouteDescription& description)
+  {
+    using namespace std::string_view_literals;
+
+    auto GetLaneDescription = [](const RouteDescription::Node &node) -> RouteDescription::LaneDescriptionRef {
+        return std::dynamic_pointer_cast<RouteDescription::LaneDescription>(node.GetDescription(RouteDescription::LANES_DESC));
+    };
+
+    // buffer of traveled nodes, recent node at back
+    std::list<RouteDescription::Node*> backBuffer;
+    for (auto& node : description.Nodes()) {
+
+      while (!backBuffer.empty() &&
+             (node.GetDistance() - backBuffer.front()->GetDistance() > Meters(500))){
+        backBuffer.pop_front();
+      }
+      auto lanes = GetLaneDescription(node);
+      if (!lanes){
+        // it should not happened, just on last node
+        backBuffer.clear();
+        continue;
+      }
+
+      if (!backBuffer.empty() && !node.GetObjects().empty()) { // we know history and there is some crossing on current node
+        auto prevLanes = GetLaneDescription(*backBuffer.back());
+        assert(prevLanes);
+        if (prevLanes->GetLaneCount() > lanes->GetLaneCount()) { // lane count was decreased
+          RouteDescription::DirectionDescriptionRef direction = std::dynamic_pointer_cast<RouteDescription::DirectionDescription>(node.GetDescription(RouteDescription::DIRECTION_DESC));
+
+          using Move = RouteDescription::DirectionDescription::Move;
+          Move directionMove = direction ? direction->GetTurn() : Move::straightOn;
+
+          int allowedLaneFrom = -1;
+          int allowedLaneTo = -1; // inclusive
+
+          auto LookupLanesTurns = [&](const std::set<std::string_view> &possibilities){
+            for (size_t i = 0; i < prevLanes->GetLaneTurns().size(); i++){
+              std::string_view turn = prevLanes->GetLaneTurns()[i];
+              if (possibilities.find(turn) != possibilities.end()){
+                // it is possible to use this turn
+                if (allowedLaneFrom < 0) {
+                  allowedLaneFrom=i;
+                  allowedLaneTo=i;
+                } else {
+                  allowedLaneTo=i;
+                }
+              } else {
+                if (allowedLaneFrom>0){
+                  break;
+                }
+              }
+            }
+          };
+
+          static const std::set<std::string_view> leftPossibilities{
+            "left"sv, "slight_left"sv, "through;left"sv, "through;slight_left"sv, "through;sharp_left"sv};
+
+          static const std::set<std::string_view> straightPossibilities{
+            "through;left"sv, "through;slight_left"sv, "through;sharp_left"sv,
+            "through"sv,
+            ""sv, // no-sign implicitly as through
+            "through;right"sv, "through;slight_right"sv, "through;sharp_right"sv};
+
+          static const std::set<std::string_view> rightPossibilities{
+              "right"sv, "slight_right"sv, "through;right"sv, "through;slight_right"sv, "through;sharp_right"sv};
+
+          // after some direction change, we will evaluate allowed lanes in backBuffer
+          if (!prevLanes->GetLaneTurns().empty()){
+            // we know explicit lane turns
+            switch (directionMove){
+              case Move::sharpLeft:
+              case Move::left:
+              case Move::slightlyLeft:
+                LookupLanesTurns(leftPossibilities);
+                break;
+              case Move::straightOn:
+                LookupLanesTurns(straightPossibilities);
+                break;
+              case Move::slightlyRight:
+              case Move::right:
+              case Move::sharpRight:
+                LookupLanesTurns(rightPossibilities);
+                break;
+            }
+          }
+          if (allowedLaneFrom < 0){
+            // explicit turns are not available, or evaluation was not successful
+            // it may happen when we detected move is for example slightlyLeft but lane turn is "through"
+
+            // so, just estimate lanes on the count
+            assert(lanes->GetLaneCount()>0);
+            switch (directionMove){
+              case Move::sharpLeft:
+              case Move::left:
+              case Move::slightlyLeft:
+                allowedLaneFrom = 0;
+                allowedLaneTo = lanes->GetLaneCount() - 1;
+                break;
+              case Move::straightOn:
+                // ignore right now, we cannot estimate which lanes
+                // are through without deeper analysis
+                break;
+              case Move::slightlyRight:
+              case Move::right:
+              case Move::sharpRight:
+                allowedLaneFrom = prevLanes->GetLaneCount() - lanes->GetLaneCount();
+                allowedLaneTo = prevLanes->GetLaneCount() -1;
+                break;
+            }
+          }
+
+          if (allowedLaneFrom >= 0) {
+            assert(allowedLaneTo >= allowedLaneFrom);
+            auto suggested = std::make_shared<RouteDescription::SuggestedLaneDescription>(allowedLaneFrom, allowedLaneTo);
+            for (auto it = backBuffer.rbegin(); it != backBuffer.rend(); it++) {
+              auto nodePtr = *it;
+              auto nodeLanes = GetLaneDescription(*nodePtr);
+              if (*prevLanes != *nodeLanes){
+                break;
+              }
+              nodePtr->AddDescription(RouteDescription::SUGGESTED_LANES_DESC, suggested);
+            }
+          }
+
+          backBuffer.clear();
+        }
+      }
+
+      backBuffer.push_back(&node);
+    }
     return true;
   }
 
@@ -1585,6 +1728,11 @@ namespace osmscout {
       delete p.second;
     }
     maxSpeedReaders.clear();
+
+    for (const auto p:lanesReaders){
+      delete p.second;
+    }
+    lanesReaders.clear();
   }
 
   AreaRef RoutePostprocessor::GetArea(const DBFileOffset &offset) const
@@ -1605,14 +1753,14 @@ namespace osmscout {
     return entry->second;
   }
 
-  double RoutePostprocessor::GetTime(DatabaseId dbId,const Area& area,const Distance &deltaDistance) const
+  Duration RoutePostprocessor::GetTime(DatabaseId dbId,const Area& area,const Distance &deltaDistance) const
   {
     assert(dbId<profiles.size() && profiles[dbId]);
     auto profile=profiles[dbId];
     return profile->GetTime(area,deltaDistance);
   }
 
-  double RoutePostprocessor::GetTime(DatabaseId dbId,const Way& way,const Distance &deltaDistance) const
+  Duration RoutePostprocessor::GetTime(DatabaseId dbId,const Way& way,const Distance &deltaDistance) const
   {
     assert(dbId<profiles.size() && profiles[dbId]);
     auto profile=profiles[dbId];
@@ -1878,6 +2026,44 @@ namespace osmscout {
     return speed;
   }
 
+  RouteDescription::LaneDescriptionRef RoutePostprocessor::GetLanes(const RouteDescription::Node& node) const
+  {
+    RouteDescription::LaneDescriptionRef lanes;
+    if (node.GetPathObject().GetType()==refWay) {
+      auto lanesReader=lanesReaders.find(node.GetDatabaseId());
+      auto accessReader=accessReaders.find(node.GetDatabaseId());
+      assert(lanesReader != lanesReaders.end());
+      assert(accessReader != accessReaders.end());
+
+      WayRef way=GetWay(node.GetDBFileOffset());
+
+      bool forward = node.GetCurrentNodeIndex() < node.GetTargetNodeIndex();
+
+      AccessFeatureValue *accessValue=accessReader->second->GetValue(way->GetFeatureValueBuffer());
+      bool oneway = accessValue ? accessValue->IsOneway() : false;
+
+      uint8_t laneCount;
+      std::vector<std::string> laneTurns;
+      LanesFeatureValue *lanesValue=lanesReader->second->GetValue(way->GetFeatureValueBuffer());
+      if (lanesValue!=nullptr) {
+        laneCount=std::max((uint8_t)1,forward ? lanesValue->GetForwardLanes() : lanesValue->GetBackwardLanes());
+        std::string turns=forward ? lanesValue->GetTurnForward() : lanesValue->GetTurnBackward();;
+        std::list<std::string> turnList=SplitString(turns, "|", laneCount);
+        laneTurns.reserve(turnList.size());
+        laneTurns.insert(laneTurns.begin(), turnList.begin(), turnList.end());
+      } else {
+        // default lane count by object type
+        if (oneway) {
+          laneCount=way->GetType()->GetOnewayLanes();
+        } else {
+          laneCount=std::max(1,way->GetType()->GetLanes()/2);
+        }
+      }
+      lanes=std::make_shared<RouteDescription::LaneDescription>(oneway, laneCount, laneTurns);
+    }
+    return lanes;
+  }
+
   Id RoutePostprocessor::GetNodeId(const RouteDescription::Node& node) const
   {
     const ObjectFileRef& object=node.GetPathObject();
@@ -2116,6 +2302,8 @@ namespace osmscout {
       roundaboutReaders[dbId]=new RoundaboutFeatureReader(*typeConfig);
       destinationReaders[dbId]=new DestinationFeatureValueReader(*typeConfig);
       maxSpeedReaders[dbId]=new MaxSpeedFeatureValueReader(*typeConfig);
+      lanesReaders[dbId]=new LanesFeatureValueReader(*typeConfig);
+      accessReaders[dbId]=new AccessFeatureValueReader(*typeConfig);
 
       // init types
       motorwayTypes[dbId]; // insert empty TypeInfoSet

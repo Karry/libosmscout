@@ -28,10 +28,10 @@ namespace osmscout {
 // uncomment or define by compiler parameter to render various debug marks
 // #define DRAW_DEBUG
 
-// Timeout for the first rendering after rerendering was triggered (render what ever data is available)
+// Timeout [ms] for the first rendering after rerendering was triggered (render what ever data is available)
 static int INITIAL_DATA_RENDERING_TIMEOUT = 10;
 
-// Timeout for the updated rendering after rerendering was triggered (more rendering data is available)
+// Timeout [ms] for the updated rendering after rerendering was triggered (more rendering data is available)
 static int UPDATED_DATA_RENDERING_TIMEOUT = 200;
 
 PlaneMapRenderer::PlaneMapRenderer(QThread *thread,
@@ -40,13 +40,13 @@ PlaneMapRenderer::PlaneMapRenderer(QThread *thread,
                                    QString iconDirectory):
   MapRenderer(thread,settings,dbThread,iconDirectory),
   canvasOverrun(1.5),
-  loadJob(NULL),
+  loadJob(nullptr),
   pendingRenderingTimer(this),
-  currentImage(NULL),
+  currentImage(nullptr),
   currentCoord(0.0,0.0),
   currentAngle(0.0),
   currentMagnification(0),
-  finishedImage(NULL),
+  finishedImage(nullptr),
   finishedCoord(0.0,0.0),
   finishedMagnification(0)
 {
@@ -58,39 +58,40 @@ PlaneMapRenderer::PlaneMapRenderer(QThread *thread,
   // else we might get into a dead lock
   //
 
-  connect(this,SIGNAL(TriggerMapRenderingSignal(const MapViewStruct&)),
-          this,SLOT(TriggerMapRendering(const MapViewStruct&)),
+  connect(this, &PlaneMapRenderer::TriggerMapRenderingSignal,
+          this, &PlaneMapRenderer::TriggerMapRendering,
           Qt::QueuedConnection);
 
-  connect(this,SIGNAL(TriggerInitialRendering()),
-          this,SLOT(HandleInitialRenderingRequest()));
+  connect(this, &PlaneMapRenderer::TriggerInitialRendering,
+          this, &PlaneMapRenderer::HandleInitialRenderingRequest);
 
-  connect(&pendingRenderingTimer,SIGNAL(timeout()),
-          this,SLOT(DrawMap()));
+  connect(&pendingRenderingTimer, &QTimer::timeout,
+          this, &PlaneMapRenderer::DrawMap);
 
-  connect(this,SIGNAL(TriggerDrawMap()),
-          this,SLOT(DrawMap()),
+  connect(this, &PlaneMapRenderer::TriggerDrawMap,
+          this, &PlaneMapRenderer::DrawMap,
           Qt::QueuedConnection);
 }
 
 PlaneMapRenderer::~PlaneMapRenderer()
 {
   qDebug() << "~PlaneMapRenderer";
-  if (currentImage!=NULL)
+  if (currentImage!=nullptr)
     delete currentImage;
-  if (finishedImage!=NULL)
+  if (finishedImage!=nullptr)
     delete finishedImage;
-  if (loadJob!=NULL)
+  if (loadJob!=nullptr)
     delete loadJob;
 }
 
 void PlaneMapRenderer::InvalidateVisualCache()
 {
-  QMutexLocker finishedLocker(&finishedMutex);
-  osmscout::log.Debug() << "Invalidate finished image";
-  if (finishedImage)
-    delete finishedImage;
-  finishedImage=NULL;
+  {
+    QMutexLocker finishedLocker(&finishedMutex);
+    osmscout::log.Debug() << "Invalidate finished image";
+    epoch++;;
+  }
+  emit Redraw();
 }
 
 /**
@@ -112,7 +113,7 @@ bool PlaneMapRenderer::RenderMap(QPainter& painter,
     backgroundColor=osmscout::Color(0,0,0);
   }
 
-  if (finishedImage==NULL) {
+  if (finishedImage==nullptr) {
     painter.fillRect(0,
                      0,
                      request.width,
@@ -129,14 +130,14 @@ bool PlaneMapRenderer::RenderMap(QPainter& painter,
       QMutexLocker reqLocker(&lastRequestMutex);
       lastRequest=request;
     }
-    emit TriggerMapRenderingSignal(request);
+    emit TriggerMapRenderingSignal(request, epoch);
     return false;
   }
 
   osmscout::MercatorProjection requestProjection;
 
   if (!requestProjection.Set(request.coord,
-                             request.angle,
+                             request.angle.AsRadians(),
                              request.magnification,
                              mapDpi,
                              request.width,
@@ -255,15 +256,16 @@ bool PlaneMapRenderer::RenderMap(QPainter& painter,
   bool needsNoRepaint=finishedImage->width()==(int) extendedRequest.width &&
                       finishedImage->height()==(int) extendedRequest.height &&
                       finishedCoord==request.coord &&
-                      finishedAngle==request.angle &&
-                      finishedMagnification==request.magnification;
+                      finishedAngle==request.angle.AsRadians() &&
+                      finishedMagnification==request.magnification &&
+                      finishedEpoch==epoch;
 
   if (!needsNoRepaint){
     {
       QMutexLocker reqLocker(&lastRequestMutex);
       lastRequest=extendedRequest;
     }
-    emit TriggerMapRenderingSignal(extendedRequest);
+    emit TriggerMapRenderingSignal(extendedRequest, epoch);
   }
 
   painter.restore();
@@ -305,7 +307,7 @@ void PlaneMapRenderer::DrawMap()
 {
   {
     QMutexLocker locker(&lock);
-    if (loadJob==NULL){
+    if (loadJob==nullptr){
       return;
     }
     osmscout::log.Debug() << "DrawMap()";
@@ -313,7 +315,7 @@ void PlaneMapRenderer::DrawMap()
       osmscout::log.Warn() << "Incorrect thread!";
     }
 
-    if (currentImage==NULL ||
+    if (currentImage==nullptr ||
         currentImage->width()!=(int)currentWidth ||
         currentImage->height()!=(int)currentHeight) {
       delete currentImage;
@@ -352,10 +354,14 @@ void PlaneMapRenderer::DrawMap()
     drawParameter.SetFontName(fontName.toStdString());
     drawParameter.SetFontSize(fontSize);
 
-    drawParameter.SetLabelLineMinCharCount(15);
-    drawParameter.SetLabelLineMaxCharCount(30);
+    drawParameter.SetShowAltLanguage(showAltLanguage);
+
+    drawParameter.SetLabelLineMinCharCount(5);
+    drawParameter.SetLabelLineMaxCharCount(15);
     drawParameter.SetLabelLineFitToArea(true);
     drawParameter.SetLabelLineFitToWidth(std::min(projection.GetWidth(), projection.GetHeight())/canvasOverrun);
+
+    drawParameter.GetLocaleRef().SetDistanceUnits(units == "imperial" ? osmscout::Units::Imperial : osmscout::Units::Metrics);
 
     // create copy of projection
     osmscout::MercatorProjection renderProjection;
@@ -404,7 +410,7 @@ void PlaneMapRenderer::DrawMap()
     if (loadJob->IsFinished()){
       // this slot is may be called from DBLoadJob, we can't delete it now
       loadJob->deleteLater();
-      loadJob=NULL;
+      loadJob=nullptr;
     }
 
     if (!success)  {
@@ -418,8 +424,9 @@ void PlaneMapRenderer::DrawMap()
       finishedCoord=currentCoord;
       finishedAngle=currentAngle;
       finishedMagnification=currentMagnification;
+      finishedEpoch=currentEpoch;
 
-      lastRendering=QTime::currentTime();
+      lastRendering.restart();
     }
   }
   emit Redraw();
@@ -428,7 +435,7 @@ void PlaneMapRenderer::DrawMap()
 void PlaneMapRenderer::HandleTileStatusChanged(QString /*dbPath*/,const osmscout::TileRef /*changedTile*/)
 {
   QMutexLocker locker(&lock);
-  int elapsedTime=lastRendering.elapsed();
+  int elapsedTime=lastRendering.isValid() ? lastRendering.elapsed() : UPDATED_DATA_RENDERING_TIMEOUT;
 
   //qDebug() << "Relevant tile changed, elapsed:" << elapsedTime;
 
@@ -450,7 +457,7 @@ void PlaneMapRenderer::onLoadJobFinished(QMap<QString,QMap<osmscout::TileKey,osm
   emit TriggerDrawMap();
 }
 
-void PlaneMapRenderer::TriggerMapRendering(const MapViewStruct& request)
+void PlaneMapRenderer::TriggerMapRendering(const MapViewStruct& request, size_t requestEpoch)
 {
   {
     QMutexLocker reqLocker(&lastRequestMutex);
@@ -462,10 +469,10 @@ void PlaneMapRenderer::TriggerMapRendering(const MapViewStruct& request)
   osmscout::log.Debug() << "Start data loading...";
   {
     QMutexLocker locker(&lock);
-    if (loadJob!=NULL){
+    if (loadJob!=nullptr){
       // TODO: check if job contains same tiles...
       loadJob->deleteLater();
-      loadJob=NULL;
+      loadJob=nullptr;
     }
     if (thread!=QThread::currentThread()){
       osmscout::log.Warn() << "Incorrect thread!";
@@ -474,8 +481,9 @@ void PlaneMapRenderer::TriggerMapRendering(const MapViewStruct& request)
     currentWidth=request.width;
     currentHeight=request.height;
     currentCoord=request.coord;
-    currentAngle=request.angle;
+    currentAngle=request.angle.AsRadians();
     currentMagnification=request.magnification;
+    currentEpoch=requestEpoch;
 
     projection.Set(currentCoord,
                    currentAngle,
@@ -494,11 +502,11 @@ void PlaneMapRenderer::TriggerMapRendering(const MapViewStruct& request)
                           /* lowZoomOptimization */ true,
                           /* closeOnFinish */ false);
 
-    connect(loadJob, SIGNAL(tileStateChanged(QString,const osmscout::TileRef)),
-            this, SLOT(HandleTileStatusChanged(QString,const osmscout::TileRef)),
+    connect(loadJob, &DBLoadJob::tileStateChanged,
+            this, &PlaneMapRenderer::HandleTileStatusChanged,
             Qt::QueuedConnection);
-    connect(loadJob, SIGNAL(finished(QMap<QString,QMap<osmscout::TileKey,osmscout::TileRef>>)),
-            this, SLOT(onLoadJobFinished(QMap<QString,QMap<osmscout::TileKey,osmscout::TileRef>>)));
+    connect(loadJob, &DBLoadJob::finished,
+            this, &PlaneMapRenderer::onLoadJobFinished);
 
     dbThread->RunJob(loadJob);
   }
@@ -524,8 +532,9 @@ void PlaneMapRenderer::onStylesheetFilenameChanged()
     dbThread->RunSynchronousJob(
       [this](const std::list<DBInstanceRef>& databases) {
         for (auto &db:databases){
-          if (db->styleConfig){
-            finishedUnknownFillStyle=db->styleConfig->GetUnknownFillStyle(projection);
+          auto styleConfig=db->GetStyleConfig();
+          if (styleConfig){
+            finishedUnknownFillStyle=styleConfig->GetUnknownFillStyle(projection);
             if (finishedUnknownFillStyle){
               break;
             }

@@ -20,15 +20,17 @@
 #include <osmscout/InstalledMapsModel.h>
 #include <osmscout/OSMScoutQt.h>
 
+#include <algorithm>
+
 namespace osmscout {
 
 InstalledMapsModel::InstalledMapsModel()
 {
   mapManager=OSMScoutQt::GetInstance().GetMapManager();
-  connect(mapManager.get(), SIGNAL(databaseListChanged(QList<QDir>)),
-          this, SLOT(onDatabaseListChanged()));
-  connect(mapManager.get(), SIGNAL(databaseListChanged(QList<QDir>)),
-          this, SIGNAL(databaseListChanged()));
+  connect(mapManager.get(), &MapManager::databaseListChanged,
+          this, &InstalledMapsModel::onDatabaseListChanged);
+  connect(mapManager.get(), &MapManager::databaseListChanged,
+          this, &InstalledMapsModel::databaseListChanged);
   onDatabaseListChanged();
 }
 
@@ -40,7 +42,7 @@ void InstalledMapsModel::onDatabaseListChanged()
 {
   QList<MapDirectory> currentDirs=mapManager->getDatabaseDirectories();
 
-  qStableSort(currentDirs);
+  std::stable_sort(currentDirs.begin(), currentDirs.end());
 
   // following process is little bit complicated, but we don't want to call
   // model reset - it breaks UI animations for changes

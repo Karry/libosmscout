@@ -67,8 +67,9 @@ void DumpFeatures(const osmscout::FeatureValueBuffer &features, const std::strin
         if (feature->HasValue()) {
           osmscout::FeatureValue *value=features.GetValue(featureInstance.GetIndex());
           if (feature->HasLabel()) {
-            if (!value->GetLabel(0).empty()) {
-              std::cout << ": " << osmscout::UTF8StringToLocaleString(value->GetLabel(0));
+            std::string label=value->GetLabel(osmscout::Locale(), 0);
+            if (!label.empty()) {
+              std::cout << ": " << osmscout::UTF8StringToLocaleString(label);
             }
           }
           else {
@@ -95,7 +96,7 @@ void DumpLocationAtPlaceDescription(const std::string& label,
   else {
     std::cout.precision(1);
     std::cout << "  * You are "  << std::fixed << description.GetDistance().AsMeter() << "m ";
-    std::cout << osmscout::BearingDisplayString(description.GetBearing());
+    std::cout << description.GetBearing().DisplayString();
     std::cout << " of '" << place.GetDisplayString() << "' (" << place.GetObject().GetTypeName() << ")" <<std::endl;
   }
 
@@ -158,7 +159,7 @@ void DumpCrossingDescription(const std::string& label,
   else {
     std::cout.precision(1);
     std::cout << "  * Your are "  << std::fixed << description.GetDistance().AsMeter() << "m ";
-    std::cout << osmscout::BearingDisplayString(description.GetBearing());
+    std::cout << description.GetBearing().DisplayString();
     std::cout << " of crossing:"  << std::endl;
   }
 

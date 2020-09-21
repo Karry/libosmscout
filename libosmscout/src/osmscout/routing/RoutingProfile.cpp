@@ -95,7 +95,7 @@ namespace osmscout {
    * Since this might take for ever the limit should be reasonable high.
    *
    * The actual maximum cost limit is calculated based on a constant limit distance (default 10.0 Km)
-   * and a cost factor applied to the minimum costs 8default 5.0).
+   * and a cost factor applied to the minimum costs default 5.0).
    *
    * So the resulting maxium cost are profile.GetCosts(profile.GetCostLimitDistance())+
    * profile.GetCosts(distance)*profile.GetCostLimitFactor().
@@ -228,7 +228,7 @@ namespace osmscout {
 
     AccessFeatureValue *accessValue=accessReader.GetValue(way.GetFeatureValueBuffer());
 
-    if (accessValue!=NULL) {
+    if (accessValue!=nullptr) {
       switch (vehicle) {
       case vehicleFoot:
         return accessValue->CanRouteFoot();
@@ -268,7 +268,7 @@ namespace osmscout {
 
     AccessFeatureValue *accessValue=accessReader.GetValue(way.GetFeatureValueBuffer());
 
-    if (accessValue!=NULL) {
+    if (accessValue!=nullptr) {
       switch (vehicle) {
       case vehicleFoot:
         return accessValue->CanRouteFootForward();
@@ -308,7 +308,7 @@ namespace osmscout {
 
     AccessFeatureValue *accessValue=accessReader.GetValue(way.GetFeatureValueBuffer());
 
-    if (accessValue!=NULL) {
+    if (accessValue!=nullptr) {
       switch (vehicle) {
       case vehicleFoot:
         return accessValue->CanRouteFootBackward();

@@ -25,12 +25,14 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <map>
 
 #include <osmscout/ObjectRef.h>
 #include <osmscout/Path.h>
 #include <osmscout/GeoCoord.h>
 #include <osmscout/routing/DBFileOffset.h>
 #include <osmscout/util/Distance.h>
+#include <osmscout/util/Time.h>
 
 namespace osmscout {
 
@@ -85,6 +87,10 @@ namespace osmscout {
     static const char* const WAY_TYPE_NAME_DESC;
     /** Constant for a description of pois at the route (POIAtRouteDescription) */
     static const char* const POI_AT_ROUTE_DESC;
+    /** Constant for a description of route lanes (LaneDescription) */
+    static const char* const LANES_DESC;
+    /** Constant for a description of suggested route lanes (SuggestedLaneDescription) */
+    static const char* const SUGGESTED_LANES_DESC;
 
   public:
     /**
@@ -99,7 +105,7 @@ namespace osmscout {
       virtual std::string GetDebugString() const = 0;
     };
 
-    typedef std::shared_ptr<Description> DescriptionRef;
+    using DescriptionRef = std::shared_ptr<Description>;
 
     /**
      * \ingroup Routing
@@ -118,7 +124,7 @@ namespace osmscout {
       std::string GetDescription() const;
     };
 
-    typedef std::shared_ptr<StartDescription> StartDescriptionRef;
+    using StartDescriptionRef = std::shared_ptr<StartDescription>;
 
     /**
      * \ingroup Routing
@@ -137,12 +143,12 @@ namespace osmscout {
       std::string GetDescription() const;
     };
 
-    typedef std::shared_ptr<TargetDescription> TargetDescriptionRef;
+    using TargetDescriptionRef = std::shared_ptr<TargetDescription>;
 
     /**
      * \ingroup Routing
      * Something has a name. A name consists of a name and a optional alphanumeric
-     * reference (LIke B1 or A40).
+     * reference (Like B1 or A40).
      */
     class OSMSCOUT_API NameDescription : public Description
     {
@@ -166,7 +172,7 @@ namespace osmscout {
       std::string GetDescription() const;
     };
 
-    typedef std::shared_ptr<NameDescription> NameDescriptionRef;
+    using NameDescriptionRef = std::shared_ptr<NameDescription>;
 
     /**
      * \ingroup Routing
@@ -184,18 +190,18 @@ namespace osmscout {
 
       std::string GetDebugString() const override;
 
-      inline const NameDescriptionRef GetOriginDescription() const
+      inline NameDescriptionRef GetOriginDescription() const
       {
         return originDescription;
       }
 
-      inline const NameDescriptionRef GetTargetDescription() const
+      inline NameDescriptionRef GetTargetDescription() const
       {
         return targetDescription;
       }
     };
 
-    typedef std::shared_ptr<NameChangedDescription> NameChangedDescriptionRef;
+    using NameChangedDescriptionRef = std::shared_ptr<NameChangedDescription>;
 
     /**
      * \ingroup Routing
@@ -228,12 +234,12 @@ namespace osmscout {
         return exitCount>1;
       }
 
-      inline const NameDescriptionRef GetOriginDesccription() const
+      inline NameDescriptionRef GetOriginDesccription() const
       {
         return originDescription;
       }
 
-      inline const NameDescriptionRef GetTargetDesccription() const
+      inline NameDescriptionRef GetTargetDesccription() const
       {
         return targetDescription;
       }
@@ -244,7 +250,7 @@ namespace osmscout {
       }
     };
 
-    typedef std::shared_ptr<CrossingWaysDescription> CrossingWaysDescriptionRef;
+    using CrossingWaysDescriptionRef = std::shared_ptr<CrossingWaysDescription>;
 
     /**
      * \ingroup Routing
@@ -307,7 +313,7 @@ namespace osmscout {
       }
     };
 
-    typedef std::shared_ptr<DirectionDescription> DirectionDescriptionRef;
+    using DirectionDescriptionRef = std::shared_ptr<DirectionDescription>;
 
     /**
      * \ingroup Routing
@@ -321,7 +327,7 @@ namespace osmscout {
       std::string GetDebugString() const override;
     };
 
-    typedef std::shared_ptr<TurnDescription> TurnDescriptionRef;
+    using TurnDescriptionRef = std::shared_ptr<TurnDescription>;
 
     /**
      * \ingroup Routing
@@ -329,13 +335,21 @@ namespace osmscout {
      */
     class OSMSCOUT_API RoundaboutEnterDescription : public Description
     {
+    private:
+      bool clockwise;
+
     public:
-      RoundaboutEnterDescription();
+      explicit RoundaboutEnterDescription(bool clockwise);
 
       std::string GetDebugString() const override;
+
+      bool IsClockwise() const
+      {
+        return clockwise;
+      }
     };
 
-    typedef std::shared_ptr<RoundaboutEnterDescription> RoundaboutEnterDescriptionRef;
+    using RoundaboutEnterDescriptionRef = std::shared_ptr<RoundaboutEnterDescription>;
 
     /**
      * \ingroup Routing
@@ -345,9 +359,10 @@ namespace osmscout {
     {
     private:
       size_t exitCount;
+      bool clockwise;
 
     public:
-      explicit RoundaboutLeaveDescription(size_t exitCount);
+      RoundaboutLeaveDescription(size_t exitCount, bool clockwise);
 
       std::string GetDebugString() const override;
 
@@ -355,9 +370,14 @@ namespace osmscout {
       {
         return exitCount;
       }
+
+      bool IsClockwise() const
+      {
+        return clockwise;
+      }
     };
 
-    typedef std::shared_ptr<RoundaboutLeaveDescription> RoundaboutLeaveDescriptionRef;
+    using RoundaboutLeaveDescriptionRef = std::shared_ptr<RoundaboutLeaveDescription>;
 
     /**
      * \ingroup Routing
@@ -373,13 +393,13 @@ namespace osmscout {
 
       std::string GetDebugString() const override;
 
-      inline const NameDescriptionRef GetToDescription() const
+      inline NameDescriptionRef GetToDescription() const
       {
         return toDescription;
       }
     };
 
-    typedef std::shared_ptr<MotorwayEnterDescription> MotorwayEnterDescriptionRef;
+    using MotorwayEnterDescriptionRef = std::shared_ptr<MotorwayEnterDescription>;
 
     /**
      * \ingroup Routing
@@ -397,18 +417,18 @@ namespace osmscout {
 
       std::string GetDebugString() const override;
 
-      inline const NameDescriptionRef GetFromDescription() const
+      inline NameDescriptionRef GetFromDescription() const
       {
         return fromDescription;
       }
 
-      inline const NameDescriptionRef GetToDescription() const
+      inline NameDescriptionRef GetToDescription() const
       {
         return toDescription;
       }
     };
 
-    typedef std::shared_ptr<MotorwayChangeDescription> MotorwayChangeDescriptionRef;
+    using MotorwayChangeDescriptionRef = std::shared_ptr<MotorwayChangeDescription>;
 
     /**
      * \ingroup Routing
@@ -424,13 +444,13 @@ namespace osmscout {
 
       std::string GetDebugString() const override;
 
-      inline const NameDescriptionRef GetFromDescription() const
+      inline NameDescriptionRef GetFromDescription() const
       {
         return fromDescription;
       }
     };
 
-    typedef std::shared_ptr<MotorwayLeaveDescription> MotorwayLeaveDescriptionRef;
+    using MotorwayLeaveDescriptionRef = std::shared_ptr<MotorwayLeaveDescription>;
 
     /**
      * \ingroup Routing
@@ -446,13 +466,13 @@ namespace osmscout {
 
       std::string GetDebugString() const override;
 
-      inline const NameDescriptionRef GetJunctionDescription() const
+      inline NameDescriptionRef GetJunctionDescription() const
       {
         return junctionDescription;
       }
     };
 
-    typedef std::shared_ptr<MotorwayJunctionDescription> MotorwayJunctionDescriptionRef;
+    using MotorwayJunctionDescriptionRef = std::shared_ptr<MotorwayJunctionDescription>;
 
     /**
      * \ingroup Routing
@@ -471,7 +491,7 @@ namespace osmscout {
       std::string GetDescription() const;
     };
 
-    typedef std::shared_ptr<DestinationDescription> DestinationDescriptionRef;
+    using DestinationDescriptionRef = std::shared_ptr<DestinationDescription>;
 
     /**
      * \ingroup Routing
@@ -493,7 +513,7 @@ namespace osmscout {
       }
     };
 
-    typedef std::shared_ptr<MaxSpeedDescription> MaxSpeedDescriptionRef;
+    using MaxSpeedDescriptionRef = std::shared_ptr<MaxSpeedDescription>;
 
     /**
      * \ingroup Routing
@@ -516,7 +536,7 @@ namespace osmscout {
       std::string GetDescription() const;
     };
 
-    typedef std::shared_ptr<TypeNameDescription> TypeNameDescriptionRef;
+    using TypeNameDescriptionRef = std::shared_ptr<TypeNameDescription>;
 
     /**
      * \ingroup Routing
@@ -559,7 +579,89 @@ namespace osmscout {
       }
     };
 
-    typedef std::shared_ptr<POIAtRouteDescription> POIAtRouteDescriptionRef;
+    using POIAtRouteDescriptionRef = std::shared_ptr<POIAtRouteDescription>;
+
+    /**
+     * \ingroup Routing
+     * A route lane
+     */
+    class OSMSCOUT_API LaneDescription : public RouteDescription::Description
+    {
+    private:
+      bool oneway{false};
+      uint8_t laneCount{1}; //!< in our direction, not sum on way
+
+      /**
+       * turns in lanes from left one (drivers view)
+       * vector size may be less than laneCount, even empty
+       *
+       * usual variants:
+       *    left, slight_left, merge_to_left,
+       *    through;left, through;slight_left, through;sharp_left,
+       *    through,
+       *    through;right, through;slight_right, through;sharp_right,
+       *    right, slight_right, merge_to_right
+       */
+      std::vector<std::string> laneTurns;
+
+    public:
+      LaneDescription(bool oneway,
+                      uint8_t laneCount,
+                      const std::vector<std::string> &laneTurns);
+
+      std::string GetDebugString() const override;
+
+      bool IsOneway() const
+      {
+        return oneway;
+      }
+
+      uint8_t GetLaneCount() const
+      {
+        return laneCount;
+      }
+
+      const std::vector<std::string>& GetLaneTurns() const
+      {
+        return laneTurns;
+      }
+
+      bool operator==(const LaneDescription &o) const;
+      bool operator!=(const LaneDescription &o) const;
+    };
+
+    using LaneDescriptionRef = std::shared_ptr<LaneDescription>;
+
+    /**
+     * \ingroup Routing
+     *
+     * A suggested route lanes. It specifies range of lanes <from, to> that drive
+     * should use. Lanes are counted from left (just route direction, not opposite direction),
+     * left-most lane has index 0, both indexes are inclusive.
+     */
+    class OSMSCOUT_API SuggestedLaneDescription : public RouteDescription::Description
+    {
+    private:
+      uint8_t from = -1; //!< left-most suggested lane, inclusive
+      uint8_t to = -1; //!< right-most suggested lane, inclusive
+
+    public:
+      SuggestedLaneDescription(uint8_t from, uint8_t to);
+
+      std::string GetDebugString() const override;
+
+      uint8_t GetFrom() const
+      {
+        return from;
+      }
+
+      uint8_t GetTo() const
+      {
+        return to;
+      }
+    };
+
+    using SuggestedLaneDescriptionRef = std::shared_ptr<SuggestedLaneDescription>;
 
     /**
      * \ingroup Routing
@@ -567,14 +669,14 @@ namespace osmscout {
     class OSMSCOUT_API Node
     {
     private:
-      DatabaseId                                     database;
-      size_t                                         currentNodeIndex;
-      std::vector<ObjectFileRef>                     objects;
-      ObjectFileRef                                  pathObject;
-      size_t                                         targetNodeIndex;
-      Distance                                       distance;
-      double                                         time;
-      GeoCoord                                       location;
+      DatabaseId                                     database; //!< database id of objects and pathObject
+      size_t                                         currentNodeIndex; //!< current node index of pathObject
+      std::vector<ObjectFileRef>                     objects; //!< list of objects intersecting this node. Is empty when node belongs to pathObject only
+      ObjectFileRef                                  pathObject; //!< object used for traveling from this node. Is invalid for last node
+      size_t                                         targetNodeIndex; //!< target node index of pathObject
+      Distance                                       distance; //!< distance from route start
+      Duration                                       time; //!< time from route start
+      GeoCoord                                       location; //!< geographic coordinate of node
       std::unordered_map<std::string,DescriptionRef> descriptionMap;
       std::list<DescriptionRef>                      descriptions;
 
@@ -652,7 +754,7 @@ namespace osmscout {
       /**
        * Time from the start of the route in h.
        */
-      inline double GetTime() const
+      inline Duration GetTime() const
       {
         return time;
       }
@@ -669,21 +771,30 @@ namespace osmscout {
       DescriptionRef GetDescription(const char* name) const;
 
       void SetDistance(Distance distance);
-      void SetTime(double time);
+      void SetTime(const Timestamp::duration &time);
       void SetLocation(const GeoCoord &coord);
 
       void AddDescription(const char* name,
                           const DescriptionRef& description);
     };
 
+    using NodeIterator = std::list<RouteDescription::Node>::const_iterator;
+
   private:
     std::list<Node> nodes;
+    std::map<DatabaseId, std::string> databaseMapping;
 
   public:
     RouteDescription();
     virtual ~RouteDescription();
 
+    void SetDatabaseMapping(std::map<DatabaseId, std::string> databaseMapping);
+
+    std::map<DatabaseId, std::string> GetDatabaseMapping() const;
+
     void Clear();
+
+    bool Empty() const;
 
     void AddNode(DatabaseId database,
                  size_t currentNodeIndex,
@@ -702,153 +813,7 @@ namespace osmscout {
     }
   };
 
-  /**
-   * The RouteDescriptionGenerator does all the heavy lifting of creating the
-   * various available Postprocessors, evaluate their feedback and map it onto a set
-   * of real-life situation callback methods.
-   *
-   * Just implement your own derived Callback class and pass it to the generator methods.
-   */
-  class OSMSCOUT_API RouteDescriptionGenerator
-  {
-  public:
-    /**
-     * Callback class that gets call in various routing situations.
-     */
-    struct OSMSCOUT_API Callback
-    {
-      virtual ~Callback();
-
-      /**
-       * Call once before evaluation the the RouteDswcription starts
-       */
-      virtual void BeforeRoute();
-
-      /**
-       * Called one for the start node
-       *
-       * @param startDescription
-       * @param typeNameDescription
-       * @param nameDescription
-       */
-      virtual void OnStart(const RouteDescription::StartDescriptionRef& startDescription,
-                           const RouteDescription::TypeNameDescriptionRef& typeNameDescription,
-                           const RouteDescription::NameDescriptionRef& nameDescription);
-
-      /**
-       * Called once for the target node reached
-       *
-       * @param targetDescription
-       */
-      virtual void OnTargetReached(const RouteDescription::TargetDescriptionRef& targetDescription);
-
-      /**
-       * Call everytime a turn is necessary. Call with all information available regarding the turn
-       * and the way turned into and its direction.
-       *
-       * @param turnDescription
-       * @param crossingWaysDescription
-       * @param directionDescription
-       * @param typeNameDescription
-       * @param nameDescription
-       */
-      virtual void OnTurn(const RouteDescription::TurnDescriptionRef& turnDescription,
-                          const RouteDescription::CrossingWaysDescriptionRef& crossingWaysDescription,
-                          const RouteDescription::DirectionDescriptionRef& directionDescription,
-                          const RouteDescription::TypeNameDescriptionRef& typeNameDescription,
-                          const RouteDescription::NameDescriptionRef& nameDescription);
-
-      /**
-       * Called if we enter a roundabound
-       *
-       * @param roundaboutEnterDescription
-       * @param crossingWaysDescription
-       */
-      virtual void OnRoundaboutEnter(const RouteDescription::RoundaboutEnterDescriptionRef& roundaboutEnterDescription,
-                                     const RouteDescription::CrossingWaysDescriptionRef& crossingWaysDescription);
-
-      /**
-       * Called if we leave a roundabound entered before
-       *
-       * @param roundaboutLeaveDescription
-       * @param nameDescription
-       */
-      virtual void OnRoundaboutLeave(const RouteDescription::RoundaboutLeaveDescriptionRef& roundaboutLeaveDescription,
-                                     const RouteDescription::NameDescriptionRef& nameDescription);
-
-      /**
-       * Called if we enter a motorway
-       *
-       * @param motorwayEnterDescription
-       * @param crossingWaysDescription
-       */
-      virtual void OnMotorwayEnter(const RouteDescription::MotorwayEnterDescriptionRef& motorwayEnterDescription,
-                                   const RouteDescription::CrossingWaysDescriptionRef& crossingWaysDescription);
-      /**
-       * Called if we already on a motorway and switch to another motorway
-       *
-       * @param motorwayChangeDescription
-       * @param motorwayJunctionDescription
-       * @param crossingDestinationDescription
-       */
-      virtual void OnMotorwayChange(const RouteDescription::MotorwayChangeDescriptionRef& motorwayChangeDescription,
-                                    const RouteDescription::MotorwayJunctionDescriptionRef& motorwayJunctionDescription,
-                                    const RouteDescription::DestinationDescriptionRef& crossingDestinationDescription);
-      /**
-       * Called if we are on a motorway an leave it to a non-motorway way.
-       *
-       * @param motorwayLeaveDescription
-       * @param motorwayJunctionDescription
-       * @param directionDescription
-       * @param nameDescription
-       */
-      virtual void OnMotorwayLeave(const RouteDescription::MotorwayLeaveDescriptionRef& motorwayLeaveDescription,
-                                   const RouteDescription::MotorwayJunctionDescriptionRef& motorwayJunctionDescription,
-                                   const RouteDescription::DirectionDescriptionRef& directionDescription,
-                                   const RouteDescription::NameDescriptionRef& nameDescription);
-
-      /**
-       * Called anytime the way we are on changes its name.
-       *
-       * @param nameChangedDescription
-       */
-      virtual void OnPathNameChange(const RouteDescription::NameChangedDescriptionRef& nameChangedDescription);
-
-      /**
-       * Called everytime we have max speed information for a route segment
-       *
-       * @param maxSpeedDescription
-       */
-      virtual void OnMaxSpeed(const RouteDescription::MaxSpeedDescriptionRef& maxSpeedDescription);
-
-      /**
-       * Called everytime we have a POI at the route
-       *
-       * @param poiAtRouteDescription
-       *    The POI information
-       */
-      virtual void OnPOIAtRoute(const RouteDescription::POIAtRouteDescriptionRef& poiAtRouteDescription);
-
-      /**
-       * Always called before we analyse a node. It may be that other callback methods are called
-       * or not (normally we only call other methods, if something relevant changes).
-       *
-       * @param node
-       */
-      virtual void BeforeNode(const RouteDescription::Node& node);
-      /**
-       * Called after all possible callback methods for a node are called.
-       * @param node
-       */
-      virtual void AfterNode(const RouteDescription::Node& node);
-    };
-
-  public:
-    void GenerateDescription(const RouteDescription& description,
-                             Callback& callback);
-  };
-
-  typedef std::shared_ptr<RouteDescription> RouteDescriptionRef;
+  using RouteDescriptionRef = std::shared_ptr<RouteDescription>;
 }
 
 #endif

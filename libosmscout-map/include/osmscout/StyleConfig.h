@@ -49,7 +49,7 @@
 
 namespace osmscout {
 
-  typedef osmscout::Color(*ColorPostprocessor)(const osmscout::Color& color);
+  using ColorPostprocessor = osmscout::Color (*)(const osmscout::Color &);
 
   /**
    * \ingroup Stylesheet
@@ -95,11 +95,11 @@ namespace osmscout {
   class OSMSCOUT_MAP_API StyleConstant
   {
   public:
-    StyleConstant();
-    virtual ~StyleConstant();
+    StyleConstant() = default;
+    virtual ~StyleConstant() = default;
   };
 
-  typedef std::shared_ptr<StyleConstant> StyleConstantRef;
+  using StyleConstantRef = std::shared_ptr<StyleConstant>;
 
   /**
    * \ingroup Stylesheet
@@ -113,7 +113,7 @@ namespace osmscout {
   public:
     explicit StyleConstantColor(const Color& color);
 
-    inline const Color& GetColor()
+    inline Color GetColor() const
     {
       return color;
     }
@@ -129,9 +129,9 @@ namespace osmscout {
     Magnification magnification;
 
   public:
-    explicit StyleConstantMag(Magnification& magnification);
+    explicit StyleConstantMag(const Magnification& magnification);
 
-    inline const Magnification& GetMag()
+    inline Magnification GetMag() const
     {
       return magnification;
     }
@@ -147,11 +147,41 @@ namespace osmscout {
     size_t value;
 
   public:
-    explicit StyleConstantUInt(size_t& value);
+    explicit StyleConstantUInt(size_t value);
 
-    inline const size_t& GetUInt()
+    inline size_t GetUInt() const
     {
       return value;
+    }
+  };
+
+  /**
+ * \ingroup Stylesheet
+ *
+ */
+  class OSMSCOUT_MAP_API StyleConstantWidth : public StyleConstant
+  {
+  public:
+    enum class Unit {
+      m,
+      mm
+    };
+
+  private:
+    double value;
+    Unit   unit;
+
+  public:
+    explicit StyleConstantWidth(double value, Unit unit);
+
+    inline double GetWidth() const
+    {
+      return value;
+    }
+
+    inline Unit GetUnit() const
+    {
+      return unit;
     }
   };
 
@@ -159,7 +189,7 @@ namespace osmscout {
    * \ingroup Stylesheet
    *
    */
-  class OSMSCOUT_MAP_API SizeCondition
+  class OSMSCOUT_MAP_API SizeCondition CLASS_FINAL
   {
   private:
     double minMM;
@@ -175,7 +205,6 @@ namespace osmscout {
     bool maxPxSet;
   public:
     SizeCondition();
-    virtual ~SizeCondition();
 
     void SetMinMM(double minMM);
     void SetMinPx(double minPx);
@@ -186,7 +215,7 @@ namespace osmscout {
     bool Evaluate(double meterInPixel, double meterInMM) const;
   };
 
-  typedef std::shared_ptr<SizeCondition> SizeConditionRef;
+  using SizeConditionRef = std::shared_ptr<SizeCondition>;
 
   struct OSMSCOUT_MAP_API FeatureFilterData
   {
@@ -328,7 +357,7 @@ namespace osmscout {
 
   struct PartialStyleBase
   {
-    virtual ~PartialStyleBase() {}
+    virtual ~PartialStyleBase() = default;
 
     virtual void SetBoolValue(int attribute, bool value) = 0;
     virtual void SetStringValue(int attribute, const std::string& value) = 0;
@@ -466,59 +495,59 @@ namespace osmscout {
     }
   };
 
-  typedef PartialStyle<LineStyle,LineStyle::Attribute>     LinePartialStyle;
-  typedef ConditionalStyle<LineStyle,LineStyle::Attribute> LineConditionalStyle;
-  typedef StyleSelector<LineStyle,LineStyle::Attribute>    LineStyleSelector;
-  typedef std::list<LineStyleSelector>                     LineStyleSelectorList; //! List of selectors
-  typedef std::vector<std::vector<LineStyleSelectorList> > LineStyleLookupTable;  //!Index selectors by type and level
+  using LinePartialStyle = PartialStyle<LineStyle,LineStyle::Attribute>;
+  using LineConditionalStyle = ConditionalStyle<LineStyle,LineStyle::Attribute>;
+  using LineStyleSelector = StyleSelector<LineStyle,LineStyle::Attribute>;
+  using LineStyleSelectorList = std::list<LineStyleSelector>; //! List of selectors
+  using LineStyleLookupTable = std::vector<std::vector<LineStyleSelectorList> >;  //!Index selectors by type and level
 
-  typedef PartialStyle<FillStyle,FillStyle::Attribute>     FillPartialStyle;
-  typedef ConditionalStyle<FillStyle,FillStyle::Attribute> FillConditionalStyle;
-  typedef StyleSelector<FillStyle,FillStyle::Attribute>    FillStyleSelector;
-  typedef std::list<FillStyleSelector>                     FillStyleSelectorList; //! List of selectors
-  typedef std::vector<std::vector<FillStyleSelectorList> > FillStyleLookupTable;  //!Index selectors by type and level
+  using FillPartialStyle = PartialStyle<FillStyle, FillStyle::Attribute>;
+  using FillConditionalStyle = ConditionalStyle<FillStyle, FillStyle::Attribute>;
+  using FillStyleSelector = StyleSelector<FillStyle, FillStyle::Attribute>;
+  using FillStyleSelectorList = std::list<FillStyleSelector>; //! List of selectors
+  using FillStyleLookupTable = std::vector<std::vector<FillStyleSelectorList> >;  //!Index selectors by type and level
 
-  typedef PartialStyle<BorderStyle,BorderStyle::Attribute>     BorderPartialStyle;
-  typedef ConditionalStyle<BorderStyle,BorderStyle::Attribute> BorderConditionalStyle;
-  typedef StyleSelector<BorderStyle,BorderStyle::Attribute>    BorderStyleSelector;
-  typedef std::list<BorderStyleSelector>                       BorderStyleSelectorList; //! List of selectors
-  typedef std::vector<std::vector<BorderStyleSelectorList> >   BorderStyleLookupTable;  //!Index selectors by type and level
+  using BorderPartialStyle = PartialStyle<BorderStyle, BorderStyle::Attribute>;
+  using BorderConditionalStyle = ConditionalStyle<BorderStyle, BorderStyle::Attribute>;
+  using BorderStyleSelector = StyleSelector<BorderStyle, BorderStyle::Attribute>;
+  using BorderStyleSelectorList = std::list<BorderStyleSelector>; //! List of selectors
+  using BorderStyleLookupTable = std::vector<std::vector<BorderStyleSelectorList> >;  //!Index selectors by type and level
 
-  typedef PartialStyle<TextStyle,TextStyle::Attribute>     TextPartialStyle;
-  typedef ConditionalStyle<TextStyle,TextStyle::Attribute> TextConditionalStyle;
-  typedef StyleSelector<TextStyle,TextStyle::Attribute>    TextStyleSelector;
-  typedef std::list<TextStyleSelector>                     TextStyleSelectorList; //! List of selectors
-  typedef std::vector<std::vector<TextStyleSelectorList> > TextStyleLookupTable;  //!Index selectors by type and level
+  using TextPartialStyle = PartialStyle<TextStyle, TextStyle::Attribute>;
+  using TextConditionalStyle = ConditionalStyle<TextStyle, TextStyle::Attribute>;
+  using TextStyleSelector = StyleSelector<TextStyle, TextStyle::Attribute>;
+  using TextStyleSelectorList = std::list<TextStyleSelector>; //! List of selectors
+  using TextStyleLookupTable = std::vector<std::vector<TextStyleSelectorList> >;  //!Index selectors by type and level
 
-  typedef PartialStyle<ShieldStyle,ShieldStyle::Attribute>     ShieldPartialStyle;
-  typedef ConditionalStyle<ShieldStyle,ShieldStyle::Attribute> ShieldConditionalStyle;
-  typedef StyleSelector<ShieldStyle,ShieldStyle::Attribute>    ShieldStyleSelector;
-  typedef std::list<ShieldStyleSelector>                       ShieldStyleSelectorList; //! List of selectors
-  typedef std::vector<std::vector<ShieldStyleSelectorList> >   ShieldStyleLookupTable;  //!Index selectors by type and level
+  using ShieldPartialStyle = PartialStyle<ShieldStyle, ShieldStyle::Attribute>;
+  using ShieldConditionalStyle = ConditionalStyle<ShieldStyle, ShieldStyle::Attribute>;
+  using ShieldStyleSelector = StyleSelector<ShieldStyle, ShieldStyle::Attribute>;
+  using ShieldStyleSelectorList = std::list<ShieldStyleSelector>; //! List of selectors
+  using ShieldStyleLookupTable = std::vector<std::vector<ShieldStyleSelectorList> >;  //!Index selectors by type and level
 
-  typedef PartialStyle<PathShieldStyle,PathShieldStyle::Attribute>     PathShieldPartialStyle;
-  typedef ConditionalStyle<PathShieldStyle,PathShieldStyle::Attribute> PathShieldConditionalStyle;
-  typedef StyleSelector<PathShieldStyle,PathShieldStyle::Attribute>    PathShieldStyleSelector;
-  typedef std::list<PathShieldStyleSelector>                           PathShieldStyleSelectorList; //! List of selectors
-  typedef std::vector<std::vector<PathShieldStyleSelectorList> >       PathShieldStyleLookupTable;  //!Index selectors by type and level
+  using PathShieldPartialStyle = PartialStyle<PathShieldStyle, PathShieldStyle::Attribute>;
+  using PathShieldConditionalStyle = ConditionalStyle<PathShieldStyle, PathShieldStyle::Attribute>;
+  using PathShieldStyleSelector = StyleSelector<PathShieldStyle, PathShieldStyle::Attribute>;
+  using PathShieldStyleSelectorList = std::list<PathShieldStyleSelector>; //! List of selectors
+  using PathShieldStyleLookupTable = std::vector<std::vector<PathShieldStyleSelectorList> >;  //!Index selectors by type and level
 
-  typedef PartialStyle<PathTextStyle,PathTextStyle::Attribute>     PathTextPartialStyle;
-  typedef ConditionalStyle<PathTextStyle,PathTextStyle::Attribute> PathTextConditionalStyle;
-  typedef StyleSelector<PathTextStyle,PathTextStyle::Attribute>    PathTextStyleSelector;
-  typedef std::list<PathTextStyleSelector>                         PathTextStyleSelectorList; //! List of selectors
-  typedef std::vector<std::vector<PathTextStyleSelectorList> >     PathTextStyleLookupTable;  //!Index selectors by type and level
+  using PathTextPartialStyle = PartialStyle<PathTextStyle, PathTextStyle::Attribute>;
+  using PathTextConditionalStyle = ConditionalStyle<PathTextStyle, PathTextStyle::Attribute>;
+  using PathTextStyleSelector = StyleSelector<PathTextStyle, PathTextStyle::Attribute>;
+  using PathTextStyleSelectorList = std::list<PathTextStyleSelector>; //! List of selectors
+  using PathTextStyleLookupTable = std::vector<std::vector<PathTextStyleSelectorList> >;  //!Index selectors by type and level
 
-  typedef PartialStyle<IconStyle,IconStyle::Attribute>     IconPartialStyle;
-  typedef ConditionalStyle<IconStyle,IconStyle::Attribute> IconConditionalStyle;
-  typedef StyleSelector<IconStyle,IconStyle::Attribute>    IconStyleSelector;
-  typedef std::list<IconStyleSelector>                     IconStyleSelectorList; //! List of selectors
-  typedef std::vector<std::vector<IconStyleSelectorList> > IconStyleLookupTable;  //!Index selectors by type and level
+  using IconPartialStyle = PartialStyle<IconStyle, IconStyle::Attribute>;
+  using IconConditionalStyle = ConditionalStyle<IconStyle, IconStyle::Attribute>;
+  using IconStyleSelector = StyleSelector<IconStyle, IconStyle::Attribute>;
+  using IconStyleSelectorList = std::list<IconStyleSelector>; //! List of selectors
+  using IconStyleLookupTable = std::vector<std::vector<IconStyleSelectorList> >;  //!Index selectors by type and level
 
-  typedef PartialStyle<PathSymbolStyle,PathSymbolStyle::Attribute>     PathSymbolPartialStyle;
-  typedef ConditionalStyle<PathSymbolStyle,PathSymbolStyle::Attribute> PathSymbolConditionalStyle;
-  typedef StyleSelector<PathSymbolStyle,PathSymbolStyle::Attribute>    PathSymbolStyleSelector;
-  typedef std::list<PathSymbolStyleSelector>                           PathSymbolStyleSelectorList; //! List of selectors
-  typedef std::vector<std::vector<PathSymbolStyleSelectorList> >       PathSymbolStyleLookupTable;  //!Index selectors by type and level
+  using PathSymbolPartialStyle = PartialStyle<PathSymbolStyle, PathSymbolStyle::Attribute>;
+  using PathSymbolConditionalStyle = ConditionalStyle<PathSymbolStyle, PathSymbolStyle::Attribute>;
+  using PathSymbolStyleSelector = StyleSelector<PathSymbolStyle, PathSymbolStyle::Attribute>;
+  using PathSymbolStyleSelectorList = std::list<PathSymbolStyleSelector>; //! List of selectors
+  using PathSymbolStyleLookupTable = std::vector<std::vector<PathSymbolStyleSelectorList> >;  //!Index selectors by type and level
 
   /**
    * \ingroup Stylesheet
@@ -571,7 +600,7 @@ namespace osmscout {
 
     std::vector<LineStyleLookupTable>          wayLineStyleSelectors;
     PathTextStyleLookupTable                   wayPathTextStyleSelectors;
-    PathSymbolStyleLookupTable                 wayPathSymbolStyleSelectors;
+    std::vector<PathSymbolStyleLookupTable>    wayPathSymbolStyleSelectors;
     PathShieldStyleLookupTable                 wayPathShieldStyleSelectors;
 
     std::vector<TypeInfoSet>                   wayTypeSets;
@@ -585,6 +614,10 @@ namespace osmscout {
     std::list<PathTextConditionalStyle>        areaBorderTextStyleConditionals;
     std::list<PathSymbolConditionalStyle>      areaBorderSymbolStyleConditionals;
 
+    // Route
+    std::vector<LineStyleLookupTable>          routeLineStyleSelectors;
+    std::list<LineConditionalStyle>            routeLineStyleConditionals;
+
     FillStyleLookupTable                       areaFillStyleSelectors;
     std::vector<BorderStyleLookupTable>        areaBorderStyleSelectors;
     std::vector<TextStyleLookupTable>          areaTextStyleSelectors;
@@ -593,6 +626,9 @@ namespace osmscout {
     PathSymbolStyleLookupTable                 areaBorderSymbolStyleSelectors;
 
     std::vector<TypeInfoSet>                   areaTypeSets;
+
+    // Route
+    std::vector<TypeInfoSet>                   routeTypeSets;
 
     std::unordered_map<std::string,bool>       flags;
     std::unordered_map<std::string,StyleConstantRef> constants;
@@ -605,6 +641,7 @@ namespace osmscout {
     void PostprocessNodes();
     void PostprocessWays();
     void PostprocessAreas();
+    void PostprocessRoutes();
     void PostprocessIconId();
     void PostprocessPatternId();
 
@@ -627,7 +664,7 @@ namespace osmscout {
     void AddFlag(const std::string& name,
                  bool value);
 
-    inline const std::unordered_map<std::string,bool> GetFlags() const
+    inline std::unordered_map<std::string,bool> GetFlags() const
     {
       return flags;
     }
@@ -675,12 +712,17 @@ namespace osmscout {
     void AddAreaBorderSymbolStyle(const StyleFilter& filter,
                                   PathSymbolPartialStyle& style);
 
+    void AddRouteLineStyle(const StyleFilter& filter,
+                           LinePartialStyle& style);
+
     void GetNodeTypesWithMaxMag(const Magnification& maxMag,
                                 TypeInfoSet& types) const;
     void GetWayTypesWithMaxMag(const Magnification& mag,
                                TypeInfoSet& types) const;
     void GetAreaTypesWithMaxMag(const Magnification& maxMag,
                                 TypeInfoSet& types) const;
+    void GetRouteTypesWithMaxMag(const Magnification& maxMag,
+                                 TypeInfoSet& types) const;
 
 
     inline size_t GetWayPrio(const TypeInfoRef& type) const
@@ -688,9 +730,8 @@ namespace osmscout {
       if (type->GetIndex()<wayPrio.size()) {
         return wayPrio[type->GetIndex()];
       }
-      else {
-        return std::numeric_limits<size_t>::max();
-      }
+
+      return std::numeric_limits<size_t>::max();
     }
 
 
@@ -710,12 +751,17 @@ namespace osmscout {
     void GetWayLineStyles(const FeatureValueBuffer& buffer,
                           const Projection& projection,
                           std::vector<LineStyleRef>& lineStyles) const;
+    void GetWayPathSymbolStyle(const FeatureValueBuffer& buffer,
+                               const Projection& projection,
+                               std::vector<PathSymbolStyleRef> &symbolStyles) const;
     PathTextStyleRef GetWayPathTextStyle(const FeatureValueBuffer& buffer,
                                          const Projection& projection) const;
-    PathSymbolStyleRef GetWayPathSymbolStyle(const FeatureValueBuffer& buffer,
-                                             const Projection& projection) const;
     PathShieldStyleRef GetWayPathShieldStyle(const FeatureValueBuffer& buffer,
                                              const Projection& projection) const;
+
+    void GetRouteLineStyles(const FeatureValueBuffer& buffer,
+                            const Projection& projection,
+                            std::vector<LineStyleRef>& lineStyles) const;
 
     FillStyleRef GetAreaFillStyle(const TypeInfoRef& type,
                                   const FeatureValueBuffer& buffer,
@@ -777,7 +823,7 @@ namespace osmscout {
     //@}
   };
 
-  typedef std::shared_ptr<StyleConfig> StyleConfigRef;
+  using StyleConfigRef = std::shared_ptr<StyleConfig>;
 
   /**
    * \defgroup Stylesheet Stylesheet definition

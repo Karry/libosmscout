@@ -103,16 +103,15 @@ namespace osmscout {
     if (index!=std::numeric_limits<size_t>::max()) {
       return buffer.HasFeature(index);
     }
-    else {
-      return false;
-    }
+
+    return false;
   }
 
-  typedef FeatureReader<AccessRestrictedFeature> AccessRestrictedFeatureReader;
-  typedef FeatureReader<BridgeFeature>           BridgeFeatureReader;
-  typedef FeatureReader<TunnelFeature>           TunnelFeatureReader;
-  typedef FeatureReader<EmbankmentFeature>       EmbankmentFeatureReader;
-  typedef FeatureReader<RoundaboutFeature>       RoundaboutFeatureReader;
+  using AccessRestrictedFeatureReader = FeatureReader<AccessRestrictedFeature>;
+  using BridgeFeatureReader           = FeatureReader<BridgeFeature>;
+  using TunnelFeatureReader           = FeatureReader<TunnelFeature>;
+  using EmbankmentFeatureReader       = FeatureReader<EmbankmentFeature>;
+  using RoundaboutFeatureReader       = FeatureReader<RoundaboutFeature>;
 
   /**
    * Variant of FeatureReader that is not type set and thus can easier get used
@@ -152,6 +151,9 @@ namespace osmscout {
   private:
     std::vector<size_t> lookupTable;
 
+    static_assert(std::is_base_of<Feature, F>::value, "F have to be subtype of Feature");
+    static_assert(std::is_base_of<FeatureValue, V>::value, "V have to be subtype of FeatureValue");
+
   public:
     explicit FeatureValueReader(const TypeConfig& typeConfig);
 
@@ -163,7 +165,7 @@ namespace osmscout {
      * @param index
      *    The index
      * @return
-     *    true, if there is a valid index 8because the type has such feature), else false
+     *    true, if there is a valid index (because the type has such feature), else false
      */
     bool GetIndex(const FeatureValueBuffer& buffer,
                   size_t& index) const;
@@ -173,10 +175,19 @@ namespace osmscout {
      * @param buffer
      *    The FeatureValueBuffer instance
      * @return
-     *    A pointer to an instance if the Type and the instance do have the feature and its value is not NULL,
-     *    else NULL
+     *    A pointer to an instance if the Type and the instance do have the feature and its value is not nullptr,
+     *    else nullptr
      */
     V* GetValue(const FeatureValueBuffer& buffer) const;
+
+    /**
+     * Returns the FeatureValue for the given FeatureValueBuffer or a defaultValue, if the feature is not set
+     * @param buffer
+     *    The FeatureValueBuffer instance
+     * @return
+     *    Either the value from the FeatureValueBuffer or the defaultValue
+     */
+    V GetValue(const FeatureValueBuffer& buffer, const V& defaultValue) const;
   };
 
   template<class F, class V>
@@ -193,7 +204,7 @@ namespace osmscout {
       size_t index;
 
       if (type->GetFeature(F::NAME,
-                          index)) {
+                           index)) {
         lookupTable[type->GetIndex()]=index;
       }
     }
@@ -203,6 +214,7 @@ namespace osmscout {
   bool FeatureValueReader<F,V>::GetIndex(const FeatureValueBuffer& buffer,
                                          size_t& index) const
   {
+    assert(buffer.GetType()->GetIndex() < lookupTable.size());
     index=lookupTable[buffer.GetType()->GetIndex()];
 
     return index!=std::numeric_limits<size_t>::max();
@@ -211,34 +223,62 @@ namespace osmscout {
   template<class F, class V>
   V* FeatureValueReader<F,V>::GetValue(const FeatureValueBuffer& buffer) const
   {
+    assert(buffer.GetType()->GetIndex()<lookupTable.size());
     size_t index=lookupTable[buffer.GetType()->GetIndex()];
 
     if (index!=std::numeric_limits<size_t>::max() &&
         buffer.HasFeature(index)) {
-      return dynamic_cast<V*>(buffer.GetValue(index));
+      FeatureValue* val=buffer.GetValue(index);
+      // Object returned from Feature::AllocateValue and V have to be the same type!
+      // But it cannot be tested in compile-time, lets do it in runtime assert at least.
+      assert(val==nullptr || dynamic_cast<V*>(val)!=nullptr);
+      return static_cast<V*>(val);
     }
-    else {
-      return NULL;
-    }
+
+    return nullptr;
   }
 
-  typedef FeatureValueReader<NameFeature,NameFeatureValue>                         NameFeatureValueReader;
-  typedef FeatureValueReader<NameAltFeature,NameAltFeatureValue>                   NameAltFeatureValueReader;
-  typedef FeatureValueReader<RefFeature,RefFeatureValue>                           RefFeatureValueReader;
-  typedef FeatureValueReader<LocationFeature,LocationFeatureValue>                 LocationFeatureValueReader;
-  typedef FeatureValueReader<AddressFeature,AddressFeatureValue>                   AddressFeatureValueReader;
-  typedef FeatureValueReader<AccessFeature,AccessFeatureValue>                     AccessFeatureValueReader;
-  typedef FeatureValueReader<AccessRestrictedFeature,AccessRestrictedFeatureValue> AccessRestrictedFeatureValueReader;
-  typedef FeatureValueReader<LayerFeature,LayerFeatureValue>                       LayerFeatureValueReader;
-  typedef FeatureValueReader<WidthFeature,WidthFeatureValue>                       WidthFeatureValueReader;
-  typedef FeatureValueReader<MaxSpeedFeature,MaxSpeedFeatureValue>                 MaxSpeedFeatureValueReader;
-  typedef FeatureValueReader<GradeFeature,GradeFeatureValue>                       GradeFeatureValueReader;
-  typedef FeatureValueReader<AdminLevelFeature,AdminLevelFeatureValue>             AdminLevelFeatureValueReader;
-  typedef FeatureValueReader<PostalCodeFeature,PostalCodeFeatureValue>             PostalCodeFeatureValueReader;
-  typedef FeatureValueReader<IsInFeature,IsInFeatureValue>                         IsInFeatureValueReader;
-  typedef FeatureValueReader<DestinationFeature,DestinationFeatureValue>           DestinationFeatureValueReader;
-  typedef FeatureValueReader<ConstructionYearFeature,ConstructionYearFeatureValue> ConstructionYearFeatureValueReader;
-  typedef FeatureValueReader<LanesFeature,LanesFeatureValue>                       LanesFeatureValueReader;
+  template<class F, class V>
+  V FeatureValueReader<F,V>::GetValue(const FeatureValueBuffer& buffer, const V& defaultValue) const
+  {
+    assert(buffer.GetType()->GetIndex() < lookupTable.size());
+    size_t index=lookupTable[buffer.GetType()->GetIndex()];
+
+    if (index!=std::numeric_limits<size_t>::max() &&
+        buffer.HasFeature(index)) {
+      FeatureValue *val = buffer.GetValue(index);
+      // Object returned from Feature::AllocateValue and V have to be the same type!
+      // But it cannot be tested in compile-time, lets do it in runtime assert at least.
+      assert(val == nullptr || dynamic_cast<V*>(val) != nullptr);
+      return *static_cast<V*>(val);
+    }
+
+    return defaultValue;
+  }
+
+  using NameFeatureValueReader             = FeatureValueReader<NameFeature, NameFeatureValue>;
+  using NameAltFeatureValueReader          = FeatureValueReader<NameAltFeature, NameAltFeatureValue>;
+  using NameShortFeatureValueReader        = FeatureValueReader<NameShortFeature, NameShortFeatureValue>;
+  using RefFeatureValueReader              = FeatureValueReader<RefFeature, RefFeatureValue>;
+  using LocationFeatureValueReader         = FeatureValueReader<LocationFeature, LocationFeatureValue>;
+  using AddressFeatureValueReader          = FeatureValueReader<AddressFeature, AddressFeatureValue>;
+  using AccessFeatureValueReader           = FeatureValueReader<AccessFeature, AccessFeatureValue>;
+  using AccessRestrictedFeatureValueReader = FeatureValueReader<AccessRestrictedFeature, AccessRestrictedFeatureValue>;
+  using LayerFeatureValueReader            = FeatureValueReader<LayerFeature, LayerFeatureValue>;
+  using WidthFeatureValueReader            = FeatureValueReader<WidthFeature, WidthFeatureValue>;
+  using MaxSpeedFeatureValueReader         = FeatureValueReader<MaxSpeedFeature, MaxSpeedFeatureValue>;
+  using GradeFeatureValueReader            = FeatureValueReader<GradeFeature, GradeFeatureValue>;
+  using AdminLevelFeatureValueReader       = FeatureValueReader<AdminLevelFeature, AdminLevelFeatureValue>;
+  using PostalCodeFeatureValueReader       = FeatureValueReader<PostalCodeFeature, PostalCodeFeatureValue>;
+  using IsInFeatureValueReader             = FeatureValueReader<IsInFeature, IsInFeatureValue>;
+  using DestinationFeatureValueReader      = FeatureValueReader<DestinationFeature, DestinationFeatureValue>;
+  using ConstructionYearFeatureValueReader = FeatureValueReader<ConstructionYearFeature, ConstructionYearFeatureValue>;
+  using LanesFeatureValueReader            = FeatureValueReader<LanesFeature, LanesFeatureValue>;
+  using EleFeatureValueReader              = FeatureValueReader<EleFeature, EleFeatureValue>;
+  using OperatorFeatureValueReader         = FeatureValueReader<OperatorFeature, OperatorFeatureValue>;
+  using NetworkFeatureValueReader          = FeatureValueReader<NetworkFeature, NetworkFeatureValue>;
+  using FromToFeatureValueReader           = FeatureValueReader<FromToFeature, FromToFeatureValue>;
+  using ColorFeatureValueReader            = FeatureValueReader<ColorFeature, ColorFeatureValue>;
 
   template <class F, class V>
   class FeatureLabelReader
@@ -289,15 +329,15 @@ namespace osmscout {
       V* value=dynamic_cast<V*>(buffer.GetValue(index));
 
       if (value!=nullptr) {
-        return value->GetLabel(0);
+        return value->GetLabel(Locale(), 0);
       }
     }
 
     return "";
   }
 
-  typedef FeatureLabelReader<NameFeature,NameFeatureValue>         NameFeatureLabelReader;
-  typedef FeatureLabelReader<RefFeature,RefFeatureValue>           RefFeatureLabelReader;
+  using NameFeatureLabelReader = FeatureLabelReader<NameFeature, NameFeatureValue>;
+  using RefFeatureLabelReader  = FeatureLabelReader<RefFeature, RefFeatureValue>;
 
   /**
    * \defgroup type Object type related data structures and services

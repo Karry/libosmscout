@@ -58,7 +58,7 @@ namespace osmscout {
     virtual std::string GetName() const = 0;
   };
 
-  typedef std::shared_ptr<LabelProvider> LabelProviderRef;
+  using LabelProviderRef = std::shared_ptr<LabelProvider>;
 
   /**
    * \ingroup Stylesheet
@@ -72,7 +72,7 @@ namespace osmscout {
     virtual LabelProviderRef Create(const TypeConfig& typeConfig) const = 0;
   };
 
-  typedef std::shared_ptr<LabelProviderFactory> LabelProviderFactoryRef;
+  using LabelProviderFactoryRef = std::shared_ptr<LabelProviderFactory>;
 
   /**
    * \ingroup Stylesheet
@@ -130,8 +130,8 @@ namespace osmscout {
      *   Reference to the current type configuration
      * @param featureName
      *   Name of the feature which must be valid and must support labels
-     * @param labelIndex
-     *   The index of the labels to use (a feature might support multiple labels)
+     * @param labelName
+     *   The name of the label to use (a feature might support multiple labels)
      */
     DynamicFeatureLabelReader(const TypeConfig& typeConfig,
                               const std::string& featureName,

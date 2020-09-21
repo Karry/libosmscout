@@ -19,13 +19,7 @@
 
 #include <osmscout/import/GenNodeDat.h>
 
-#include <iostream>
-#include <map>
-
-#include <osmscout/GeoCoord.h>
 #include <osmscout/Node.h>
-
-#include <osmscout/system/Math.h>
 
 #include <osmscout/util/File.h>
 #include <osmscout/util/FileScanner.h>
@@ -36,7 +30,7 @@
 
 namespace osmscout {
 
-  const char* NodeDataGenerator::NODES_TMP="nodes.tmp";
+  const char* const NodeDataGenerator::NODES_TMP="nodes.tmp";
 
   void NodeDataGenerator::GetDescription(const ImportParameter& /*parameter*/,
                                          ImportModuleDescription& description) const
@@ -63,7 +57,7 @@ namespace osmscout {
     // Count the bounding box by the way...
     //
 
-    progress.SetAction("Generating nodes.tmp");
+    progress.SetAction("Generating "+std::string(NODES_TMP));
 
     FileScanner scanner;
     FileWriter  writer;

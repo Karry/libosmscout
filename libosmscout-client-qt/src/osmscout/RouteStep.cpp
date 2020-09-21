@@ -22,16 +22,25 @@
 
 #include <QMetaType>
 #include <QVariant>
+#include <QAbstractListModel>
 
 namespace osmscout {
 
-RouteStep::RouteStep(QString type):
+RouteStep::RouteStep(const QString &type,
+                     const GeoCoord &coord,
+                     const Distance &distance,
+                     const Distance &distanceDelta,
+                     const Duration &time,
+                     const Duration &timeDelta,
+                     const QStringList &streetNames):
     type(type),
-    distance(-1),
-    distanceDelta(-1),
-    distanceTo(-1),
-    time(-1),
-    timeDelta(-1)
+    coord(coord),
+    distance(distance),
+    distanceDelta(distanceDelta),
+    distanceTo(Distance::Zero()),
+    time(time),
+    timeDelta(timeDelta),
+    streetNames(streetNames)
 {
 
 }
@@ -39,15 +48,51 @@ RouteStep::RouteStep(QString type):
 RouteStep::RouteStep(const RouteStep& other)
     : QObject(other.parent()),
       type(other.type),
+      coord(other.coord),
       distance(other.distance),
       distanceDelta(other.distanceDelta),
       distanceTo(other.distanceTo),
       time(other.time),
       timeDelta(other.timeDelta),
       description(other.description),
-      shortDescription(other.shortDescription)
+      shortDescription(other.shortDescription),
+      streetNames(other.streetNames),
+      roundaboutExit(other.roundaboutExit),
+      roundaboutClockwise(other.roundaboutClockwise)
 {
   copyDynamicProperties(other);
+}
+
+QVariant RouteStep::data(int role) const
+{
+  switch (role) {
+    case Qt::DisplayRole:
+    case ShortDescriptionRole:
+      return getShortDescription();
+    case DescriptionRole:
+      return getDescription();
+    case TypeRole:
+      return getType();
+    case RoundaboutExitRole:
+      return getRoundaboutExit();
+    case RoundaboutClockwiseRole:
+      return getRoundaboutClockwise();
+    default:
+      break;
+  }
+
+  return QVariant();
+}
+
+QHash<int, QByteArray> RouteStep::roleNames(QHash<int, QByteArray> roles)
+{
+  roles[ShortDescriptionRole] = "shortDescription";
+  roles[DescriptionRole] = "description";
+  roles[TypeRole] = "type";
+  roles[RoundaboutExitRole] = "roundaboutExit";
+  roles[RoundaboutClockwiseRole] = "roundaboutClockwise";
+
+  return roles;
 }
 
 void RouteStep::copyDynamicProperties(const RouteStep &other) {
@@ -61,6 +106,7 @@ RouteStep& RouteStep::operator=(const RouteStep& other)
   if (this!=&other) {
     setParent(other.parent());
     type=other.type;
+    coord=other.coord;
     distance=other.distance;
     distanceDelta=other.distanceDelta;
     distanceTo=other.distanceTo;
@@ -68,6 +114,9 @@ RouteStep& RouteStep::operator=(const RouteStep& other)
     timeDelta=other.timeDelta;
     description=other.description;
     shortDescription=other.shortDescription;
+    streetNames=other.streetNames;
+    roundaboutExit=other.roundaboutExit;
+    roundaboutClockwise=other.roundaboutClockwise;
     for (auto const &propertyName:dynamicPropertyNames()){
       setProperty(propertyName, QVariant());
     }

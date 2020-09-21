@@ -35,18 +35,26 @@
 #include <cstring>
 
 #include <osmscout/Database.h>
+#include <osmscout/MapService.h>
 
 #include <osmscout/routing/SimpleRoutingService.h>
 #include <osmscout/routing/RoutePostprocessor.h>
+#include <osmscout/routing/RouteDescriptionPostprocessor.h>
 
 #include <osmscout/navigation/Engine.h>
 #include <osmscout/navigation/Agents.h>
+#include <osmscout/navigation/PositionAgent.h>
+#include <osmscout/navigation/RouteStateAgent.h>
+#include <osmscout/navigation/BearingAgent.h>
+#include <osmscout/navigation/ArrivalEstimateAgent.h>
+#include <osmscout/navigation/SpeedAgent.h>
 
 #include <osmscout/util/CmdLineParsing.h>
 
 struct Arguments
 {
   bool                   help=false;
+  bool                   debug=false;
   std::string            router=osmscout::RoutingService::DEFAULT_FILENAME_BASE;
   osmscout::Vehicle      vehicle=osmscout::Vehicle::vehicleCar;
   std::string            databaseDirectory;
@@ -92,7 +100,7 @@ public:
   }
 };
 
-struct RouteDescriptionGeneratorCallback : public osmscout::RouteDescriptionGenerator::Callback
+struct RouteDescriptionGeneratorCallback : public osmscout::RouteDescriptionPostprocessor::Callback
 {
 };
 
@@ -195,8 +203,8 @@ PathGenerator::PathGenerator(const osmscout::RouteDescription& description,
 
     osmscout::Distance distance=osmscout::GetEllipsoidalDistance(currentNode->GetLocation(),
                                                                  nextNode->GetLocation());
-    double bearing=osmscout::GetSphericalBearingInitial(currentNode->GetLocation(),
-                                                        nextNode->GetLocation());
+    auto bearing=osmscout::GetSphericalBearingInitial(currentNode->GetLocation(),
+                                                      nextNode->GetLocation());
 
     auto distanceInKilometer=distance.As<osmscout::Kilometer>();
     auto timeInHours=distanceInKilometer/maxSpeed;
@@ -212,7 +220,7 @@ PathGenerator::PathGenerator(const osmscout::RouteDescription& description,
 
       double segmentDistance=maxSpeed*(1.0-restTime)/(60*60);
 
-      lastPosition=lastPosition.Add(bearing*180/M_PI,
+      lastPosition=lastPosition.Add(bearing,
                                     osmscout::Distance::Of<osmscout::Kilometer>(segmentDistance));
 
       steps.emplace_back(time,maxSpeed,lastPosition);
@@ -235,7 +243,7 @@ PathGenerator::PathGenerator(const osmscout::RouteDescription& description,
 class Simulator
 {
 private:
-  osmscout::RouteStateChangedMessage::State routeState;
+  osmscout::PositionAgent::PositionState    routeState;
   std::string                               lastBearingString;
 
 private:
@@ -245,24 +253,95 @@ public:
   Simulator();
   void Simulate(const osmscout::DatabaseRef& database,
                 const PathGenerator& generator,
-                const osmscout::RoutePointsRef& routePoints);
+                const osmscout::RouteDescriptionRef& routeDescription);
 };
 
 Simulator::Simulator()
-: routeState(osmscout::RouteStateChangedMessage::State::noRoute)
+: routeState(osmscout::PositionAgent::PositionState::NoGpsSignal)
 {
 }
+
+class DataLoader{
+private:
+  osmscout::DatabaseRef   database;
+  osmscout::MapServiceRef mapService;
+public:
+  explicit DataLoader(const osmscout::DatabaseRef &database):
+    database(database),
+    mapService{std::make_shared<osmscout::MapService>(database)}
+  {}
+
+  bool loadRoutableObjects(const osmscout::GeoBox &box,
+                           const osmscout::Vehicle &vehicle,
+                           const std::map<std::string,osmscout::DatabaseId> &databaseMapping,
+                           osmscout::RoutableObjectsRef &data);
+};
+
+
+bool DataLoader::loadRoutableObjects(const osmscout::GeoBox &box,
+                                     const osmscout::Vehicle &vehicle,
+                                     const std::map<std::string,osmscout::DatabaseId> &databaseMapping,
+                                     osmscout::RoutableObjectsRef &data)
+{
+  osmscout::StopClock stopClock;
+
+  assert(data);
+  assert(database);
+  assert(mapService);
+  data->bbox=box;
+
+  osmscout::Magnification magnification(osmscout::Magnification::magClose);
+
+  auto dbIdIt=databaseMapping.find(database->GetPath());
+  assert(dbIdIt!=databaseMapping.end());
+  osmscout::DatabaseId databaseId=dbIdIt->second;
+
+  osmscout::MapService::TypeDefinition routableTypes;
+  for (auto &type:database->GetTypeConfig()->GetTypes()){
+    if (type->CanRoute(vehicle)){
+      if (type->CanBeArea()){
+        routableTypes.areaTypes.Set(type);
+      }
+      if (type->CanBeWay()){
+        routableTypes.wayTypes.Set(type);
+      }
+      if (type->CanBeNode()){ // can be node routable? :-)
+        routableTypes.nodeTypes.Set(type);
+      }
+    }
+  }
+
+  std::list<osmscout::TileRef> tiles;
+  mapService->LookupTiles(magnification,box,tiles);
+  mapService->LoadMissingTileData(osmscout::AreaSearchParameter{},
+                                  magnification,
+                                  routableTypes,
+                                  tiles);
+
+  osmscout::RoutableDBObjects &objects=data->dbMap[databaseId];
+  objects.typeConfig=database->GetTypeConfig();
+  for (auto &tile:tiles){
+    tile->GetWayData().CopyData([&](const osmscout::WayRef &way){objects.ways[way->GetFileOffset()]=way;});
+    tile->GetAreaData().CopyData([&](const osmscout::AreaRef &area){objects.areas[area->GetFileOffset()]=area;});
+  }
+
+  stopClock.Stop();
+  if (stopClock.GetMilliseconds() > 50){
+    osmscout::log.Warn() << "Loading of routable objects took " << stopClock.ResultString();
+  }
+
+  return true;
+}
+
+
 
 void Simulator::ProcessMessages(const std::list<osmscout::NavigationMessageRef>& messages)
 {
   for (const auto& message : messages) {
-    if (dynamic_cast<osmscout::PositionChangedMessage*>(message.get())!=nullptr) {
-      //auto positionChangedMessage=dynamic_cast<osmscout::PositionChangedMessage*>(message.get());
-    }
-    if (dynamic_cast<osmscout::BearingChangedMessage*>(message.get())!=nullptr) {
-      auto bearingChangedMessage=dynamic_cast<osmscout::BearingChangedMessage*>(message.get());
+    if (auto bearingChangedMessage = dynamic_cast<osmscout::BearingChangedMessage*>(message.get());
+        bearingChangedMessage != nullptr) {
 
-      auto bearingString=bearingChangedMessage->hasBearing ? osmscout::BearingDisplayString(bearingChangedMessage->bearing) : "";
+      auto bearingString=bearingChangedMessage->bearing.DisplayString();
       if (lastBearingString!=bearingString) {
         std::cout << osmscout::TimestampToISO8601TimeString(bearingChangedMessage->timestamp)
         << " Bearing: " << bearingString << std::endl;
@@ -270,53 +349,88 @@ void Simulator::ProcessMessages(const std::list<osmscout::NavigationMessageRef>&
         lastBearingString=bearingString;
       }
     }
+    /*
     else if (dynamic_cast<osmscout::StreetChangedMessage*>(message.get())!=nullptr) {
       auto streetChangedMessage=dynamic_cast<osmscout::StreetChangedMessage*>(message.get());
 
       std::cout << osmscout::TimestampToISO8601TimeString(streetChangedMessage->timestamp)
       << " Street name: " << streetChangedMessage->name << std::endl;
     }
-    else if (dynamic_cast<osmscout::RouteStateChangedMessage*>(message.get())!=nullptr) {
-      auto routeStateChangedMessage=dynamic_cast<osmscout::RouteStateChangedMessage*>(message.get());
+    */
+    else if (auto rerouteRequest = dynamic_cast<osmscout::RerouteRequestMessage*>(message.get());
+             rerouteRequest != nullptr) {
 
-      if (routeStateChangedMessage->state!=routeState) {
+      std::cout << osmscout::TimestampToISO8601TimeString(rerouteRequest->timestamp)
+                << " Reroute request: " << rerouteRequest->from.GetDisplayText()
+                << (rerouteRequest->initialBearing ? (" (" + rerouteRequest->initialBearing->DisplayString() + ")") : "")
+                << " -> " << rerouteRequest->to.GetDisplayText()
+                << std::endl;
 
-        routeState=routeStateChangedMessage->state;
+    }
+    else if (auto targetReachedMessage = dynamic_cast<osmscout::TargetReachedMessage *>(message.get());
+             targetReachedMessage != nullptr) {
 
-
-        std::cout << osmscout::TimestampToISO8601TimeString(routeStateChangedMessage->timestamp)
-                  << " RouteState: ";
-
-        switch (routeState) {
-        case osmscout::RouteStateChangedMessage::State::noRoute:
-          std::cout << "no route";
-          break;
-        case osmscout::RouteStateChangedMessage::State::onRoute:
-          std::cout << "on route";
-          break;
-        case osmscout::RouteStateChangedMessage::State::offRoute:
-          std::cout << "off route";
-          break;
-        }
-
-        std::cout << std::endl;
+      if (targetReachedMessage->targetDistance < osmscout::Meters(1)){
+        std::cout << osmscout::TimestampToISO8601TimeString(targetReachedMessage->timestamp)
+                  << " TargetReached"
+                  << std::endl;
+      }else {
+        std::cout << osmscout::TimestampToISO8601TimeString(targetReachedMessage->timestamp)
+                  << " TargetReached: in " << targetReachedMessage->targetDistance.AsMeter() << " m,"
+                  << " direction: " << targetReachedMessage->targetBearing.DisplayString()
+                  << std::endl;
       }
+    }
+    else if (auto positionMessage = dynamic_cast<osmscout::PositionAgent::PositionMessage*>(message.get());
+             positionMessage != nullptr) {
+
+      if (positionMessage->position.state!=routeState) {
+
+        routeState=positionMessage->position.state;
+
+        std::cout << osmscout::TimestampToISO8601TimeString(positionMessage->timestamp)
+                  << " RouteState: " << positionMessage->position.StateStr()
+                  << std::endl;
+      }
+    }
+    else if (auto arrivalMessage = dynamic_cast<osmscout::ArrivalEstimateMessage *>(message.get());
+             arrivalMessage != nullptr) {
+
+      std::cout << "Estimated arrival: " << osmscout::TimestampToISO8601TimeString(arrivalMessage->arrivalEstimate)
+                << " remaining distance: " << arrivalMessage->remainingDistance.AsString()
+                << std::endl;
+    }
+    else if (auto currentSpeedMessage = dynamic_cast<osmscout::CurrentSpeedMessage *>(message.get());
+             currentSpeedMessage != nullptr) {
+
+      std::cout << "Current speed: " << currentSpeedMessage->speed << " km/h" << std::endl;
+    }
+    else if (auto maxSpeedMessage = dynamic_cast<osmscout::MaxAllowedSpeedMessage *>(message.get());
+             maxSpeedMessage != nullptr) {
+
+      std::cout << "Max. allowed speed: " << maxSpeedMessage->maxAllowedSpeed << " km/h" << std::endl;
     }
   }
 }
 
 void Simulator::Simulate(const osmscout::DatabaseRef& database,
                          const PathGenerator& generator,
-                         const osmscout::RoutePointsRef& routePoints)
+                         const osmscout::RouteDescriptionRef& routeDescription)
 {
   auto locationDescriptionService=std::make_shared<osmscout::LocationDescriptionService>(database);
 
-  routeState=osmscout::RouteStateChangedMessage::State::noRoute;
+  routeState=osmscout::PositionAgent::PositionState::NoGpsSignal;
+
+  DataLoader dataLoader(database);
 
   osmscout::NavigationEngine engine{
+    std::make_shared<osmscout::DataAgent<DataLoader>>(dataLoader),
     std::make_shared<osmscout::PositionAgent>(),
-    std::make_shared<osmscout::CurrentStreetAgent>(locationDescriptionService),
+    std::make_shared<osmscout::BearingAgent>(),
+    //std::make_shared<osmscout::CurrentStreetAgent>(locationDescriptionService),
     std::make_shared<osmscout::RouteStateAgent>(),
+    std::make_shared<osmscout::ArrivalEstimateAgent>(),
+    std::make_shared<osmscout::SpeedAgent>()
   };
 
   auto initializeMessage=std::make_shared<osmscout::InitializeMessage>(generator.steps.front().time);
@@ -325,12 +439,19 @@ void Simulator::Simulate(const osmscout::DatabaseRef& database,
 
   // TODO: Simulator possibly should not send this message on start but later on to simulate driver starting before
   // getting route
-  auto routeUpdateMessage=std::make_shared<osmscout::RouteUpdateMessage>(generator.steps.front().time,routePoints);
+  auto routeUpdateMessage=std::make_shared<osmscout::RouteUpdateMessage>(
+      generator.steps.front().time,
+      routeDescription,
+      osmscout::Vehicle::vehicleCar);
 
   ProcessMessages(engine.Process(routeUpdateMessage));
 
   for (const auto& point : generator.steps) {
-    auto gpsUpdateMessage=std::make_shared<osmscout::GPSUpdateMessage>(point.time,point.coord,point.speed);
+    auto gpsUpdateMessage=std::make_shared<osmscout::GPSUpdateMessage>(
+        point.time,
+        point.coord,
+        point.speed,
+        osmscout::Distance::Of<osmscout::Meter>(10));
 
     ProcessMessages(engine.Process(gpsUpdateMessage));
 
@@ -412,6 +533,13 @@ int main(int argc, char* argv[])
                       "Return argument help",
                       true);
 
+  argParser.AddOption(osmscout::CmdLineFlag([&args](const bool& value) {
+                        args.debug=value;
+                      }),
+                      "debug",
+                      "Enable debug output",
+                      false);
+
   argParser.AddOption(osmscout::CmdLineAlternativeFlag([&args](const std::string& value) {
                         if (value=="foot") {
                           args.vehicle=osmscout::Vehicle::vehicleFoot;
@@ -469,6 +597,8 @@ int main(int argc, char* argv[])
     return 0;
   }
 
+  osmscout::log.Debug(args.debug);
+
   osmscout::DatabaseParameter databaseParameter;
   osmscout::DatabaseRef       database=std::make_shared<osmscout::Database>(databaseParameter);
 
@@ -514,28 +644,30 @@ int main(int argc, char* argv[])
     break;
   }
 
-  osmscout::RoutePosition start=router->GetClosestRoutableNode(args.start,
+  auto startResult=router->GetClosestRoutableNode(args.start,
                                                                *routingProfile,
                                                                osmscout::Distance::Of<osmscout::Kilometer>(1));
 
-  if (!start.IsValid()) {
+  if (!startResult.IsValid()) {
     std::cerr << "Error while searching for routing node near start location!" << std::endl;
     return 1;
   }
 
+  osmscout::RoutePosition start=startResult.GetRoutePosition();
   if (start.GetObjectFileRef().GetType()==osmscout::refNode) {
     std::cerr << "Cannot find start node for start location!" << std::endl;
   }
 
-  osmscout::RoutePosition target=router->GetClosestRoutableNode(args.target,
-                                                                *routingProfile,
-                                                                osmscout::Distance::Of<osmscout::Kilometer>(1));
+  auto targetResult=router->GetClosestRoutableNode(args.target,
+                                                   *routingProfile,
+                                                   osmscout::Distance::Of<osmscout::Kilometer>(1));
 
-  if (!target.IsValid()) {
+  if (!targetResult.IsValid()) {
     std::cerr << "Error while searching for routing node near target location!" << std::endl;
     return 1;
   }
 
+  osmscout::RoutePosition target=targetResult.GetRoutePosition();
   if (target.GetObjectFileRef().GetType()==osmscout::refNode) {
     std::cerr << "Cannot find start node for target location!" << std::endl;
   }
@@ -553,14 +685,14 @@ int main(int argc, char* argv[])
 
   osmscout::RoutePointsResult routePointsResult=router->TransformRouteDataToPoints(routingResult.GetRoute());
 
-  if (!routePointsResult.success) {
+  if (!routePointsResult.Success()) {
     std::cerr << "Error during route conversion" << std::endl;
     return 1;
   }
 
   auto routeDescriptionResult=router->TransformRouteDataToRouteDescription(routingResult.GetRoute());
 
-  if (!routeDescriptionResult.success) {
+  if (!routeDescriptionResult.Success()) {
     std::cerr << "Error during generation of route description" << std::endl;
     return 1;
   }
@@ -594,7 +726,7 @@ int main(int argc, char* argv[])
 
   osmscout::StopClock postprocessTimer;
 
-  if (!postprocessor.PostprocessRouteDescription(*routeDescriptionResult.description,
+  if (!postprocessor.PostprocessRouteDescription(*routeDescriptionResult.GetDescription(),
                                                  profiles,
                                                  databases,
                                                  postprocessors,
@@ -610,21 +742,21 @@ int main(int argc, char* argv[])
   std::cout << "Postprocessing time: " << postprocessTimer.ResultString() << std::endl;
 
   osmscout::StopClock                 generateTimer;
-  osmscout::RouteDescriptionGenerator generator;
+  osmscout::RouteDescriptionPostprocessor generator;
   RouteDescriptionGeneratorCallback   generatorCallback;
 
-  generator.GenerateDescription(*routeDescriptionResult.description,
+  generator.GenerateDescription(*routeDescriptionResult.GetDescription(),
                                 generatorCallback);
 
   generateTimer.Stop();
 
   std::cout << "Description generation time: " << generateTimer.ResultString() << std::endl;
 
-  PathGenerator pathGenerator(*routeDescriptionResult.description,routingProfile->GetVehicleMaxSpeed());
+  PathGenerator pathGenerator(*routeDescriptionResult.GetDescription(),routingProfile->GetVehicleMaxSpeed());
 
   if (!args.gpxFile.empty()) {
     DumpGpxFile(args.gpxFile,
-                routePointsResult.points->points,
+                routePointsResult.GetPoints()->points,
                 pathGenerator);
   }
 
@@ -632,7 +764,7 @@ int main(int argc, char* argv[])
 
   simulator.Simulate(database,
                      pathGenerator,
-                     routePointsResult.points);
+                     routeDescriptionResult.GetDescription());
 
   router->Close();
 

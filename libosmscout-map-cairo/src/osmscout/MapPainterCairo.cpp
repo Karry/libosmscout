@@ -29,7 +29,6 @@
 #include <osmscout/system/Assert.h>
 #include <osmscout/system/Math.h>
 #include <osmscout/util/String.h>
-#include <cairo.h>
 
 namespace osmscout {
 
@@ -289,7 +288,7 @@ namespace osmscout {
     }
 
     for (const auto &entry : fonts) {
-      if (entry.second != NULL) {
+      if (entry.second != nullptr) {
 #if defined(OSMSCOUT_MAP_CAIRO_HAVE_LIB_PANGO)
         pango_font_description_free(entry.second);
 #else
@@ -530,10 +529,8 @@ namespace osmscout {
       return true;
     }
 
-    for (std::list<std::string>::const_iterator path = parameter.GetPatternPaths().begin();
-         path != parameter.GetPatternPaths().end();
-         ++path) {
-      std::string filename = *path + style.GetPatternName() + ".png";
+    for (const auto & path : parameter.GetPatternPaths()) {
+      std::string filename = path + style.GetPatternName() + ".png";
 
       cairo_surface_t *image = osmscout::LoadPNG(filename);
 
@@ -632,10 +629,10 @@ namespace osmscout {
     double maxX;
     double maxY;
 
-    symbol.GetBoundingBox(minX, minY, maxX, maxY);
+    symbol.GetBoundingBox(projection,minX, minY, maxX, maxY);
 
-    double width = projection.ConvertWidthToPixel(maxX - minX);
-    double height = projection.ConvertWidthToPixel(maxY - minY);
+    double width = maxX - minX;
+    double height = maxY - minY;
 
     for (const auto &primitive : symbol.GetPrimitives()) {
       FillStyleRef fillStyle = primitive->GetFillStyle();
@@ -739,8 +736,8 @@ namespace osmscout {
         pango_glyph_string_set_size(singleGlyphStr.get(), 1);
 
         // make glyph copy
-        singleGlyphStr.get()->glyphs[0] = run->glyphs->glyphs[gi];
-        PangoGlyphInfo &glyphInfo = singleGlyphStr.get()->glyphs[0];
+        singleGlyphStr->glyphs[0] = run->glyphs->glyphs[gi];
+        PangoGlyphInfo &glyphInfo = singleGlyphStr->glyphs[0];
 
         result.back().glyph.font = font;
 
@@ -760,7 +757,7 @@ namespace osmscout {
         result.back().glyph.glyphString = singleGlyphStr;
       }
 
-      if (!pango_layout_iter_next_run(iter)){
+      if (pango_layout_iter_next_run(iter) == 0){
         pango_layout_iter_free(iter);
         iter = nullptr;
       }
@@ -831,7 +828,7 @@ namespace osmscout {
 
   void MapPainterCairo::DrawGlyphs(const Projection &/*projection*/,
                                    const MapParameter &/*parameter*/,
-                                   const osmscout::PathTextStyleRef style,
+                                   const osmscout::PathTextStyleRef& style,
                                    const std::vector<CairoGlyph> &glyphs)
   {
     cairo_matrix_t matrix;
@@ -916,7 +913,7 @@ namespace osmscout {
 
   void MapPainterCairo::DrawGlyphs(const Projection &/*projection*/,
                                    const MapParameter &/*parameter*/,
-                                   const osmscout::PathTextStyleRef style,
+                                   const osmscout::PathTextStyleRef& style,
                                    const std::vector<CairoGlyph> &glyphs)
   {
     cairo_matrix_t matrix;
@@ -978,8 +975,9 @@ namespace osmscout {
                                   const LabelData &label,
                                   const CairoNativeLabel &layout)
   {
-    if (dynamic_cast<const TextStyle*>(label.style.get())!=nullptr) {
-      const auto *style = dynamic_cast<const TextStyle *>(label.style.get());
+    if (const auto *style = dynamic_cast<const TextStyle *>(label.style.get());
+        style != nullptr) {
+
       double r = style->GetTextColor().GetR();
       double g = style->GetTextColor().GetG();
       double b = style->GetTextColor().GetB();
@@ -1036,8 +1034,8 @@ namespace osmscout {
 #endif
 
     }
-    else if (dynamic_cast<const ShieldStyle*>(label.style.get())!=nullptr) {
-      const auto* style=dynamic_cast<const ShieldStyle*>(label.style.get());
+    else if (const auto* style = dynamic_cast<const ShieldStyle*>(label.style.get());
+             style != nullptr) {
 
       cairo_set_dash(draw,nullptr,0,0);
       cairo_set_line_width(draw,1);
@@ -1147,41 +1145,41 @@ namespace osmscout {
     double         centerX=(minX+maxX)/2;
     double         centerY=(minY+maxY)/2;
 
-    if (dynamic_cast<PolygonPrimitive*>(primitive)!=nullptr) {
-      const auto* polygon=dynamic_cast<const PolygonPrimitive*>(primitive);
+    if (const auto* polygon = dynamic_cast<const PolygonPrimitive*>(primitive);
+        polygon != nullptr) {
 
       for (auto pixel=polygon->GetCoords().begin();
            pixel!=polygon->GetCoords().end();
            ++pixel) {
         if (pixel==polygon->GetCoords().begin()) {
           cairo_move_to(draw,
-                        x+projection.ConvertWidthToPixel(pixel->GetX()-centerX),
-                        y+projection.ConvertWidthToPixel(pixel->GetY()-centerY));
+                        x+projection.ConvertWidthToPixel(pixel->GetX())-centerX,
+                        y+projection.ConvertWidthToPixel(pixel->GetY())-centerY);
         }
         else {
           cairo_line_to(draw,
-                        x+projection.ConvertWidthToPixel(pixel->GetX()-centerX),
-                        y+projection.ConvertWidthToPixel(pixel->GetY()-centerY));
+                        x+projection.ConvertWidthToPixel(pixel->GetX())-centerX,
+                        y+projection.ConvertWidthToPixel(pixel->GetY())-centerY);
         }
       }
 
       cairo_close_path(draw);
     }
-    else if (dynamic_cast<RectanglePrimitive*>(primitive)!=nullptr) {
-      const auto* rectangle=dynamic_cast<const RectanglePrimitive*>(primitive);
+    else if (const auto* rectangle = dynamic_cast<const RectanglePrimitive*>(primitive);
+             rectangle != nullptr) {
 
       cairo_rectangle(draw,
-                      x+projection.ConvertWidthToPixel(rectangle->GetTopLeft().GetX()-centerX),
-                      y+projection.ConvertWidthToPixel(rectangle->GetTopLeft().GetY()-centerY),
+                      x+projection.ConvertWidthToPixel(rectangle->GetTopLeft().GetX())-centerX,
+                      y+projection.ConvertWidthToPixel(rectangle->GetTopLeft().GetY())-centerY,
                       projection.ConvertWidthToPixel(rectangle->GetWidth()),
                       projection.ConvertWidthToPixel(rectangle->GetHeight()));
     }
-    else if (dynamic_cast<CirclePrimitive*>(primitive)!=nullptr) {
-      const auto* circle=dynamic_cast<const CirclePrimitive*>(primitive);
+    else if (const auto* circle = dynamic_cast<const CirclePrimitive*>(primitive);
+             circle != nullptr) {
 
       cairo_arc(draw,
-                x+projection.ConvertWidthToPixel(circle->GetCenter().GetX()-centerX),
-                y+projection.ConvertWidthToPixel(circle->GetCenter().GetY()-centerY),
+                x+projection.ConvertWidthToPixel(circle->GetCenter().GetX())-centerX,
+                y+projection.ConvertWidthToPixel(circle->GetCenter().GetY())-centerY,
                 projection.ConvertWidthToPixel(circle->GetRadius()),
                 0,2*M_PI);
     }
@@ -1197,7 +1195,7 @@ namespace osmscout {
     double maxX;
     double maxY;
 
-    symbol.GetBoundingBox(minX,minY,maxX,maxY);
+    symbol.GetBoundingBox(projection,minX,minY,maxX,maxY);
 
     for (const auto& primitive: symbol.GetPrimitives()) {
       FillStyleRef   fillStyle=primitive->GetFillStyle();

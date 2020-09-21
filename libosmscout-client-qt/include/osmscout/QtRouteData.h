@@ -43,12 +43,11 @@ class OSMSCOUT_CLIENT_QT_API QtRouteData : public QObject {
 private:
   // Main route data. It may be shared from multiple QtRouteData instances, we have to keep it immutable
   struct PrivateData{
-    // TODO: add DatabaseId mapping or make it unique and stable
     osmscout::RouteDescription routeDescription;
     QList<RouteStep>           routeSteps;
     osmscout::Way              routeWay;
   };
-  typedef std::shared_ptr<PrivateData> PrivateDataRef;
+  using PrivateDataRef = std::shared_ptr<PrivateData>;
 
   PrivateDataRef data;
 
@@ -62,7 +61,7 @@ public:
               osmscout::Way &&routeWay,
               QObject* parent=nullptr);
 
-  ~QtRouteData() {};
+  ~QtRouteData() override = default;
 
   QtRouteData& operator=(const QtRouteData&);
 

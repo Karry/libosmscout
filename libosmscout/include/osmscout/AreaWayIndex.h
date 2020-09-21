@@ -25,10 +25,13 @@
 #include <unordered_set>
 #include <vector>
 
+#include <osmscout/AreaIndex.h>
 #include <osmscout/TypeConfig.h>
 #include <osmscout/TypeInfoSet.h>
 
 #include <osmscout/util/FileScanner.h>
+#include <osmscout/util/TileId.h>
+#include <osmscout/system/Compiler.h>
 
 namespace osmscout {
 
@@ -39,80 +42,21 @@ namespace osmscout {
 
     Ways can be limited by type and result count.
     */
-  class OSMSCOUT_API AreaWayIndex
+  class OSMSCOUT_API AreaWayIndex CLASS_FINAL : public AreaIndex
   {
   public:
-    static const char* AREA_WAY_IDX;
+    static const char* const AREA_WAY_IDX;
 
   private:
-    struct TypeData
-    {
-      TypeInfoRef type;
-      uint32_t    indexLevel;
-
-      uint8_t     dataOffsetBytes;
-      FileOffset  bitmapOffset;
-
-      uint32_t    cellXStart;
-      uint32_t    cellXEnd;
-      uint32_t    cellYStart;
-      uint32_t    cellYEnd;
-      uint32_t    cellXCount;
-      uint32_t    cellYCount;
-
-      double      cellWidth;
-      double      cellHeight;
-
-      double      minLon;
-      double      maxLon;
-      double      minLat;
-      double      maxLat;
-
-      TypeData();
-
-      FileOffset GetDataOffset() const;
-      FileOffset GetCellOffset(size_t x, size_t y) const;
-    };
-
-  private:
-    std::string           datafilename;   //!< Full path and name of the data file
-    mutable FileScanner   scanner;        //!< Scanner instance for reading this file
-
-    std::vector<TypeData> wayTypeData;
-
-    mutable std::mutex    lookupMutex;
-
-  private:
-    bool GetOffsets(const TypeData& typeData,
-                    const GeoBox& boundingBox,
-                    std::unordered_set<FileOffset>& offsets) const;
+    void ReadTypeData(const TypeConfigRef& typeConfig,
+                      TypeData &data) override;
 
   public:
     AreaWayIndex();
-    virtual ~AreaWayIndex();
-
-    void Close();
-    bool Open(const TypeConfigRef& typeConfig,
-              const std::string& path,
-              bool memoryMappedData);
-
-    inline bool IsOpen() const
-    {
-      return scanner.IsOpen();
-    }
-
-    inline std::string GetFilename() const
-    {
-      return datafilename;
-    }
-
-    bool GetOffsets(const GeoBox& boundingBox,
-                    const TypeInfoSet& types,
-                    std::vector<FileOffset>& offsets,
-                    TypeInfoSet& loadedTypes) const;
+    virtual ~AreaWayIndex() = default;
   };
 
-  typedef std::shared_ptr<AreaWayIndex> AreaWayIndexRef;
+  using AreaWayIndexRef = std::shared_ptr<AreaWayIndex>;
 }
 
 #endif

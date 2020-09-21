@@ -144,7 +144,8 @@ namespace osmscout {
     double GetCosts(const RoutingProfile& profile,
                     DatabaseId database,
                     const RouteNode& routeNode,
-                    size_t pathIndex) override;
+                    size_t inPathIndex,
+                    size_t outPathIndex) override;
 
     double GetCosts(const RoutingProfile& profile,
                     DatabaseId database,
@@ -158,6 +159,10 @@ namespace osmscout {
     double GetCostLimit(const RoutingProfile& profile,
                         DatabaseId database,
                         const Distance &targetDistance) override;
+
+    std::string GetCostString(const RoutingProfile& profile,
+                              DatabaseId database,
+                              double cost) const override;
 
     bool GetRouteNodes(const std::set<DBId> &routeNodeIds,
                        std::unordered_map<DBId,RouteNodeRef> &routeNodeMap) override;
@@ -196,24 +201,26 @@ namespace osmscout {
     TypeConfigRef GetTypeConfig() const;
 
     RoutingResult CalculateRouteViaCoords(RoutingProfile& profile,
-                                          std::vector<GeoCoord> via,
+                                          const std::vector<GeoCoord>& via,
                                           const Distance &radius,
                                           const RoutingParameter& parameter);
 
-    RoutePosition GetClosestRoutableNode(const GeoCoord& coord,
-                                         const RoutingProfile& profile,
-                                         const Distance &radius) const;
+    RoutePositionResult GetClosestRoutableNode(const GeoCoord& coord,
+                                               const RoutingProfile& profile,
+                                               const Distance &radius) const;
 
     ClosestRoutableObjectResult GetClosestRoutableObject(const GeoCoord& location,
                                                          Vehicle vehicle,
                                                          const Distance &maxRadius);
+
+    std::map<DatabaseId, std::string> GetDatabaseMapping() const override;
 
     void DumpStatistics();
   };
 
   //! \ingroup Service
   //! Reference counted reference to an RoutingService instance
-  typedef std::shared_ptr<SimpleRoutingService> SimpleRoutingServiceRef;
+  using SimpleRoutingServiceRef = std::shared_ptr<SimpleRoutingService>;
 
   /**
    * \defgroup Routing Routing based data structures and services

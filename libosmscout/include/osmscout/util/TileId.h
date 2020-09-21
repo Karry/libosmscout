@@ -74,11 +74,36 @@ namespace osmscout {
 
     std::string GetDisplayText() const;
 
-    bool operator==(const TileId& other) const;
+    /**
+     * Compare tile ids for equality
+     */
+    inline bool operator==(const TileId& other) const
+    {
+      return y==other.y &&
+             x==other.x;
+    }
 
-    bool operator!=(const TileId& other) const;
+    /**
+     * Compare tile ids for inequality
+     */
+    inline bool operator!=(const TileId& other) const
+    {
+      return y!=other.y ||
+             x!=other.x;
+    }
 
-    bool operator<(const TileId& other) const;
+    /**
+     * Compare tile ids by their order. Needed for sorting tile ids and placing them into (some)
+     * containers.
+     */
+    inline bool operator<(const TileId& other) const
+    {
+      if (y!=other.y) {
+        return y<other.y;
+      }
+
+      return x<other.x;
+    }
 
     GeoCoord GetTopLeftCoord(const Magnification& magnification) const;
     GeoBox GetBoundingBox(const MagnificationLevel& level) const;
@@ -87,8 +112,21 @@ namespace osmscout {
     static TileId GetTile(const Magnification& magnification,
                           const GeoCoord& coord);
 
-    static TileId GetTile(MagnificationLevel level,
+    static TileId GetTile(const MagnificationLevel& level,
                           const GeoCoord& coord);
+  };
+
+  /**
+   * Hasher that can be used in std::unordered_map with TileId as a key
+   */
+  struct OSMSCOUT_API TileIdHasher
+  {
+    std::size_t operator()(const TileId& id) const noexcept
+    {
+      auto h1 = static_cast<size_t>(id.GetX());
+      auto h2 = static_cast<size_t>(id.GetY());
+      return h1 ^ (h2 << 16u);
+    }
   };
 
   class OSMSCOUT_API TileKey
@@ -125,8 +163,15 @@ namespace osmscout {
     bool operator<(const TileKey& other) const;
   };
 
-  class OSMSCOUT_API TileIdBoxConstIterator CLASS_FINAL : public std::iterator<std::input_iterator_tag, const TileId>
+  class OSMSCOUT_API TileIdBoxConstIterator CLASS_FINAL
   {
+  public:
+    using self_type         = TileIdBoxConstIterator;
+    using value_type        = TileId;
+    using reference         = const TileId&;
+    using pointer           = TileId;
+    using iterator_category = std::input_iterator_tag;
+
   private:
     TileId currentTile;
     TileId minTile;
@@ -143,13 +188,7 @@ namespace osmscout {
       // no code
     }
 
-    TileIdBoxConstIterator(const TileIdBoxConstIterator& other)
-      : currentTile(other.currentTile),
-        minTile(other.minTile),
-        maxTile(other.maxTile)
-    {
-      // no code
-    }
+    TileIdBoxConstIterator(const TileIdBoxConstIterator& other) = default;
 
     TileIdBoxConstIterator& operator++()
     {
@@ -165,7 +204,7 @@ namespace osmscout {
       return *this;
     }
 
-    const TileIdBoxConstIterator operator++(int)
+    TileIdBoxConstIterator operator++(int)
     {
       TileIdBoxConstIterator tmp(*this);
 
@@ -188,6 +227,11 @@ namespace osmscout {
     {
       return currentTile;
     }
+
+    TileId operator->()
+    {
+      return currentTile;
+    }
   };
 
   /**
@@ -205,6 +249,15 @@ namespace osmscout {
   public:
     TileIdBox(const TileId& a,
               const TileId& b);
+
+    TileIdBox(const Magnification& magnification,
+              const GeoBox& boundingBox)
+    : TileIdBox(TileId::GetTile(magnification,
+                                boundingBox.GetMinCoord()),
+                TileId::GetTile(magnification,
+                                boundingBox.GetMaxCoord()))
+    {
+    }
 
     inline TileId GetMin() const
     {
@@ -266,7 +319,19 @@ namespace osmscout {
                                        maxTile);
     }
 
+    inline bool operator==(const TileIdBox& other) const
+    {
+      return minTile==other.minTile &&
+             maxTile==other.maxTile;
+    }
+
     GeoBox GetBoundingBox(const Magnification& magnification) const;
+
+    TileIdBox Include(const TileId& tileId) const;
+    TileIdBox Include(const TileIdBox& other) const;
+    TileIdBox Intersection(const TileIdBox& other) const;
+
+    bool Intersects(const TileIdBox& other) const;
 
     inline std::string GetDisplayText() const
     {

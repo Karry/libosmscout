@@ -28,26 +28,26 @@ RoutingListModel::RoutingListModel(QObject* parent)
 {
   router=OSMScoutQt::GetInstance().MakeRouter();
 
-  connect(this,SIGNAL(routeRequest(LocationEntryRef,LocationEntryRef,osmscout::Vehicle,int,osmscout::BreakerRef)),
-          router,SLOT(onRouteRequest(LocationEntryRef,LocationEntryRef,osmscout::Vehicle,int,osmscout::BreakerRef)),
+  connect(this, &RoutingListModel::routeRequest,
+          router, &Router::onRouteRequest,
           Qt::QueuedConnection);
 
-  connect(router,SIGNAL(routeComputed(QtRouteData,int)),
-          this,SLOT(onRouteComputed(QtRouteData,int)),
+  connect(router, &Router::routeComputed,
+          this, &RoutingListModel::onRouteComputed,
           Qt::QueuedConnection);
-  connect(router,SIGNAL(routeFailed(QString,int)),
-          this,SLOT(onRouteFailed(QString,int)),
+  connect(router, &Router::routeFailed,
+          this, &RoutingListModel::onRouteFailed,
           Qt::QueuedConnection);
-  connect(router,SIGNAL(routingProgress(int,int)),
-          this,SLOT(onRoutingProgress(int,int)),
+  connect(router, &Router::routingProgress,
+          this, &RoutingListModel::onRoutingProgress,
           Qt::QueuedConnection);
 }
 
 RoutingListModel::~RoutingListModel()
 {
-  if (router!=NULL){
+  if (router!=nullptr){
     router->deleteLater();
-    router=NULL;
+    router=nullptr;
   }
 }
 
@@ -61,12 +61,13 @@ void RoutingListModel::setStartAndTarget(LocationEntry* start,
   } else if (vehicleStr=="foot"){
     vehicle=osmscout::Vehicle::vehicleFoot;
   }
-  clear();
+  cancel(); // cancel current computation
+  clear(); // clear model
   computing=true;
   breaker=std::make_shared<osmscout::ThreadedBreaker>();
   emit computingChanged();
 
-  // make copy to shared ptr, remove owhership
+  // make copy to shared ptr, remove ownership
   LocationEntryRef startRef=std::make_shared<LocationEntry>(*start);
   startRef->setParent(Q_NULLPTR);
   LocationEntryRef targetRef=std::make_shared<LocationEntry>(*target);
@@ -159,7 +160,7 @@ double RoutingListModel::getRouteDuration() const
   if (!route || route.routeDescription().Nodes().empty()){
     return 0;
   }
-  return route.routeDescription().Nodes().back().GetTime() * 3600;
+  return DurationAsSeconds(route.routeDescription().Nodes().back().GetTime());
 }
 
 QVariant RoutingListModel::data(const QModelIndex &index, int role) const
@@ -169,20 +170,7 @@ QVariant RoutingListModel::data(const QModelIndex &index, int role) const
   }
 
   RouteStep step=route.routeSteps().at(index.row());
-
-  switch (role) {
-  case Qt::DisplayRole:
-  case ShortDescriptionRole:
-    return step.getShortDescription();
-  case DescriptionRole:
-      return step.getDescription();
-  case TypeRole:
-    return step.getType();
-  default:
-    break;
-  }
-
-  return QVariant();
+  return step.data(role);
 }
 
 Qt::ItemFlags RoutingListModel::flags(const QModelIndex &index) const
@@ -196,19 +184,13 @@ Qt::ItemFlags RoutingListModel::flags(const QModelIndex &index) const
 
 QHash<int, QByteArray> RoutingListModel::roleNames() const
 {
-  QHash<int, QByteArray> roles=QAbstractListModel::roleNames();
-
-  roles[ShortDescriptionRole] = "shortDescription";
-  roles[DescriptionRole] = "description";
-  roles[TypeRole] = "type";
-
-  return roles;
+  return RouteStep::roleNames(QAbstractListModel::roleNames());
 }
 
 QObject* RoutingListModel::get(int row) const
 {
   if(!route || row < 0 || row >= route.routeSteps().size()) {
-    return NULL;
+    return nullptr;
   }
 
   RouteStep step=route.routeSteps().at(row);

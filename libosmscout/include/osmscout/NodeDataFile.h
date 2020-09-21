@@ -33,14 +33,14 @@ namespace osmscout {
   class OSMSCOUT_API NodeDataFile : public DataFile<Node>
   {
   public:
-    static const char* NODES_DAT;
-    static const char* NODES_IDMAP;
+    static const char* const NODES_DAT;
+    static const char* const NODES_IDMAP;
 
   public:
     explicit NodeDataFile(size_t cacheSize);
   };
 
-  typedef std::shared_ptr<NodeDataFile> NodeDataFileRef;
+  using NodeDataFileRef = std::shared_ptr<NodeDataFile>;
 }
 
 #endif

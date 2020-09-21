@@ -8,21 +8,22 @@ export LANG="C.UTF-8"
 echo "New locale settings:"
 locale
 
-echo "Build start time: `date`"
+echo "Build start time: $(date)"
 
 if [ "$TARGET" = "build" ]; then
   if  [ "$TRAVIS_OS_NAME" = "osx" ] && [ "$PLATFORM" = "osx" ] ; then
     export PATH="/usr/local/opt/qt/bin:$PATH"
     export PATH="/usr/local/opt/gettext/bin:$PATH"
     export PATH="/usr/local/opt/libxml2/bin:$PATH"
+    export PKG_CONFIG_PATH="/usr/local/opt/libffi/lib/pkgconfig:$PKG_CONFIG_PATH"
   fi
 
   if [ "$BUILDTOOL" = "meson" ]; then
     # Travis currently cannot build clang + OpenMP (https://github.com/travis-ci/travis-ci/issues/8613)
     if [ "$CXX" = "clang++" ]; then
-      meson debug -Dopenmp=false
+      meson setup --buildtype debugoptimized --unity on debug -Dopenmp=false
     else
-      meson debug
+      meson setup --buildtype debugoptimized --unity on debug
     fi
     cd debug
 
@@ -68,4 +69,4 @@ elif [ "$TARGET" = "website" ]; then
   fi
 fi
 
-echo "Build end time: `date`"
+echo "Build end time: $(date)"

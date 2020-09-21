@@ -23,13 +23,17 @@
 
 #include <osmscout/ClientQtImportExport.h>
 
+#include <osmscout/util/Time.h>
+#include <osmscout/util/Distance.h>
+#include <osmscout/GeoCoord.h>
+
 #include <QObject>
 
 namespace osmscout {
 
 /**
  * Human representation of route step commands.
- * It contains time, disntace and two variants of translated description:
+ * It contains time, distance and two variants of translated description:
  *  - simple `shortTranslation`
  *  - formatted `description` with simple html formatting (just subset supported by Qt components)
  *
@@ -38,31 +42,68 @@ namespace osmscout {
 class OSMSCOUT_CLIENT_QT_API RouteStep : public QObject
 {
   Q_OBJECT
-  Q_PROPERTY(QString type             READ getType             NOTIFY update)
-  Q_PROPERTY(double  distance         READ getDistance         NOTIFY update)
-  Q_PROPERTY(double  distanceDelta    READ getDistanceDelta    NOTIFY update)
-  Q_PROPERTY(double  distanceTo       READ getDistanceTo       NOTIFY update)
-  Q_PROPERTY(double  time             READ getTime             NOTIFY update)
-  Q_PROPERTY(double  timeDelta        READ getTimeDelta        NOTIFY update)
-  Q_PROPERTY(QString description      READ getDescription      NOTIFY update)
-  Q_PROPERTY(QString shortDescription READ getShortDescription NOTIFY update)
+  Q_PROPERTY(QString type             READ getType                NOTIFY update)
+  Q_PROPERTY(double  lat              READ getLat()               NOTIFY update)
+  Q_PROPERTY(double  lon              READ getLon()               NOTIFY update)
+  Q_PROPERTY(double  distance         READ getDistance            NOTIFY update)
+  Q_PROPERTY(double  distanceDelta    READ getDistanceDelta       NOTIFY update)
+  Q_PROPERTY(double  distanceTo       READ getDistanceTo          NOTIFY update)
+  Q_PROPERTY(double  time             READ getTime                NOTIFY update)
+  Q_PROPERTY(double  timeDelta        READ getTimeDelta           NOTIFY update)
+  Q_PROPERTY(QString description      READ getDescription         NOTIFY update)
+  Q_PROPERTY(QString shortDescription READ getShortDescription    NOTIFY update)
+  Q_PROPERTY(QStringList streetNames  READ getStreetNames         NOTIFY update)
+  Q_PROPERTY(int roundaboutExit       READ getRoundaboutExit      NOTIFY update)
+  Q_PROPERTY(bool roundaboutClockwise READ getRoundaboutClockwise NOTIFY update)
 
 signals:
   void update();
 
 public:
-  QString type;             //!< Type of route step
-  double distance;          //!< Estimate distance [meters] from route start
-  double distanceDelta;     //!< Estimate distance [meters] from previous route step
-  double distanceTo;        //!< Estimate distance [meters] to this step (used with navigation)
-  double time;              //!< Estimate time [seconds] from route start
-  double timeDelta;         //!< Estimate time [seconds] from previous route step
-  QString description;      //!< Formatted (html) verbose description (translated already)
-  QString shortDescription; //!< Plain short description (translated already)
+  enum Roles {
+    ShortDescriptionRole = Qt::UserRole + 1,
+    DescriptionRole = Qt::UserRole + 2,
+    TypeRole = Qt::UserRole + 3,
+    RoundaboutExitRole = Qt::UserRole + 4,
+    RoundaboutClockwiseRole = Qt::UserRole + 5
+  };
+  Q_ENUM(Roles)
 
 public:
-  RouteStep() : RouteStep("") {};
-  RouteStep(QString type);
+  QString type;             //!< Type of route step
+  GeoCoord coord;           //!< Position
+  Distance distance;        //!< Estimate distance from route start
+  Distance distanceDelta;   //!< Estimate distance from previous route step
+  Distance distanceTo;      //!< Estimate distance to this step (used with navigation)
+  Duration time;            //!< Estimate time from route start
+  Duration timeDelta;       //!< Estimate time from previous route step
+  QString description;      //!< Formatted (html) verbose description (translated already)
+  QString shortDescription; //!< Plain short description (translated already)
+  QStringList streetNames;  //!< Street names leading to this step
+  int roundaboutExit{-1};   //!< when type is "leave-roundabout" this property indicate number of exit
+
+  /**
+   * when type is "leave-roundabout" or "enter-roundabout",
+   * this property indicate direction of roundabout
+   *  - false for counter clockwise, used in continental Europe
+   *  - true for clockwise, used in England and Irish
+   */
+  bool roundaboutClockwise{false};
+
+public:
+  inline RouteStep() : RouteStep("", GeoCoord(), Distance::Zero(), Distance::Zero(),
+                                 Duration::zero(), Duration::zero(),
+                                 QStringList())
+  {};
+
+  RouteStep(const QString &type,
+            const GeoCoord &coord,
+            const Distance &distance,
+            const Distance &distanceDelta,
+            const Duration &time,
+            const Duration &timeDelta,
+            const QStringList &streetNames);
+
   RouteStep(const RouteStep& other);
 
   RouteStep& operator=(const RouteStep& other);
@@ -72,29 +113,49 @@ public:
     return type;
   };
 
-  double getDistance() const
+  GeoCoord GetCoord() const
+  {
+    return coord;
+  }
+
+  double getLat() const
+  {
+    return coord.GetLat();
+  }
+
+  double getLon() const
+  {
+    return coord.GetLon();
+  }
+
+  Distance GetDistance() const
   {
     return distance;
   }
 
+  double getDistance() const
+  {
+    return distance.AsMeter();
+  }
+
   double getDistanceDelta() const
   {
-    return distanceDelta;
+    return distanceDelta.AsMeter();
   }
 
   double getDistanceTo() const
   {
-    return distanceTo;
+    return distanceTo.AsMeter();
   }
 
   double getTime() const
   {
-    return time;
+    return DurationAsSeconds(time);
   }
 
   double getTimeDelta() const
   {
-    return timeDelta;
+    return DurationAsSeconds(timeDelta);
   }
 
   QString getDescription() const
@@ -106,6 +167,25 @@ public:
   {
     return shortDescription;
   }
+
+  QStringList getStreetNames() const
+  {
+    return streetNames;
+  }
+
+  int getRoundaboutExit() const
+  {
+    return roundaboutExit;
+  }
+
+  bool getRoundaboutClockwise() const
+  {
+    return roundaboutClockwise;
+  }
+
+  QVariant data(int role) const;
+
+  static QHash<int, QByteArray> roleNames(QHash<int, QByteArray> roles);
 
 private:
   void copyDynamicProperties(const RouteStep &other);

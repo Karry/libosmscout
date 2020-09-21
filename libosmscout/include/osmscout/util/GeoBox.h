@@ -53,14 +53,7 @@ namespace osmscout {
     /**
      * Copy-Constructor
      */
-    inline GeoBox(const GeoBox& other)
-    : minCoord(other.minCoord),
-      maxCoord(other.maxCoord),
-      valid(other.valid)
-    {
-      // no code
-    }
-
+    GeoBox(const GeoBox& other) = default;
 
     /**
      * Initialize the GeoBox based on the given coordinates. The two Coordinates
@@ -119,12 +112,11 @@ namespace osmscout {
                minCoord.GetLon()<=coord.GetLon() &&
                maxCoord.GetLon()>coord.GetLon();
       }
-      else {
-        return minCoord.GetLat()<=coord.GetLat() &&
-               maxCoord.GetLat()>=coord.GetLat() &&
-               minCoord.GetLon()<=coord.GetLon() &&
-               maxCoord.GetLon()>=coord.GetLon();
-      }
+
+      return minCoord.GetLat()<=coord.GetLat() &&
+             maxCoord.GetLat()>=coord.GetLat() &&
+             minCoord.GetLon()<=coord.GetLon() &&
+             maxCoord.GetLon()>=coord.GetLon();
     }
 
     /**
@@ -151,12 +143,11 @@ namespace osmscout {
                  other.GetMaxLat()<minCoord.GetLat() ||
                  other.GetMinLat()>=maxCoord.GetLat());
       }
-      else {
-        return !(other.GetMaxLon()<minCoord.GetLon() ||
-                 other.GetMinLon()>maxCoord.GetLon() ||
-                 other.GetMaxLat()<minCoord.GetLat() ||
-                 other.GetMinLat()>maxCoord.GetLat());
-      }
+
+      return !(other.GetMaxLon()<minCoord.GetLon() ||
+               other.GetMinLon()>maxCoord.GetLon() ||
+               other.GetMaxLat()<minCoord.GetLat() ||
+               other.GetMinLat()>maxCoord.GetLat());
     }
 
     /**
@@ -252,23 +243,35 @@ namespace osmscout {
       return GetWidth()*GetHeight();
     }
 
+    /**
+     * south-west corner
+     */
     inline GeoCoord GetBottomLeft() const
     {
       return minCoord;
     }
 
+    /**
+     * south-east corner
+     */
     inline GeoCoord GetBottomRight() const
     {
       return GeoCoord(minCoord.GetLat(),
                       maxCoord.GetLon());
     }
 
+    /**
+     * north-west corner
+     */
     inline GeoCoord GetTopLeft() const
     {
       return GeoCoord(maxCoord.GetLat(),
                       minCoord.GetLon());
     }
 
+    /**
+     * north-east corner
+     */
     inline GeoCoord GetTopRight() const
     {
       return maxCoord;
@@ -278,6 +281,11 @@ namespace osmscout {
      * Return a string representation of the coordinate value in a human readable format.
      */
     std::string GetDisplayText() const;
+
+    /**
+     * Assign the value of other
+     */
+    GeoBox& operator=(const GeoBox& other) = default;
 
     /**
      * Return an GeoBox based on the center and the radius [meters] of a circle around the center.

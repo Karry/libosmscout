@@ -33,11 +33,6 @@
 
 namespace osmscout {
 
-  DebugDatabaseParameter::DebugDatabaseParameter()
-  {
-    // no code
-  }
-
   DebugDatabase::DebugDatabase(const DebugDatabaseParameter& /*parameter*/)
   : isOpen(false)
   {
@@ -106,7 +101,7 @@ namespace osmscout {
                                         RefType fileType,
                                         const std::set<ObjectOSMRef>& ids,
                                         const std::set<ObjectFileRef>& fileOffsets,
-                                        std::map<ObjectOSMRef,ObjectFileRef>& idFileOffsetMap,
+                                        std::multimap<ObjectOSMRef,ObjectFileRef>& idFileOffsetMap,
                                         std::map<ObjectFileRef,ObjectOSMRef>& fileOffsetIdMap)
   {
     FileScanner scanner;
@@ -151,7 +146,7 @@ namespace osmscout {
 
   bool DebugDatabase::ResolveReferences(const std::set<ObjectOSMRef>& ids,
                                         const std::set<ObjectFileRef>& fileOffsets,
-                                        std::map<ObjectOSMRef,ObjectFileRef>& idFileOffsetMap,
+                                        std::multimap<ObjectOSMRef,ObjectFileRef>& idFileOffsetMap,
                                         std::map<ObjectFileRef,ObjectOSMRef>& fileOffsetIdMap)
   {
     bool haveToScanNodes=false;

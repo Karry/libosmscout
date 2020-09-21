@@ -76,7 +76,7 @@ namespace osmscout {
                            (uint32_t) 0u,
                            [](uint32_t value,
                               const AreaNodeIndexGenerator::DistributionData& entry) {
-                             return value+entry.listTiles.size();
+                             return value+(uint32_t)entry.listTiles.size();
                            });
   }
 
@@ -176,7 +176,7 @@ namespace osmscout {
         node.Read(*typeConfig,
                   nodeScanner);
 
-        size_t typeId=node.GetType()->GetNodeId();
+        TypeId typeId=node.GetType()->GetNodeId();
 
         data[typeId].type=node.GetType();
         data[typeId].nodeId=typeId;
@@ -423,7 +423,9 @@ namespace osmscout {
     FileOffset previousOffset=0;
 
     for (const auto& tileEntry : tileData) {
-      //writer.WriteCoord(tileEntry.first);
+      if (storeGeoCoord) {
+        writer.WriteCoord(tileEntry.first);
+      }
       writer.WriteNumber(tileEntry.second-previousOffset);
 
       previousOffset=tileEntry.second;

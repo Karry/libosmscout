@@ -31,6 +31,7 @@
 #include <osmscout/StyleModule.h>
 #include <osmscout/NavigationModule.h>
 #include <osmscout/POILookupModule.h>
+#include <osmscout/VoiceManager.h>
 
 #include <osmscout/ClientQtImportExport.h>
 
@@ -45,27 +46,30 @@ class OSMScoutQt;
  */
 class OSMSCOUT_CLIENT_QT_API OSMScoutQtBuilder{
 private:
-  QSettings *settingsStorage;
+  QSettings *settingsStorage{nullptr};
 
   QString onlineTileProviders;
   QString mapProviders;
+  QString voiceProviders;
   QStringList mapLookupDirectories;
   QString basemapLookupDirectory;
   QString cacheLocation;
   QString iconDirectory;
   QStringList customPoiTypes;
 
-  size_t onlineTileCacheSize;
-  size_t offlineTileCacheSize;
+  size_t onlineTileCacheSize{100};
+  size_t offlineTileCacheSize{200};
+
+  QString voiceLookupDirectory;
 
   QString styleSheetDirectory;
-  bool styleSheetDirectoryConfigured;
+  bool styleSheetDirectoryConfigured{false};
 
   QString styleSheetFile;
-  bool styleSheetFileConfigured;
+  bool styleSheetFileConfigured{false};
 
-  QString appName;
-  QString appVersion;
+  QString appName{"UnspecifiedApp"};
+  QString appVersion{"v?"};
 
 public:
   OSMScoutQtBuilder();
@@ -90,6 +94,12 @@ public:
     return *this;
   }
 
+  inline OSMScoutQtBuilder& WithVoiceProviders(QString voiceProviders)
+  {
+    this->voiceProviders=voiceProviders;
+    return *this;
+  }
+
   inline OSMScoutQtBuilder& WithMapLookupDirectories(QStringList mapLookupDirectories)
   {
     this->mapLookupDirectories=mapLookupDirectories;
@@ -99,6 +109,12 @@ public:
   inline OSMScoutQtBuilder& WithBasemapLookupDirectory(QString basemapLookupDirectory)
   {
     this->basemapLookupDirectory=basemapLookupDirectory;
+    return *this;
+  }
+
+  inline OSMScoutQtBuilder& WithVoiceLookupDirectory(QString voiceLookupDirectory)
+  {
+    this->voiceLookupDirectory=voiceLookupDirectory;
     return *this;
   }
 
@@ -166,7 +182,7 @@ public:
 /**
  * \ingroup QtAPI
  */
-typedef std::shared_ptr<OSMScoutQtBuilder> OSMScoutQtBuilderRef;
+using OSMScoutQtBuilderRef = std::shared_ptr<OSMScoutQtBuilder>;
 
 /**
  * \ingroup QtAPI
@@ -223,6 +239,7 @@ private:
   size_t          offlineTileCacheSize;
   QString         userAgent;
   std::atomic_int liveBackgroundThreads;
+  VoiceManagerRef voiceManager; // created lazy
 
 private:
   OSMScoutQt(SettingsRef settings,
@@ -239,7 +256,7 @@ public slots:
   void threadFinished();
 
 public:
-  virtual ~OSMScoutQt();
+  ~OSMScoutQt() override;
 
   /**
    * Create new background thread with given name.
@@ -278,6 +295,7 @@ public:
   DBThreadRef GetDBThread() const;
   SettingsRef GetSettings() const;
   MapManagerRef GetMapManager() const;
+  VoiceManagerRef GetVoiceManager();
 
   LookupModule* MakeLookupModule();
   MapRenderer* MakeMapRenderer(RenderingType type);
@@ -287,9 +305,10 @@ public:
   StyleModule *MakeStyleModule();
   POILookupModule *MakePOILookupModule();
 
-  QString GetUserAgent();
-  QString GetCacheLocation();
-  size_t  GetOnlineTileCacheSize();
+  QString GetUserAgent() const;
+  QString GetCacheLocation() const;
+  size_t  GetOnlineTileCacheSize() const;
+  QString GetIconDirectory() const;
 
   static void RegisterQmlTypes(const char *uri="net.sf.libosmscout.map",
                                int versionMajor=1,

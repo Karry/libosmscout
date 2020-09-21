@@ -18,6 +18,7 @@
 */
 
 #include <osmscout/util/Geometry.h>
+#include <osmscout/util/Bearing.h>
 
 #include <cstdlib>
 
@@ -228,7 +229,7 @@ namespace osmscout {
   }
 
   void GetEllipsoidalDistance(double lat1, double lon1,
-                              double bearing,
+                              const Bearing &bearing,
                               const Distance &distance,
                               double& lat2, double& lon2)
   {
@@ -243,7 +244,7 @@ namespace osmscout {
     double a=6378137.0, b=6356752.314245, f=1/298.257223563;
     double distanceAsMeter=distance.As<Meter>();
 
-    double alpha1=bearing*M_PI/180;
+    double alpha1=bearing.AsRadians();
 
     double tanU1=(1-f)*tan(lat1);
     double cosU1=1/sqrt((1+tanU1*tanU1));
@@ -294,7 +295,7 @@ namespace osmscout {
   }
 
   GeoCoord GetEllipsoidalDistance(const GeoCoord& position,
-                                  double bearing,
+                                  const Bearing &bearing,
                                   const Distance &distance)
   {
     double lat,lon;
@@ -308,8 +309,8 @@ namespace osmscout {
     return {lat,lon};
   }
 
-  double GetSphericalBearingInitial(const GeoCoord& a,
-                                    const GeoCoord& b)
+  Bearing GetSphericalBearingInitial(const GeoCoord& a,
+                                     const GeoCoord& b)
   {
     double aLon=a.GetLon()*M_PI/180;
     double aLat=a.GetLat()*M_PI/180;
@@ -330,14 +331,14 @@ namespace osmscout {
 
     double bearing=atan2(y,x);
 
-    return bearing;
+    return Bearing::Radians(bearing);
   }
 
   /**
-   * Taken the path from A to B over a sphere return the bearing (0..2PI) at the destination point B.
+   * Taken the path from A to B over a sphere return the bearing at the destination point B.
    */
-  double GetSphericalBearingFinal(const GeoCoord& a,
-                                  const GeoCoord& b)
+  Bearing GetSphericalBearingFinal(const GeoCoord& a,
+                                   const GeoCoord& b)
   {
     double aLon=a.GetLon()*M_PI/180;
     double aLat=a.GetLat()*M_PI/180;
@@ -367,44 +368,16 @@ namespace osmscout {
 
     //double bearing=fmod(atan2(y,x)+3*M_PI,2*M_PI);
 
-    return bearing;
+    return Bearing::Radians(bearing);
   }
 
-  std::string BearingDisplayString(double bearing)
-  {
-    int grad=(int)round(bearing*180/M_PI);
-
-    grad=grad % 360;
-
-    if (grad<0) {
-      grad+=360;
-    }
-
-    if (grad>=0 && grad<=45) {
-      return "N";
-    }
-    else if (grad>45 && grad<=135) {
-      return "E";
-    }
-    else if (grad>135 && grad<=225) {
-      return "S";
-    }
-    else if (grad>225 && grad<=315) {
-      return "W";
-    }
-    else if (grad>315 && grad<360) {
-      return "N";
-    }
-
-    return "?";
-  }
-
-  double NormalizeRelativeAngel(double angle)
+  double NormalizeRelativeAngle(double angle)
   {
     if (angle>180.0) {
       return angle-360.0;
     }
-    else if (angle<-180.0) {
+
+    if (angle<-180.0) {
       return angle+360.0;
     }
 
@@ -506,23 +479,21 @@ namespace osmscout {
 
       return fabs(s)*sqrt(rd);
     }
-    else {
-      double dist1=(px-p1x)*(px-p1x) + (py-p1y)*(py-p1y);
-      double dist2=(px-p2x)*(px-p2x) + (py-p2y)*(py-p2y);
 
-      if (dist1<dist2) {
-        qx=p1x;
-        qy=p1y;
+    double dist1=(px-p1x)*(px-p1x) + (py-p1y)*(py-p1y);
+    double dist2=(px-p2x)*(px-p2x) + (py-p2y)*(py-p2y);
 
-        return sqrt(dist1);
-      }
-      else {
-        qx=p2x;
-        qy=p2y;
+    if (dist1<dist2) {
+      qx=p1x;
+      qy=p1y;
 
-        return sqrt(dist2);
-      }
+      return sqrt(dist1);
     }
+
+    qx=p2x;
+    qy=p2y;
+
+    return sqrt(dist2);
   }
 
   double DistanceToSegment(const GeoCoord& point,
@@ -763,7 +734,7 @@ namespace osmscout {
 
       // Start a new polygon
       //std::cout << "---" << std::endl;
-      polygons.push_back(std::list<Edge>());
+      polygons.emplace_back();
 
       //std::cout << "* " << current->fromIndex << "=>" << current->toIndex << std::endl;
       polygons.back().push_back(*current);
@@ -812,7 +783,7 @@ namespace osmscout {
     }
 
     for (const auto& polygon : polygons) {
-      result.push_back(Polygon());
+      result.emplace_back();
 
       for (const auto& edge : polygon) {
         result.back().coords.push_back(nodes[edge.fromIndex]);
@@ -846,32 +817,32 @@ namespace osmscout {
     }
   }
 
-  CellDimension cellDimension[] = {
-      { 360.0,                      180.0                      }, //  0
-      { 180.0,                       90.0                      }, //  1
-      {  90.0,                       45.0                      }, //  2
-      {  45.0,                       22.5                      }, //  3
-      {  22.5,                       11.25                     }, //  4
-      {  11.25,                       5.625                    }, //  5
-      {   5.625,                      2.8125                   }, //  6
-      {   2.8125,                     1.40625                  }, //  7
-      {   1.40625,                    0.703125                 }, //  8
-      {   0.703125,                   0.3515625                }, //  9
-      {   0.3515625,                  0.17578125               }, // 10
-      {   0.17578125,                 0.087890625              }, // 11
-      {   0.087890625,                0.0439453125             }, // 12
-      {   0.0439453125,               0.02197265625            }, // 13
-      {   0.02197265625,              0.010986328125           }, // 14
-      {   0.010986328125,             0.0054931640625          }, // 15
-      {   0.0054931640625,            0.00274658203125         }, // 16
-      {   0.00274658203125,           0.001373291015625        }, // 17
-      {   0.001373291015625,          0.0006866455078125       }, // 18
-      {   0.0006866455078125,         0.00034332275390625      }, // 19
-      {   0.00034332275390625,        0.000171661376953125     }, // 20
-      {   0.000171661376953125,       0.0000858306884765625    }, // 21
-      {   0.0000858306884765625,      0.00004291534423828125   }, // 22
-      {   0.00004291534423828125,     0.000021457672119140625  }, // 23
-      {   0.000021457672119140625,    0.0000107288360595703125 }, // 24
-      {   0.0000107288360595703125,   0.0000107288360595703125 }  // 25
+  std::array<CellDimension,CELL_DIMENSION_COUNT> cellDimension = {
+      CellDimension{360.0,                      180.0                       }, //  0
+      CellDimension{ 180.0,                       90.0                      }, //  1
+      CellDimension{  90.0,                       45.0                      }, //  2
+      CellDimension{  45.0,                       22.5                      }, //  3
+      CellDimension{  22.5,                       11.25                     }, //  4
+      CellDimension{  11.25,                       5.625                    }, //  5
+      CellDimension{   5.625,                      2.8125                   }, //  6
+      CellDimension{   2.8125,                     1.40625                  }, //  7
+      CellDimension{   1.40625,                    0.703125                 }, //  8
+      CellDimension{   0.703125,                   0.3515625                }, //  9
+      CellDimension{   0.3515625,                  0.17578125               }, // 10
+      CellDimension{   0.17578125,                 0.087890625              }, // 11
+      CellDimension{   0.087890625,                0.0439453125             }, // 12
+      CellDimension{   0.0439453125,               0.02197265625            }, // 13
+      CellDimension{   0.02197265625,              0.010986328125           }, // 14
+      CellDimension{   0.010986328125,             0.0054931640625          }, // 15
+      CellDimension{   0.0054931640625,            0.00274658203125         }, // 16
+      CellDimension{   0.00274658203125,           0.001373291015625        }, // 17
+      CellDimension{   0.001373291015625,          0.0006866455078125       }, // 18
+      CellDimension{   0.0006866455078125,         0.00034332275390625      }, // 19
+      CellDimension{   0.00034332275390625,        0.000171661376953125     }, // 20
+      CellDimension{   0.000171661376953125,       0.0000858306884765625    }, // 21
+      CellDimension{   0.0000858306884765625,      0.00004291534423828125   }, // 22
+      CellDimension{   0.00004291534423828125,     0.000021457672119140625  }, // 23
+      CellDimension{   0.000021457672119140625,    0.0000107288360595703125 }, // 24
+      CellDimension{   0.0000107288360595703125,   0.0000107288360595703125 }  // 25
   };
 }

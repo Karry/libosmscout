@@ -51,7 +51,7 @@ namespace osmscout {
   class OSMSCOUT_API AreaAreaIndex
   {
   public:
-    static const char* AREA_AREA_IDX;
+    static const char* const AREA_AREA_IDX;
 
   private:
     /**
@@ -63,7 +63,7 @@ namespace osmscout {
       FileOffset data;        //!< The file index at which the data payload starts
     };
 
-    typedef Cache<FileOffset,IndexCell> IndexCache;
+    using IndexCache = Cache<FileOffset, IndexCell>;
 
     struct IndexCacheValueSizer : public IndexCache::ValueSizer
     {
@@ -96,12 +96,12 @@ namespace osmscout {
 
   private:
     std::string           datafilename;   //!< Full path and name of the data file
-    mutable FileScanner   scanner;        //!< Scanner instance for reading this file
+    mutable FileScanner   scanner;        //!< Scanner instance for reading this file, guarded by lookupMutex
 
     uint32_t              maxLevel;       //!< Maximum level in index
     FileOffset            topLevelOffset; //!< File offset of the top level index entry
 
-    mutable IndexCache    indexCache;     //!< Cached map of all index entries by file offset
+    mutable IndexCache    indexCache;     //!< Cached map of all index entries by file offset, guarded by lookupMutex
 
     mutable std::mutex    lookupMutex;
 
@@ -154,9 +154,11 @@ namespace osmscout {
                         TypeInfoSet& loadedTypes) const;
 
     void DumpStatistics();
+
+    void FlushCache();
   };
 
-  typedef std::shared_ptr<AreaAreaIndex> AreaAreaIndexRef;
+  using AreaAreaIndexRef = std::shared_ptr<AreaAreaIndex>;
 }
 
 #endif

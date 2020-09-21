@@ -27,8 +27,8 @@ MapDownloadsModel::MapDownloadsModel(QObject *parent):
   QAbstractListModel(parent){
 
   mapManager=OSMScoutQt::GetInstance().GetMapManager();
-  connect(mapManager.get(), SIGNAL(downloadJobsChanged()), this, SLOT(onDownloadJobsChanged()));
-  connect(mapManager.get(), SIGNAL(mapDownloadFails(QString)), this, SIGNAL(mapDownloadFails(QString)));
+  connect(mapManager.get(), &MapManager::downloadJobsChanged, this, &MapDownloadsModel::onDownloadJobsChanged);
+  connect(mapManager.get(), &MapManager::mapDownloadFails, this, &MapDownloadsModel::mapDownloadFails);
   onDownloadJobsChanged();
 }
 
@@ -77,19 +77,15 @@ QStringList MapDownloadsModel::getLookupDirectories()
 
 double MapDownloadsModel::getFreeSpace(QString dir)
 {
-#ifdef HAS_QSTORAGE
   QStorageInfo storage=QStorageInfo(QDir(dir));
   return storage.bytesAvailable();
-#else
-  return -1;
-#endif
 }
 
 void MapDownloadsModel::onDownloadJobsChanged()
 {
   beginResetModel();
   for (auto job:mapManager->getDownloadJobs()){
-    connect(job, SIGNAL(downloadProgress()), this, SLOT(onDownloadProgress()));
+    connect(job, &MapDownloadJob::downloadProgress, this, &MapDownloadsModel::onDownloadProgress);
   }
   endResetModel();
 }
@@ -114,7 +110,7 @@ int MapDownloadsModel::rowCount(const QModelIndex &/*parent*/) const
 QVariant MapDownloadsModel::data(const QModelIndex &index, int role) const
 {
   auto jobs=mapManager->getDownloadJobs();
-  if (index.row()>=jobs.size()){
+  if (index.row() < 0 || index.row()>=jobs.size()){
     return QVariant();
   }
 
@@ -135,6 +131,18 @@ QVariant MapDownloadsModel::data(const QModelIndex &index, int role) const
       break;
   }
   return QVariant();
+}
+
+void MapDownloadsModel::cancel(int row)
+{
+  auto jobs=mapManager->getDownloadJobs();
+  if (row < 0 || row >= jobs.size()){
+    return;
+  }
+
+  auto job = jobs.at(row);
+  qDebug() << "Cancel downloading:" << job->getMapName();
+  job->cancel();
 }
 
 QHash<int, QByteArray> MapDownloadsModel::roleNames() const

@@ -42,15 +42,17 @@
 #include <osmscout/Database.h>
 #include <osmscout/routing/SimpleRoutingService.h>
 #include <osmscout/routing/RoutePostprocessor.h>
+#include <osmscout/util/Time.h>
 
 #include "Navigation.h"
 
-static std::string TimeToString(double time)
+static std::string TimeToString(osmscout::Duration time)
 {
+    double hours = osmscout::DurationAsHours(time);
     std::ostringstream stream;
-    stream << std::setfill(' ') << std::setw(2) << (int)std::floor(time) << ":";
-    time-=std::floor(time);
-    stream << std::setfill('0') << std::setw(2) << (int)floor(60*time+0.5);
+    stream << std::setfill(' ') << std::setw(2) << (int)std::floor(hours) << ":";
+    hours-=std::floor(hours);
+    stream << std::setfill('0') << std::setw(2) << (int)floor(60*hours+0.5);
     return stream.str();
 }
 
@@ -556,28 +558,29 @@ int main(int argc, char *argv[]){
             break;
     }
 
-    osmscout::RoutePosition start=router->GetClosestRoutableNode(osmscout::GeoCoord(startLat,startLon),
-                                                                 *routingProfile,
-                                                                 osmscout::Distance::Of<osmscout::Kilometer>(1));
-
-    if (!start.IsValid()) {
+    auto startResult=router->GetClosestRoutableNode(osmscout::GeoCoord(startLat,startLon),
+                                                    *routingProfile,
+                                                    osmscout::Kilometers(1));
+    if (!startResult.IsValid()) {
         std::cerr << "Error while searching for routing node near start location!" << std::endl;
         return 1;
     }
 
+    osmscout::RoutePosition start=startResult.GetRoutePosition();
     if (start.GetObjectFileRef().GetType()==osmscout::refNode) {
         std::cerr << "Cannot find start node for start location!" << std::endl;
     }
 
-    osmscout::RoutePosition target=router->GetClosestRoutableNode(osmscout::GeoCoord(targetLat,targetLon),
-                                                                  *routingProfile,
-                                                                  osmscout::Distance::Of<osmscout::Kilometer>(1));
+    auto targetResult=router->GetClosestRoutableNode(osmscout::GeoCoord(targetLat,targetLon),
+                                                     *routingProfile,
+                                                     osmscout::Kilometers(1));
 
-    if (!target.IsValid()) {
+    if (!targetResult.IsValid()) {
         std::cerr << "Error while searching for routing node near target location!" << std::endl;
         return 1;
     }
 
+    osmscout::RoutePosition target=targetResult.GetRoutePosition();
     if (target.GetObjectFileRef().GetType()==osmscout::refNode) {
         std::cerr << "Cannot find start node for target location!" << std::endl;
     }
@@ -622,7 +625,7 @@ int main(int argc, char *argv[]){
     std::vector<osmscout::RoutingProfileRef> profiles = {routingProfile};
     std::vector<osmscout::DatabaseRef> databases = {database};
     osmscout::RoutePostprocessor postprocessor;
-    if (!postprocessor.PostprocessRouteDescription(*routeDescriptionResult.description,
+    if (!postprocessor.PostprocessRouteDescription(*routeDescriptionResult.GetDescription(),
                                                    profiles,
                                                    databases,
                                                    postprocessors,
@@ -639,7 +642,7 @@ int main(int argc, char *argv[]){
 
     // Snap to route distance set to 100m
     navigation.SetSnapDistance(osmscout::Distance::Of<osmscout::Meter>(100.0));
-    navigation.SetRoute(routeDescriptionResult.description.get());
+    navigation.SetRoute(routeDescriptionResult.GetDescription().get());
 
     osmscout::GeoCoord location(latitude, longitude);
     double minDistance = 0.0;

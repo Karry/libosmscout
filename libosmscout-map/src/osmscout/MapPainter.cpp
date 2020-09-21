@@ -33,10 +33,6 @@
 //#define DEBUG_GROUNDTILES
 //#define DEBUG_NODE_DRAW
 
-#if defined(DEBUG_GROUNDTILES)
-#include <osmscout/Coord.h>
-#endif
-
 namespace osmscout {
 
   static void GetGridPoints(const std::vector<Point>& nodes,
@@ -141,45 +137,12 @@ namespace osmscout {
   }
 
   /**
-   * Deletes the content hold by this instance.
-   */
-  void MapData::ClearDBData()
-  {
-    nodes.clear();
-    areas.clear();
-    ways.clear();
-  }
-
-  /**
    * Sort labels for the same object by position
    */
   static inline bool LabelLayoutDataSorter(const LabelData& a,
                                            const LabelData& b)
   {
     return a.position<b.position;
-  }
-
-  MapPainter::ContourLabelHelper::ContourLabelHelper(const MapPainter& painter)
-  : contourLabelOffset(painter.contourLabelOffset),
-    contourLabelSpace(painter.contourLabelSpace)
-  {
-    // no code
-  }
-
-  bool MapPainter::ContourLabelHelper::Init(double pathLength,
-                                            double textWidth)
-  {
-    this->pathLength=pathLength;
-    this->textWidth=textWidth;
-
-    if (pathLength-textWidth-2*contourLabelOffset<=0.0) {
-      return false;
-    }
-
-    currentOffset=fmod(pathLength-textWidth-2*contourLabelOffset,
-                  textWidth+contourLabelSpace)/2+contourLabelOffset;
-
-    return true;
   }
 
   MapPainter::MapPainter(const StyleConfigRef& styleConfig,
@@ -194,7 +157,8 @@ namespace osmscout {
     widthReader(*styleConfig->GetTypeConfig()),
     addressReader(*styleConfig->GetTypeConfig()),
     lanesReader(*styleConfig->GetTypeConfig()),
-    accessReader(*styleConfig->GetTypeConfig())
+    accessReader(*styleConfig->GetTypeConfig()),
+    colorReader(*styleConfig->GetTypeConfig())
   {
     log.Debug() << "MapPainter::MapPainter()";
 
@@ -224,9 +188,11 @@ namespace osmscout {
     stepMethods[RenderSteps::DumpStatistics]=&MapPainter::DumpStatistics;
     stepMethods[RenderSteps::PreprocessData]=&MapPainter::PreprocessData;
     stepMethods[RenderSteps::Prerender]=&MapPainter::Prerender;
+    stepMethods[RenderSteps::DrawBaseMapTiles]=&MapPainter::DrawBaseMapTiles;
     stepMethods[RenderSteps::DrawGroundTiles]=&MapPainter::DrawGroundTiles;
     stepMethods[RenderSteps::DrawOSMTileGrids]=&MapPainter::DrawOSMTileGrids;
     stepMethods[RenderSteps::DrawAreas]=&MapPainter::DrawAreas;
+    stepMethods[RenderSteps::DrawRoutes]=&MapPainter::DrawRoutes;
     stepMethods[RenderSteps::DrawWays]=&MapPainter::DrawWays;
     stepMethods[RenderSteps::DrawWayDecorations]=&MapPainter::DrawWayDecorations;
     stepMethods[RenderSteps::DrawWayContourLabels]=&MapPainter::DrawWayContourLabels;
@@ -349,7 +315,7 @@ namespace osmscout {
         entry.coordCount+=ring.nodes.size();
 
         if (parameter.IsDebugData()) {
-          if (ring.IsMasterRing()) {
+          if (ring.IsMaster()) {
             IconStyleRef iconStyle=styleConfig->GetAreaIconStyle(area->GetType(),
                                                                  ring.GetFeatureValueBuffer(),
                                                                  projection);
@@ -377,7 +343,7 @@ namespace osmscout {
         entry.coordCount+=ring.nodes.size();
 
         if (parameter.IsDebugData()) {
-          if (ring.IsMasterRing()) {
+          if (ring.IsMaster()) {
             IconStyleRef iconStyle=styleConfig->GetAreaIconStyle(area->GetType(),
                                                                  ring.GetFeatureValueBuffer(),
                                                                  projection);
@@ -689,10 +655,7 @@ namespace osmscout {
 
         data.type=LabelData::Type::Icon;
         data.position=iconStyle->GetPosition();
-
-        // TODO: add priority to icons
-        //data.priority=iconStyle->GetPriority();
-
+        data.priority=iconStyle->GetPriority();
         data.iconStyle=iconStyle;
         data.iconWidth=iconStyle->GetWidth();
         data.iconHeight=iconStyle->GetHeight();
@@ -703,14 +666,11 @@ namespace osmscout {
 
         data.type=LabelData::Type::Symbol;
         data.position=iconStyle->GetPosition();
-
         data.iconStyle=iconStyle;
+        data.priority=iconStyle->GetPriority();
 
-        // TODO: add priority to symbols
-        //data.priority=iconStyle->GetPriority();
-
-        data.iconWidth=projection.ConvertWidthToPixel(iconStyle->GetSymbol()->GetWidth());
-        data.iconHeight=projection.ConvertWidthToPixel(iconStyle->GetSymbol()->GetHeight());
+        data.iconWidth=iconStyle->GetSymbol()->GetWidth(projection);
+        data.iconHeight=iconStyle->GetSymbol()->GetHeight(projection);
 
         labelLayoutData.push_back(data);
       }
@@ -946,8 +906,6 @@ namespace osmscout {
                                        transEnd);
     }
 
-    ContourLabelHelper helper(*this);
-
     // TODO: use coordBuffer for label path
     LabelPath labelPath;
 
@@ -1040,6 +998,44 @@ namespace osmscout {
                       x,y);
   }
 
+  void MapPainter::DrawRoute(const StyleConfig& /*styleConfig*/,
+                             const Projection& projection,
+                             const MapParameter& parameter,
+                             const RouteData& data)
+  {
+    assert(data.lineStyle);
+
+    auto DrawSegments=[&](const Color &color,
+                          const std::vector<double> &dash){
+
+      size_t size=data.transSegments.size();
+      size_t i=0;
+      for (const auto &segment:data.transSegments) {
+        assert(segment.transStart < segment.transEnd);
+        DrawPath(projection,
+                 parameter,
+                 color,
+                 data.lineWidth,
+                 dash,
+                 (i==0 ? data.lineStyle->GetEndCap() : data.lineStyle->GetJoinCap()),
+                 (i==size-1 ? data.lineStyle->GetEndCap(): data.lineStyle->GetJoinCap()),
+                 segment.transStart, segment.transEnd);
+        i++;
+      }
+    };
+
+    if (data.lineStyle->HasDashes() &&
+        data.lineStyle->GetGapColor().IsVisible()) {
+
+      // Draw the background of a dashed line
+      DrawSegments(data.lineStyle->GetGapColor(),
+                   emptyDash);
+    }
+
+    DrawSegments(data.color,
+                 data.lineStyle->GetDash());
+  }
+
   void MapPainter::DrawWay(const StyleConfig& /*styleConfig*/,
                            const Projection& projection,
                            const MapParameter& parameter,
@@ -1075,41 +1071,90 @@ namespace osmscout {
                                      const MapParameter& parameter,
                                      const MapPainter::WayPathData& data)
   {
-    PathSymbolStyleRef pathSymbolStyle=styleConfig.GetWayPathSymbolStyle(*data.buffer,
-                                                                         projection);
+    std::vector<PathSymbolStyleRef> symbolStyles;
+    styleConfig.GetWayPathSymbolStyle(*data.buffer,
+                                      projection,
+                                      symbolStyles);
 
-    if (!pathSymbolStyle) {
+    if (symbolStyles.empty()) {
       return false;
     }
 
-    double lineOffset=0.0;
-    size_t transStart=data.transStart;
-    size_t transEnd=data.transEnd;
-    double symbolSpace=projection.ConvertWidthToPixel(pathSymbolStyle->GetSymbolSpace());
+    LanesFeatureValue  *lanesValue=nullptr;
+    std::vector<OffsetRel> laneTurns; // cached turns
 
-    if (pathSymbolStyle->GetOffset()!=0.0) {
-      lineOffset+=GetProjectedWidth(projection,
-                                    pathSymbolStyle->GetOffset());
+    for (const auto &pathSymbolStyle : symbolStyles) {
+      double lineOffset = 0.0;
+      size_t transStart = data.transStart;
+      size_t transEnd = data.transEnd;
+      double symbolSpace = projection.ConvertWidthToPixel(pathSymbolStyle->GetSymbolSpace());
+
+      if (pathSymbolStyle->GetOffsetRel() == OffsetRel::laneForwardLeft ||
+          pathSymbolStyle->GetOffsetRel() == OffsetRel::laneForwardThroughLeft ||
+          pathSymbolStyle->GetOffsetRel() == OffsetRel::laneForwardThrough ||
+          pathSymbolStyle->GetOffsetRel() == OffsetRel::laneForwardThroughRight ||
+          pathSymbolStyle->GetOffsetRel() == OffsetRel::laneForwardRight ||
+          pathSymbolStyle->GetOffsetRel() == OffsetRel::laneBackwardLeft ||
+          pathSymbolStyle->GetOffsetRel() == OffsetRel::laneBackwardThroughLeft ||
+          pathSymbolStyle->GetOffsetRel() == OffsetRel::laneBackwardThrough ||
+          pathSymbolStyle->GetOffsetRel() == OffsetRel::laneBackwardThroughRight ||
+          pathSymbolStyle->GetOffsetRel() == OffsetRel::laneBackwardRight ) {
+
+        if (lanesValue==nullptr) {
+          lanesValue=lanesReader.GetValue(*data.buffer);
+        }
+
+        if (lanesValue==nullptr || lanesValue->GetLanes()<1){
+          continue;
+        }
+
+        if (laneTurns.empty()) {
+          laneTurns=ParseLaneTurns(*lanesValue);
+          assert(laneTurns.size() <= lanesValue->GetLanes());
+        }
+
+        int lanes=lanesValue->GetLanes();
+        double lanesSpace=data.mainSlotWidth/lanes;
+        double laneOffset=-data.mainSlotWidth/2.0+lanesSpace/2.0;
+
+        for (const OffsetRel &laneTurn: laneTurns) {
+          if (pathSymbolStyle->GetOffsetRel() == laneTurn) {
+            coordBuffer->GenerateParallelWay(data.transStart,data.transEnd,
+                                             laneOffset,
+                                             transStart,transEnd);
+
+            DrawContourSymbol(projection,
+                              parameter,
+                              *pathSymbolStyle->GetSymbol(),
+                              symbolSpace,
+                              transStart, transEnd);
+          }
+          laneOffset+=lanesSpace;
+        }
+      } else {
+
+        if (pathSymbolStyle->GetOffset() != 0.0) {
+          lineOffset += GetProjectedWidth(projection,
+                                          pathSymbolStyle->GetOffset());
+        }
+
+        if (pathSymbolStyle->GetDisplayOffset() != 0.0) {
+          lineOffset += projection.ConvertWidthToPixel(pathSymbolStyle->GetDisplayOffset());
+        }
+
+        if (lineOffset != 0.0) {
+          coordBuffer->GenerateParallelWay(data.transStart,data.transEnd,
+                                           lineOffset,
+                                           transStart,transEnd);
+        }
+
+        DrawContourSymbol(projection,
+                          parameter,
+                          *pathSymbolStyle->GetSymbol(),
+                          symbolSpace,
+                          transStart, transEnd);
+      }
     }
-
-    if (pathSymbolStyle->GetDisplayOffset()!=0.0) {
-      lineOffset+=projection.ConvertWidthToPixel(pathSymbolStyle->GetDisplayOffset());
-    }
-
-    if (lineOffset!=0.0) {
-      coordBuffer->GenerateParallelWay(transStart,
-                                       transEnd,
-                                       lineOffset,
-                                       transStart,
-                                       transEnd);
-    }
-
-    DrawContourSymbol(projection,
-                      parameter,
-                      *pathSymbolStyle->GetSymbol(),
-                      symbolSpace,
-                      transStart,transEnd);
-
     return true;
   }
 
@@ -1184,6 +1229,7 @@ namespace osmscout {
     labelData.priority=pathTextStyle->GetPriority();
     labelData.style=pathTextStyle;
     labelData.text=textLabel;
+    labelData.height=pathTextStyle->GetSize();
     labelData.contourLabelOffset=contourLabelOffset;
     labelData.contourLabelSpace=contourLabelSpace;
 
@@ -1309,7 +1355,7 @@ namespace osmscout {
       const Area::Ring &ring = area->rings[i];
       // The master ring does not have any nodes, so we skip it
       // Rings with less than 3 nodes should be skipped, too (no area)
-      if (ring.IsMasterRing() || ring.nodes.size()<3) {
+      if (ring.IsMaster() || ring.nodes.size() < 3) {
         continue;
       }
 
@@ -1338,145 +1384,119 @@ namespace osmscout {
       }
     }
 
-    size_t ringId=Area::outerRingId;
-    bool foundRing=true;
+    area->VisitRings([&](size_t i, const Area::Ring &ring, const TypeInfoRef &type) -> bool {
 
-    while (foundRing) {
-      foundRing=false;
+      if (type->GetIgnore()) {
+        // clipping inner ring, we will not render it, but still go deeper,
+        // there may be nested outer rings
+        return true;
+      }
 
-      for (size_t i=0; i<area->rings.size(); i++) {
-        const Area::Ring& ring=area->rings[i];
+      FillStyleRef                fillStyle;
+      std::vector<BorderStyleRef> borderStyles;
+      BorderStyleRef              borderStyle;
 
-        if (ring.GetRing()!=ringId) {
-          continue;
-        }
+      fillStyle=styleConfig.GetAreaFillStyle(type,
+                                             ring.GetFeatureValueBuffer(),
+                                             projection);
 
-        if (!ring.IsOuterRing() &&
-            ring.GetType()->GetIgnore()) {
-          continue;
-        }
+      FillStyleProcessorRef fillProcessor=parameter.GetFillStyleProcessor(ring.GetType()->GetIndex());
 
-        TypeInfoRef                 type;
-        FillStyleRef                fillStyle;
-        std::vector<BorderStyleRef> borderStyles;
-        BorderStyleRef              borderStyle;
+      if (fillProcessor) {
+        fillStyle=fillProcessor->Process(ring.GetFeatureValueBuffer(),
+                                         fillStyle);
+      }
 
-        if (ring.IsOuterRing()) {
-          type=area->GetType();
-        }
-        else {
-          type=ring.GetType();
-        }
+      styleConfig.GetAreaBorderStyles(type,
+                                      ring.GetFeatureValueBuffer(),
+                                      projection,
+                                      borderStyles);
 
-        fillStyle=styleConfig.GetAreaFillStyle(type,
-                                               ring.GetFeatureValueBuffer(),
-                                               projection);
+      if (!fillStyle && borderStyles.empty()) {
+        return false;
+      }
 
-        FillStyleProcessorRef fillProcessor=parameter.GetFillStyleProcessor(ring.GetType()->GetIndex());
+      size_t borderStyleIndex=0;
 
-        if (fillProcessor) {
-          fillStyle=fillProcessor->Process(ring.GetFeatureValueBuffer(),
-                                           fillStyle);
-        }
+      if (!borderStyles.empty() &&
+          borderStyles.front()->GetDisplayOffset()==0.0 &&
+          borderStyles.front()->GetOffset()==0.0) {
+        borderStyle=borderStyles[borderStyleIndex];
+        borderStyleIndex++;
+      }
 
-        styleConfig.GetAreaBorderStyles(type,
-                                        ring.GetFeatureValueBuffer(),
-                                        projection,
-                                        borderStyles);
+      AreaData a;
+      double   borderWidth=borderStyle ? borderStyle->GetWidth() : 0.0;
 
-        if (!fillStyle && borderStyles.empty()) {
-          continue;
-        }
+      a.boundingBox=ring.GetBoundingBox();
+      a.isOuter = ring.IsOuter();
 
-        size_t borderStyleIndex=0;
+      if (!IsVisibleArea(projection,
+                         a.boundingBox,
+                         borderWidth/2.0)) {
+        return false;
+      }
 
-        if (!borderStyles.empty() &&
-            borderStyles.front()->GetDisplayOffset()==0.0 &&
-            borderStyles.front()->GetOffset()==0.0) {
-          borderStyle=borderStyles[borderStyleIndex];
-          borderStyleIndex++;
-        }
-
-        foundRing=true;
-
-        AreaData a;
-        double   borderWidth=borderStyle ? borderStyle->GetWidth() : 0.0;
-
-        a.boundingBox=ring.GetBoundingBox();
-        a.isOuter = ring.IsOuterRing();
-
-        if (!IsVisibleArea(projection,
-                           a.boundingBox,
-                           borderWidth/2.0)) {
-          continue;
-        }
-
-        // Collect possible clippings. We only take into account inner rings of the next level
-        // that do not have a type and thus act as a clipping region. If a inner ring has a type,
-        // we currently assume that it does not have alpha and paints over its region and clipping is
-        // not required.
-        // Since we know that rings are created deep first, we only take into account direct followers
-        // in the list with ring+1.
-        size_t j=i+1;
-        while (j<area->rings.size() &&
-               area->rings[j].GetRing()==ringId+1 &&
-               area->rings[j].GetType()->GetIgnore()) {
+      // Collect possible clippings. We only take into account inner rings of the next level
+      // that do not have a type and thus act as a clipping region. If a inner ring has a type,
+      // we currently assume that it does not have alpha and paints over its region and clipping is
+      // not required.
+      area->VisitClippingRings(i, [&a, &td](size_t j, const Area::Ring &, const TypeInfoRef &type) -> bool {
+        if (type->GetIgnore()) {
           a.clippings.push_back(td[j]);
+        }
+        return true;
+      });
 
-          j++;
+      a.ref=area->GetObjectFileRef();
+      a.type=type;
+      a.buffer=&ring.GetFeatureValueBuffer();
+      a.fillStyle=fillStyle;
+      a.borderStyle=borderStyle;
+      a.transStart=td[i].transStart;
+      a.transEnd=td[i].transEnd;
+
+      areaData.push_back(a);
+
+      for (size_t idx=borderStyleIndex;
+           idx<borderStyles.size();
+           idx++) {
+        borderStyle=borderStyles[idx];
+
+        double offset=0.0;
+
+        size_t transStart=td[i].transStart;
+        size_t transEnd=td[i].transEnd;
+
+        if (borderStyle->GetOffset()!=0.0) {
+          offset+=GetProjectedWidth(projection,
+                                    borderStyle->GetOffset());
+        }
+
+        if (borderStyle->GetDisplayOffset()!=0.0) {
+          offset+=projection.ConvertWidthToPixel(borderStyle->GetDisplayOffset());
+        }
+
+        if (offset!=0.0) {
+          coordBuffer->GenerateParallelWay(transStart,
+                                           transEnd,
+                                           offset,
+                                           transStart,
+                                           transEnd);
         }
 
         a.ref=area->GetObjectFileRef();
         a.type=type;
-        a.buffer=&ring.GetFeatureValueBuffer();
-        a.fillStyle=fillStyle;
+        a.buffer=nullptr;
+        a.fillStyle=nullptr;
         a.borderStyle=borderStyle;
-        a.transStart=td[i].transStart;
-        a.transEnd=td[i].transEnd;
+        a.transStart=transStart;
+        a.transEnd=transEnd;
 
         areaData.push_back(a);
-
-        for (size_t idx=borderStyleIndex;
-             idx<borderStyles.size();
-             idx++) {
-          borderStyle=borderStyles[idx];
-
-          double offset=0.0;
-
-          size_t transStart=td[i].transStart;
-          size_t transEnd=td[i].transEnd;
-
-          if (borderStyle->GetOffset()!=0.0) {
-            offset+=GetProjectedWidth(projection,
-                                      borderStyle->GetOffset());
-          }
-
-          if (borderStyle->GetDisplayOffset()!=0.0) {
-            offset+=projection.ConvertWidthToPixel(borderStyle->GetDisplayOffset());
-          }
-
-          if (offset!=0.0) {
-            coordBuffer->GenerateParallelWay(transStart,
-                                             transEnd,
-                                             offset,
-                                             transStart,
-                                             transEnd);
-          }
-
-          a.ref=area->GetObjectFileRef();
-          a.type=type;
-          a.buffer=nullptr;
-          a.fillStyle=nullptr;
-          a.borderStyle=borderStyle;
-          a.transStart=transStart;
-          a.transEnd=transEnd;
-
-          areaData.push_back(a);
-        }
       }
-
-      ringId++;
-    }
+      return true;
+    });
   }
 
   void MapPainter::PrepareAreas(const StyleConfig& styleConfig,
@@ -1505,27 +1525,128 @@ namespace osmscout {
     }
   }
 
+  std::vector<OffsetRel> MapPainter::ParseLaneTurns(const LanesFeatureValue &lanesValue)
+  {
+    std::vector<OffsetRel> laneTurns;
+    laneTurns.reserve(lanesValue.GetLanes());
+
+    // backward
+    auto turns=SplitString(lanesValue.GetTurnBackward(), "|");
+    int lanes=lanesValue.GetBackwardLanes();
+    int lane=0;
+    for (const std::string &turn: turns) {
+      if (lane>=lanes){
+        break;
+      }
+      if (turn == "left" || turn == "merge_to_left" || turn == "slight_left" || turn == "sharp_left") {
+        laneTurns.push_back(OffsetRel::laneBackwardLeft);
+      } else if (turn == "through;left" || turn == "through;slight_left" || turn == "through;sharp_left") {
+        laneTurns.push_back(OffsetRel::laneBackwardThroughLeft);
+      } else if (turn == "through") {
+        laneTurns.push_back(OffsetRel::laneBackwardThrough);
+      } else if (turn == "through;right" || turn == "through;slight_right" || turn == "through;sharp_right") {
+        laneTurns.push_back(OffsetRel::laneBackwardThroughRight);
+      } else if (turn == "right" || turn == "merge_to_right" || turn == "slight_right" || turn == "sharp_right") {
+        laneTurns.push_back(OffsetRel::laneBackwardRight);
+      } else {
+        laneTurns.push_back(OffsetRel::base);
+      }
+      lane++;
+    }
+    for (;lane<lanes;lane++){
+      laneTurns.push_back(OffsetRel::base);
+    }
+
+    // forward
+    turns=SplitString(lanesValue.GetTurnForward(), "|");
+    lanes=lanesValue.GetForwardLanes();
+    lane=0;
+    for (const std::string &turn: turns) {
+      if (lane>=lanes){
+        break;
+      }
+      if (turn == "left" || turn == "merge_to_left" || turn == "slight_left" || turn == "sharp_left") {
+        laneTurns.push_back(OffsetRel::laneForwardLeft);
+      } else if (turn == "through;left" || turn == "through;slight_left" || turn == "through;sharp_left") {
+        laneTurns.push_back(OffsetRel::laneForwardThroughLeft);
+      } else if (turn == "through") {
+        laneTurns.push_back(OffsetRel::laneForwardThrough);
+      } else if (turn == "through;right" || turn == "through;slight_right" || turn == "through;sharp_right") {
+        laneTurns.push_back(OffsetRel::laneForwardThroughRight);
+      } else if (turn == "right" || turn == "merge_to_right" || turn == "slight_right" || turn == "sharp_right") {
+        laneTurns.push_back(OffsetRel::laneForwardRight);
+      } else {
+        laneTurns.push_back(OffsetRel::base);
+      }
+      lane++;
+    }
+    for (;lane<lanes;lane++){
+      laneTurns.push_back(OffsetRel::base);
+    }
+
+    return laneTurns;
+  }
+
+  void MapPainter::TransformPathData(const Projection& projection,
+                                     const MapParameter& parameter,
+                                     const Way& way,
+                                     WayPathData &pathData)
+  {
+    if (way.segments.size() <= 1) {
+      transBuffer.TransformWay(projection,
+                               parameter.GetOptimizeWayNodes(),
+                               way.nodes,
+                               pathData.transStart,
+                               pathData.transEnd,
+                               errorTolerancePixel);
+    }
+    else {
+      std::vector<Point> nodes;
+      for (const auto &segment : way.segments){
+        if (projection.GetDimensions().Intersects(segment.bbox, false)){
+          // TODO: add TransBuffer::Transform* methods with vector subrange (begin/end)
+          nodes.insert(nodes.end(), way.nodes.data() + segment.from, way.nodes.data() + segment.to);
+        } else {
+          nodes.push_back(way.nodes[segment.from]);
+          nodes.push_back(way.nodes[segment.to-1]);
+        }
+      }
+      transBuffer.TransformWay(projection,
+                               parameter.GetOptimizeWayNodes(),
+                               nodes,
+                               pathData.transStart,
+                               pathData.transEnd,
+                               errorTolerancePixel);
+    }
+  }
+
   void MapPainter::CalculatePaths(const StyleConfig& styleConfig,
                                   const Projection& projection,
                                   const MapParameter& parameter,
-                                  const ObjectFileRef& ref,
-                                  const FeatureValueBuffer& buffer,
                                   const Way& way)
   {
+    FileOffset ref = way.GetFileOffset();
+    const FeatureValueBuffer &buffer = way.GetFeatureValueBuffer();
+
     styleConfig.GetWayLineStyles(buffer,
-                                 projection,
-                                 lineStyles);
+                             projection,
+                             lineStyles);
 
     if (lineStyles.empty()) {
       return;
     }
 
-    bool               transformed=false;
-    size_t             transStart=0; // Make the compiler happy
-    size_t             transEnd=0;   // Make the compiler happy
-    double             mainSlotWidth=0.0;
+    WayPathData pathData;
+
+    pathData.ref=ref;
+    pathData.buffer=&buffer;
+    pathData.transStart=0; // Make the compiler happy
+    pathData.transEnd=0;   // Make the compiler happy
+    pathData.mainSlotWidth=0.0;
+    bool transformed=false;
     AccessFeatureValue *accessValue=nullptr;
     LanesFeatureValue  *lanesValue=nullptr;
+    std::vector<OffsetRel> laneTurns; // cached turns
 
     for (const auto& lineStyle : lineStyles) {
       double       lineWidth=0.0;
@@ -1550,7 +1671,7 @@ namespace osmscout {
       }
 
       if (lineStyle->GetSlot().empty()) {
-        mainSlotWidth=lineWidth;
+        pathData.mainSlotWidth=lineWidth;
       }
 
       if (lineWidth==0.0) {
@@ -1558,23 +1679,40 @@ namespace osmscout {
       }
 
       switch (lineStyle->GetOffsetRel()) {
-      case LineStyle::base:
+      case OffsetRel::base:
         lineOffset=0.0;
         break;
-      case LineStyle::leftOutline:
-        lineOffset=-mainSlotWidth/2.0;
+      case OffsetRel::leftOutline:
+        lineOffset=-pathData.mainSlotWidth/2.0;
         break;
-      case LineStyle::rightOutline:
-        lineOffset=mainSlotWidth/2.0;
+      case OffsetRel::rightOutline:
+        lineOffset=pathData.mainSlotWidth/2.0;
         break;
-      case LineStyle::laneDivider:
+      case OffsetRel::laneDivider:
+        lineOffset=0.0;
         lanesValue=lanesReader.GetValue(buffer);
         accessValue=accessReader.GetValue(buffer);
 
         if (lanesValue==nullptr &&
             accessValue==nullptr) {
-          return;
+          continue;
         }
+        break;
+      case OffsetRel::laneForwardLeft:
+      case OffsetRel::laneForwardThroughLeft:
+      case OffsetRel::laneForwardThrough:
+      case OffsetRel::laneForwardThroughRight:
+      case OffsetRel::laneForwardRight:
+      case OffsetRel::laneBackwardLeft:
+      case OffsetRel::laneBackwardThroughLeft:
+      case OffsetRel::laneBackwardThrough:
+      case OffsetRel::laneBackwardThroughRight:
+      case OffsetRel::laneBackwardRight:
+        lineOffset=0.0;
+        lanesValue=lanesReader.GetValue(buffer);
+        break;
+      case OffsetRel::sidecar:
+        lineOffset=-1.1 * pathData.mainSlotWidth/2.0; // special handling not supported for ordinary ways
         break;
       }
 
@@ -1599,42 +1737,9 @@ namespace osmscout {
       }
 
       if (!transformed) {
-        if (way.segments.size() <= 1) {
-          transBuffer.TransformWay(projection,
-                                   parameter.GetOptimizeWayNodes(),
-                                   way.nodes,
-                                   transStart,
-                                   transEnd,
-                                   errorTolerancePixel);
-        } else {
-          std::vector<Point> nodes;
-          for (const auto &segment : way.segments){
-            if (projection.GetDimensions().Intersects(segment.bbox, false)){
-              // TODO: add TransBuffer::Transform* methods with vector subrange (begin/end)
-              nodes.insert(nodes.end(), way.nodes.data() + segment.from, way.nodes.data() + segment.to);
-            } else {
-              nodes.push_back(way.nodes[segment.from]);
-              nodes.push_back(way.nodes[segment.to-1]);
-            }
-          }
-          transBuffer.TransformWay(projection,
-                                   parameter.GetOptimizeWayNodes(),
-                                   nodes,
-                                   transStart,
-                                   transEnd,
-                                   errorTolerancePixel);
-        }
-
-        WayPathData pathData;
-
-        pathData.ref=ref;
-        pathData.buffer=&buffer;
-        pathData.transStart=transStart;
-        pathData.transEnd=transEnd;
-
-        wayPathData.push_back(pathData);
-
+        TransformPathData(projection, parameter, way, pathData);
         transformed=true;
+        wayPathData.push_back(pathData);
       }
 
       data.layer=0;
@@ -1651,17 +1756,17 @@ namespace osmscout {
       }
 
       if (lineOffset!=0.0) {
-        coordBuffer->GenerateParallelWay(transStart,transEnd,
+        coordBuffer->GenerateParallelWay(pathData.transStart,pathData.transEnd,
                                          lineOffset,
                                          data.transStart,
                                          data.transEnd);
       }
       else {
-        data.transStart=transStart;
-        data.transEnd=transEnd;
+        data.transStart=pathData.transStart;
+        data.transEnd=pathData.transEnd;
       }
 
-      if (lineStyle->GetOffsetRel()==LineStyle::laneDivider) {
+      if (lineStyle->GetOffsetRel()==OffsetRel::laneDivider) {
         uint8_t lanes=0;
 
         if (lanesValue!=nullptr) {
@@ -1675,18 +1780,53 @@ namespace osmscout {
         }
 
         if (lanes<2) {
-          return;
+          continue;
         }
 
-        double  lanesSpace=mainSlotWidth/lanes;
-        double  laneOffset=-mainSlotWidth/2.0+lanesSpace;
+        double  lanesSpace=pathData.mainSlotWidth/lanes;
+        double  laneOffset=-pathData.mainSlotWidth/2.0+lanesSpace;
 
         for (size_t lane=1; lane<lanes; lane++) {
-          coordBuffer->GenerateParallelWay(transStart,transEnd,
+          coordBuffer->GenerateParallelWay(pathData.transStart,pathData.transEnd,
                                            laneOffset,
                                            data.transStart,
                                            data.transEnd);
           wayData.push_back(data);
+          laneOffset+=lanesSpace;
+        }
+      }
+      else if (lineStyle->GetOffsetRel() == OffsetRel::laneForwardLeft ||
+               lineStyle->GetOffsetRel() == OffsetRel::laneForwardThroughLeft ||
+               lineStyle->GetOffsetRel() == OffsetRel::laneForwardThrough ||
+               lineStyle->GetOffsetRel() == OffsetRel::laneForwardThroughRight ||
+               lineStyle->GetOffsetRel() == OffsetRel::laneForwardRight ||
+               lineStyle->GetOffsetRel() == OffsetRel::laneBackwardLeft ||
+               lineStyle->GetOffsetRel() == OffsetRel::laneBackwardThroughLeft ||
+               lineStyle->GetOffsetRel() == OffsetRel::laneBackwardThrough ||
+               lineStyle->GetOffsetRel() == OffsetRel::laneBackwardThroughRight ||
+               lineStyle->GetOffsetRel() == OffsetRel::laneBackwardRight ) {
+
+        if (lanesValue==nullptr || lanesValue->GetLanes()<1){
+          continue;
+        }
+
+        if (laneTurns.empty()) {
+          laneTurns=ParseLaneTurns(*lanesValue);
+          assert(laneTurns.size() <= lanesValue->GetLanes());
+        }
+
+        int lanes=lanesValue->GetLanes();
+        double lanesSpace=pathData.mainSlotWidth/lanes;
+        double laneOffset=-pathData.mainSlotWidth/2.0+lanesSpace/2.0;
+
+        for (const OffsetRel &laneTurn: laneTurns) {
+          if (lineStyle->GetOffsetRel() == laneTurn) {
+            coordBuffer->GenerateParallelWay(pathData.transStart, pathData.transEnd,
+                                             laneOffset,
+                                             data.transStart,
+                                             data.transEnd);
+            wayData.push_back(data);
+          }
           laneOffset+=lanesSpace;
         }
       }
@@ -1701,18 +1841,10 @@ namespace osmscout {
                                const MapParameter& parameter,
                                const MapData& data)
   {
-    StopClock timer;
-
-    wayData.clear();
-    wayPathData.clear();
-
     for (const auto& way : data.ways) {
       CalculatePaths(styleConfig,
                      projection,
                      parameter,
-                     ObjectFileRef(way->GetFileOffset(),
-                                   refWay),
-                     way->GetFeatureValueBuffer(),
                      *way);
 
       CalculateWayShieldLabels(styleConfig,
@@ -1725,9 +1857,6 @@ namespace osmscout {
       CalculatePaths(styleConfig,
                      projection,
                      parameter,
-                     ObjectFileRef(way->GetFileOffset(),
-                                   refWay),
-                     way->GetFeatureValueBuffer(),
                      *way);
 
       CalculateWayShieldLabels(styleConfig,
@@ -1735,8 +1864,192 @@ namespace osmscout {
                                parameter,
                                *way);
     }
+  }
 
-    wayData.sort();
+  void MapPainter::PrepareRoutes(const StyleConfig& styleConfig,
+                                 const Projection& projection,
+                                 const MapParameter& parameter,
+                                 const MapData& data)
+  {
+    if (data.routes.empty()){
+      return;
+    }
+
+    using WayPathDataIt=std::list<WayPathData>::iterator;
+
+    struct WayRoutes {
+      WayPathDataIt wayData;
+      std::set<Color> colors; // collapse "sidecar" routes with same color
+      double rightSideCarPos=0;
+      double leftSideCarPos=0;
+    };
+
+    std::map<FileOffset,WayRoutes> wayDataMap;
+    for (WayPathDataIt it=wayPathData.begin(); it != wayPathData.end(); ++it){
+      auto &wayRoute=wayDataMap[it->ref];
+      wayRoute.wayData=it;
+      wayRoute.rightSideCarPos=(it->mainSlotWidth/2)+projection.ConvertWidthToPixel(1.0);
+      wayRoute.leftSideCarPos=wayRoute.rightSideCarPos*-1;
+    }
+
+    for (const auto &route:data.routes){
+      if (!projection.GetDimensions().Intersects(route->bbox)) {
+        // outside projection, end segment and continue
+        continue;
+      }
+
+      styleConfig.GetRouteLineStyles(route->GetFeatureValueBuffer(),
+                                     projection,
+                                     lineStyles);
+
+      if (lineStyles.empty()){
+        continue;
+      }
+      LineStyleRef lineStyle=lineStyles.front(); // slots for routes are not supported yet
+      assert(lineStyle);
+
+      Color color=lineStyle->GetLineColor();
+      if (lineStyle->GetPreferColorFeature()){
+        ColorFeatureValue *colorValue=colorReader.GetValue(route->GetFeatureValueBuffer());
+        if (colorValue != nullptr){
+          color=colorValue->GetColor();
+        }
+      }
+
+      double lineWidth=0;
+      if (lineStyle->GetWidth()>0.0) {
+        lineWidth+=GetProjectedWidth(projection,lineStyle->GetWidth());
+      }
+      if (lineStyle->GetDisplayWidth()>0.0) {
+        lineWidth+=projection.ConvertWidthToPixel(lineStyle->GetDisplayWidth());
+      }
+
+      RouteData routeTmp;
+      auto FlushRouteData = [&](){
+        if (!routeTmp.transSegments.empty()) {
+          routeTmp.lineStyle=lineStyle;
+          routeTmp.lineWidth=lineWidth;
+          routeTmp.color=color;
+          routeData.push_back(std::move(routeTmp));
+          routeTmp = RouteData();
+        }
+      };
+
+      for (const auto &segment:route->segments){
+        for (const auto &member:segment.members){
+          auto memberWay=wayDataMap.find(member.way);
+          if (memberWay==wayDataMap.end()){
+            // when route member is not rendered, it is not present in wayPathData
+            // but when we have it in resolved members, we may still process it
+            // and render route on it
+            Route::MemberCache resolvedMembers=route->GetResolvedMembers();
+            if (auto it=resolvedMembers.find(member.way);
+                it!=resolvedMembers.end()){
+
+              assert(member.way==it->second->GetFileOffset());
+
+              if (!projection.GetDimensions().Intersects(it->second->GetBoundingBox())){
+                // outside projection, end segment and continue
+                FlushRouteData();
+                continue;
+              }
+              WayPathData pathData;
+              pathData.ref=member.way;
+              pathData.buffer=&(it->second->GetFeatureValueBuffer());
+              pathData.transStart=0; // Make the compiler happy
+              pathData.transEnd=0;   // Make the compiler happy
+              TransformPathData(projection, parameter, *(it->second), pathData);
+              pathData.mainSlotWidth=0.0;
+
+              wayPathData.push_back(pathData);
+              auto &wayRoute=wayDataMap[member.way];
+              wayRoute.wayData=std::prev(wayPathData.end());
+              wayRoute.rightSideCarPos=0;
+              wayRoute.leftSideCarPos=0;
+              memberWay=wayDataMap.find(member.way);
+            } else {
+              // we don't have way in data, end segment and continue
+              FlushRouteData();
+              continue;
+            }
+          }
+          
+          assert(memberWay!=wayDataMap.end());
+
+          // collapse colors
+          auto &pathData=memberWay->second.wayData;
+          if (memberWay->second.colors.find(color)!=memberWay->second.colors.end()){
+            FlushRouteData();
+            continue;
+          }
+          memberWay->second.colors.insert(color);
+
+          double lineOffset=0;
+          if (lineStyle->GetOffsetRel() == OffsetRel::sidecar) {
+            if (member.direction==Route::MemberDirection::forward){
+              lineOffset=memberWay->second.rightSideCarPos + (lineWidth/2);
+              memberWay->second.rightSideCarPos += lineWidth;
+            }else{
+              lineOffset=memberWay->second.leftSideCarPos - (lineWidth/2);
+              memberWay->second.leftSideCarPos -= lineWidth;
+            }
+          }
+          if (lineStyle->GetOffset() != 0.0) {
+            lineOffset += lineStyle->GetOffset() / projection.GetPixelSize();
+          }
+
+          if (lineStyle->GetDisplayOffset() != 0.0) {
+            lineOffset += projection.ConvertWidthToPixel(lineStyle->GetDisplayOffset());
+          }
+
+          size_t transStart;
+          size_t transEnd;
+          if (lineOffset==0){
+            transStart=pathData->transStart;
+            transEnd=pathData->transEnd;
+          }else{
+            coordBuffer->GenerateParallelWay(pathData->transStart,pathData->transEnd,
+                                             lineOffset,
+                                             transStart,
+                                             transEnd);
+          }
+          if (routeTmp.transSegments.empty()){
+            RouteSegmentData routeSegmentData{transStart, transEnd, member.direction};
+            routeTmp.transSegments.push_back(routeSegmentData);
+          }else {
+            auto &lastSegment=routeTmp.transSegments.back();
+            if (lastSegment.transEnd+1==transStart &&
+                member.direction==Route::MemberDirection::forward &&
+                lastSegment.direction==Route::MemberDirection::forward){
+              // prolong current segment
+              lastSegment.transEnd=transEnd;
+            }else {
+              // insert connecting segment between end of lastSegment and transStart
+              Vertex2D lastEnd;
+              if (lastSegment.direction==Route::MemberDirection::forward){
+                lastEnd=transBuffer.buffer->buffer[lastSegment.transEnd];
+              }else{
+                lastEnd=transBuffer.buffer->buffer[lastSegment.transStart];
+              }
+              Vertex2D currentStart;
+              if (member.direction==Route::MemberDirection::forward){
+                currentStart=transBuffer.buffer->buffer[transStart];
+              }else{
+                currentStart=transBuffer.buffer->buffer[transEnd];
+              }
+              RouteSegmentData segmentConnection{transBuffer.buffer->PushCoord(lastEnd.GetX(),lastEnd.GetY()),
+                                                 transBuffer.buffer->PushCoord(currentStart.GetX(),currentStart.GetY()),
+                                                 Route::MemberDirection::forward};
+              routeTmp.transSegments.push_back(segmentConnection);
+
+              RouteSegmentData routeSegmentData{transStart, transEnd, member.direction};
+              routeTmp.transSegments.push_back(routeSegmentData);
+            }
+          }
+        }
+        FlushRouteData();
+      }
+    }
   }
 
   bool MapPainter::Draw(const Projection& projection,
@@ -1787,8 +2100,8 @@ namespace osmscout {
   {
     errorTolerancePixel=projection.ConvertWidthToPixel(parameter.GetOptimizeErrorToleranceMm());
     areaMinDimension   =projection.ConvertWidthToPixel(parameter.GetAreaMinDimensionMM());
-    contourLabelOffset =projection.ConvertWidthToPixel(parameter.GetContourLabelOffset());
-    contourLabelSpace  =projection.ConvertWidthToPixel(parameter.GetContourLabelSpace());
+    contourLabelOffset =GetProjectedWidth(projection,parameter.GetContourLabelOffset());
+    contourLabelSpace  =GetProjectedWidth(projection,parameter.GetContourLabelSpace());
 
     shieldGridSizeHoriz=360.0/(std::pow(2,projection.GetMagnification().GetLevel()+1));
     shieldGridSizeVert=180.0/(std::pow(2,projection.GetMagnification().GetLevel()+1));
@@ -1824,12 +2137,31 @@ namespace osmscout {
   {
     StopClock prepareWaysTimer;
 
+    wayData.clear();
+    wayPathData.clear();
+
     PrepareWays(*styleConfig,
                 projection,
                 parameter,
                 data);
 
     prepareWaysTimer.Stop();
+
+    if (parameter.IsAborted()) {
+      return;
+    }
+
+    StopClock prepareRoutesTimer;
+    routeData.clear();
+
+    PrepareRoutes(*styleConfig,
+                  projection,
+                  parameter,
+                  data);
+
+    wayData.sort();
+
+    prepareRoutesTimer.Stop();
 
     if (parameter.IsAborted()) {
       return;
@@ -1852,9 +2184,14 @@ namespace osmscout {
 
     if (parameter.IsDebugPerformance() &&
         (prepareWaysTimer.IsSignificant() ||
-         prepareAreasTimer.IsSignificant())) {
+         prepareAreasTimer.IsSignificant() ||
+         prepareRoutesTimer.IsSignificant())) {
+
       log.Info()
-        << "Prep: " << prepareWaysTimer.ResultString() << " (sec) " << prepareAreasTimer.ResultString() << " (sec)";
+        << "Prep: "
+        << prepareWaysTimer.ResultString() << " (sec) "
+        << prepareAreasTimer.ResultString() << " (sec)"
+        << prepareRoutesTimer.ResultString() << " (sec)";
     }
   }
 
@@ -1880,9 +2217,29 @@ namespace osmscout {
     }
   }
 
+  void MapPainter::DrawBaseMapTiles(const Projection& projection,
+                                    const MapParameter& parameter,
+                                    const MapData& data)
+  {
+    if (parameter.GetRenderBackground()) {
+      DrawGround(projection,
+                 parameter,
+                 *landFill);
+    }
+
+    DrawGroundTiles(projection, parameter, data.baseMapTiles);
+  }
+
   void MapPainter::DrawGroundTiles(const Projection& projection,
                                    const MapParameter& parameter,
                                    const MapData& data)
+  {
+    DrawGroundTiles(projection, parameter, data.groundTiles);
+  }
+
+  void MapPainter::DrawGroundTiles(const Projection& projection,
+                                   const MapParameter& parameter,
+                                   const std::list<GroundTile> &groundTiles)
   {
 #if defined(DEBUG_GROUNDTILES)
     std::set<GeoCoord> drawnLabels;
@@ -1891,12 +2248,6 @@ namespace osmscout {
 
     if (!landFill) {
       landFill=this->landFill;
-    }
-
-    if (parameter.GetRenderBackground()) {
-      DrawGround(projection,
-                 parameter,
-                 *landFill);
     }
 
     if (!parameter.GetRenderSeaLand()) {
@@ -1915,7 +2266,7 @@ namespace osmscout {
       seaFill=this->seaFill;
     }
 
-    for (const auto& tile : data.groundTiles) {
+    for (const auto& tile : groundTiles) {
       AreaData areaData;
 
       if (tile.type==GroundTile::unknown &&
@@ -1959,6 +2310,15 @@ namespace osmscout {
                         minCoord.GetLon()+tile.cellWidth);
 
       areaData.boundingBox.Set(minCoord,maxCoord);
+
+      // skip tiles that are completely outside projection
+      if (!projection.GetDimensions().Intersects(areaData.boundingBox)){
+#if defined(DEBUG_GROUNDTILES)
+        std::cout << "Tile outside projection: " << tile.xRel << "," << tile.yRel
+                  << " " << areaData.boundingBox.GetDisplayText() << std::endl;
+#endif
+        continue;
+      }
 
       if (tile.coords.empty()) {
 #if defined(DEBUG_GROUNDTILES)
@@ -2192,6 +2552,27 @@ namespace osmscout {
     if (parameter.IsDebugPerformance() && timer.IsSignificant()) {
       log.Info()
         << "Draw areas: " << areaData.size() << " (pcs) " << timer.ResultString() << " (s)";
+    }
+  }
+
+  void MapPainter::DrawRoutes(const Projection& projection,
+                              const MapParameter& parameter,
+                              const MapData& /*data*/)
+  {
+    StopClock timer;
+
+    for (const auto& route : routeData) {
+      DrawRoute(*styleConfig,
+                projection,
+                parameter,
+                route);
+    }
+
+    timer.Stop();
+
+    if (parameter.IsDebugPerformance() && timer.IsSignificant()) {
+      log.Info()
+          << "Draw ways: " << wayData.size() << " (pcs) " << timer.ResultString() << " (s)";
     }
   }
 

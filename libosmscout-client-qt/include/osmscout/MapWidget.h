@@ -34,28 +34,30 @@
 #include <osmscout/InputHandler.h>
 #include <osmscout/OSMScoutQt.h>
 #include <osmscout/OverlayObject.h>
+#include <osmscout/VehiclePosition.h>
 
 namespace osmscout {
 
 /**
  * \defgroup QtAPI Qt API
- * 
+ *
  * Classes for integration osmscout library with Qt framework.
  */
 
 /**
  * \ingroup QtAPI
- * 
- * Qt Quick widget for displaying map. 
- * 
- * Type should to be registered by \ref qmlRegisterType method 
+ *
+ * Qt Quick widget for displaying map.
+ *
+ * Type should to be registered by \ref qmlRegisterType method
  * and \ref DBThread instance should be initialized before first usage.
- * 
+ *
  */
 class OSMSCOUT_CLIENT_QT_API MapWidget : public QQuickPaintedItem
 {
   Q_OBJECT
   Q_PROPERTY(QObject  *view    READ GetView     WRITE SetMapView  NOTIFY viewChanged)
+  Q_PROPERTY(QObject  *vehiclePosition READ GetVehiclePosition WRITE SetVehiclePosition)
   Q_PROPERTY(double   lat      READ GetLat      NOTIFY viewChanged)
   Q_PROPERTY(double   lon      READ GetLon      NOTIFY viewChanged)
   Q_PROPERTY(int      zoomLevel READ GetMagLevel NOTIFY viewChanged)
@@ -65,36 +67,83 @@ class OSMSCOUT_CLIENT_QT_API MapWidget : public QQuickPaintedItem
   Q_PROPERTY(bool     finished READ IsFinished  NOTIFY finishedChanged)
   Q_PROPERTY(bool     showCurrentPosition READ getShowCurrentPosition WRITE setShowCurrentPosition)
   Q_PROPERTY(bool     lockToPosition READ isLockedToPosition WRITE setLockToPosition NOTIFY lockToPossitionChanged)
+  Q_PROPERTY(bool     followVehicle READ isFollowVehicle WRITE setFollowVehicle NOTIFY followVehicleChanged)
   Q_PROPERTY(QString  stylesheetFilename READ GetStylesheetFilename NOTIFY stylesheetFilenameChanged)
   Q_PROPERTY(QString  renderingType READ GetRenderingType WRITE SetRenderingType NOTIFY renderingTypeChanged)
-  
+
   Q_PROPERTY(bool stylesheetHasErrors           READ stylesheetHasErrors              NOTIFY styleErrorsChanged)
   Q_PROPERTY(int stylesheetErrorLine            READ firstStylesheetErrorLine         NOTIFY styleErrorsChanged)
   Q_PROPERTY(int stylesheetErrorColumn          READ firstStylesheetErrorColumn       NOTIFY styleErrorsChanged)
-  Q_PROPERTY(QString stylesheetErrorDescription READ firstStylesheetErrorDescription  NOTIFY styleErrorsChanged)  
+  Q_PROPERTY(QString stylesheetErrorDescription READ firstStylesheetErrorDescription  NOTIFY styleErrorsChanged)
+
+  Q_PROPERTY(QString vehicleStandardIconFile    READ getVehicleStandardIconFile     WRITE setVehicleStandardIconFile)
+  Q_PROPERTY(QString vehicleNoGpsSignalIconFile READ getVehicleNoGpsSignalIconFile  WRITE setVehicleNoGpsSignalIconFile)
+  Q_PROPERTY(QString vehicleInTunnelIconFile    READ getVehicleInTunnelIconFile     WRITE setVehicleInTunnelIconFile)
+  Q_PROPERTY(double vehicleIconSize             READ getVehicleIconSize             WRITE setVehicleIconSize)
 
 private:
-  MapRenderer      *renderer;
+  MapRenderer      *renderer{nullptr};
 
-  MapView          *view;
+  MapView          *view{nullptr};
 
-  InputHandler     *inputHandler;
-  TapRecognizer    tapRecognizer;     
-  
-  bool showCurrentPosition;
-  bool finished;
-  QTime lastUpdate;
-  bool locationValid;
-  osmscout::GeoCoord currentPosition;
-  bool horizontalAccuracyValid;
-  double horizontalAccuracy;
-  RenderingType renderingType;
-  
+  InputHandler     *inputHandler{nullptr};
+  TapRecognizer    tapRecognizer;
+
+  bool finished{false};
+
+  struct CurrentLocation {
+    QDateTime lastUpdate{QDateTime::currentDateTime()};
+    bool valid{false};
+    osmscout::GeoCoord coord;
+    bool horizontalAccuracyValid{false};
+    double horizontalAccuracy{0};
+  };
+  CurrentLocation currentPosition;
+  bool showCurrentPosition{false};
+
+  RenderingType renderingType{RenderingType::PlaneRendering};
+
   QMap<int, osmscout::GeoCoord> marks;
+
+  // vehicle data
+  struct Vehicle {
+    VehiclePosition  *position{nullptr};
+
+    double iconSize{16}; // icon size [mm]
+
+    /// input handler control
+    bool follow{false};
+    QElapsedTimer lastGesture; // when there is some gesture, we will not follow vehicle for some short time
+
+    QString standardIconFile{"vehicle.svg"}; // state == OnRoute | OffRoute
+    QString noGpsSignalIconFile{"vehicle_not_fixed.svg"}; // state == NoGpsSignal
+    QString inTunnelIconFile{"vehicle_tunnel.svg"}; // state == EstimateInTunnel
+
+    QImage standardIcon;
+    QImage noGpsSignalIcon;
+    QImage inTunnelIcon;
+
+    QImage getIcon()
+    {
+      if (position==nullptr){
+        return QImage();
+      }
+      switch(position->getState()){
+        case PositionAgent::PositionState::EstimateInTunnel:
+          return !inTunnelIcon.isNull() ? inTunnelIcon : standardIcon;
+        case PositionAgent::PositionState::NoGpsSignal:
+          return !noGpsSignalIcon.isNull() ? noGpsSignalIcon : standardIcon;
+        default:
+          return standardIcon;
+      }
+    }
+  };
+  Vehicle vehicle;
 
 signals:
   void viewChanged();
   void lockToPossitionChanged();
+  void followVehicleChanged();
   void finishedChanged(bool finished);
 
   void mouseMove(const int screenX, const int screenY, const double lat, const double lon, const Qt::KeyboardModifiers modifiers);
@@ -107,21 +156,21 @@ signals:
   void styleErrorsChanged();
   void databaseLoaded(osmscout::GeoBox);
   void renderingTypeChanged(QString type);
-  
+
 public slots:
   void changeView(const MapView &view);
   void redraw();
-  
+
   void recenter();
-  
+
   void zoom(double zoomFactor);
   void zoomIn(double zoomFactor);
   void zoomOut(double zoomFactor);
-  
+
   void zoom(double zoomFactor, const QPoint widgetPosition);
   void zoomIn(double zoomFactor, const QPoint widgetPosition);
   void zoomOut(double zoomFactor, const QPoint widgetPosition);
-  
+
   void move(QVector2D vector);
   void left();
   void right();
@@ -139,14 +188,18 @@ public slots:
   void toggleDaylight();
   void reloadStyle();
   void reloadTmpStyle();
-  
+
   void showCoordinates(osmscout::GeoCoord coord, osmscout::Magnification magnification);
   void showCoordinates(double lat, double lon);
   void showCoordinatesInstantly(osmscout::GeoCoord coord, osmscout::Magnification magnification);
   void showCoordinatesInstantly(double lat, double lon);
   void showLocation(LocationEntry* location);
 
-  void locationChanged(bool locationValid, double lat, double lon, bool horizontalAccuracyValid, double horizontalAccuracy);
+  void locationChanged(bool locationValid,
+                       double lat, double lon,
+                       bool horizontalAccuracyValid = false,
+                       double horizontalAccuracy = 0,
+                       const QDateTime &lastUpdate = QDateTime::currentDateTime());
 
   /**
    * Add "mark" (small red circle) on top of map.
@@ -184,40 +237,98 @@ private slots:
   virtual void onDoubleTap(const QPoint p);
   virtual void onLongTap(const QPoint p);
   virtual void onTapLongTap(const QPoint p);
-  
-  void onMapDPIChange(double dpi);  
-  
+
+  void onMapDPIChange(double dpi);
+
+  void onResize();
+
 private:
   void setupInputHandler(InputHandler *newGesture);
-  
+
+  void loadVehicleIcons();
+
   /**
    * @param dimension in kilometers
    * @return approximated magnification by object dimension
    */
   osmscout::Magnification magnificationByDimension(const Distance &dimension);
-  
+
 public:
-  MapWidget(QQuickItem* parent = 0);
-  virtual ~MapWidget();
+  MapWidget(QQuickItem* parent = nullptr);
+  ~MapWidget() override;
 
   inline MapView* GetView() const
   {
       return view; // We should be owner, parent is set http://doc.qt.io/qt-5/qqmlengine.html#objectOwnership
   }
-  
+
   inline void SetMapView(QObject *o)
   {
     MapView *updated = dynamic_cast<MapView*>(o);
-    if (updated == NULL){
+    if (updated == nullptr){
         qWarning() << "Failed to cast " << o << " to MapView*.";
         return;
     }
-    
+
     bool changed = *view != *updated;
     if (changed){
       setupInputHandler(new InputHandler(*updated));
       changeView(*updated);
     }
+  }
+
+  inline VehiclePosition* GetVehiclePosition() const
+  {
+    return vehicle.position;
+  }
+
+  void SetVehiclePosition(QObject *o);
+
+  inline QString getVehicleStandardIconFile() const
+  {
+    return vehicle.standardIconFile;
+  }
+
+  inline void setVehicleStandardIconFile(const QString &file)
+  {
+    vehicle.standardIconFile = file;
+    loadVehicleIcons();
+    redraw();
+  }
+
+  inline QString getVehicleNoGpsSignalIconFile() const
+  {
+    return vehicle.noGpsSignalIconFile;
+  }
+
+  inline void setVehicleNoGpsSignalIconFile(const QString &file)
+  {
+    vehicle.noGpsSignalIconFile = file;
+    loadVehicleIcons();
+    redraw();
+  }
+
+  inline QString getVehicleInTunnelIconFile() const
+  {
+    return vehicle.inTunnelIconFile;
+  }
+
+  inline void setVehicleInTunnelIconFile(const QString &file)
+  {
+    vehicle.inTunnelIconFile = file;
+    loadVehicleIcons();
+    redraw();
+  }
+
+  inline double getVehicleIconSize() const{
+    return vehicle.iconSize;
+  }
+
+  inline void setVehicleIconSize(double value)
+  {
+    vehicle.iconSize = value;
+    loadVehicleIcons();
+    redraw();
   }
 
   inline double GetLat() const
@@ -229,7 +340,7 @@ public:
   {
       return view->center.GetLon();
   }
-  
+
   inline osmscout::GeoCoord GetCenter() const
   {
       return view->center;
@@ -248,29 +359,37 @@ public:
   {
       return getProjection().GetPixelSize();
   }
-  
+
   inline bool IsFinished() const
   {
       return finished;
   }
-  
+
   inline bool getShowCurrentPosition() const
-  { 
+  {
       return showCurrentPosition;
   };
-  
+
   inline void setShowCurrentPosition(bool b)
-  { 
+  {
       showCurrentPosition = b;
+      redraw();
   };
-  
-  inline bool isLockedToPosition()
+
+  inline bool isLockedToPosition() const
   {
       return inputHandler->isLockedToPosition();
   };
-  
+
   void setLockToPosition(bool);
-  
+
+  inline bool isFollowVehicle() const
+  {
+    return vehicle.follow;
+  }
+
+  void setFollowVehicle(bool);
+
   inline osmscout::MercatorProjection getProjection() const
   {
     osmscout::MercatorProjection projection;
@@ -278,40 +397,45 @@ public:
     size_t w=width();
     size_t h=height();
     projection.Set(GetCenter(),
-               view->angle,
-               view->magnification,
-               view->mapDpi,
-               // to avoid invalid projection when scene is not finished yet
-               w==0? 100:w,
-               h==0? 100:h);
+                   view->angle.AsRadians(),
+                   view->magnification,
+                   view->mapDpi,
+                   // to avoid invalid projection when scene is not finished yet
+                   w==0? 100:w,
+                   h==0? 100:h);
     return projection;
   }
 
-  void wheelEvent(QWheelEvent* event);
-  virtual void touchEvent(QTouchEvent *event);
-  
-  virtual void focusOutEvent(QFocusEvent *event);
+  void wheelEvent(QWheelEvent* event) override;
+  void touchEvent(QTouchEvent *event) override;
+
+  void focusOutEvent(QFocusEvent *event) override;
 
   void translateToTouch(QMouseEvent* event, Qt::TouchPointStates states);
-  
-  void mousePressEvent(QMouseEvent* event);
-  void mouseMoveEvent(QMouseEvent* event);
-  void mouseReleaseEvent(QMouseEvent* event);
-  void hoverMoveEvent(QHoverEvent* event);
-  
-  void paint(QPainter *painter);
-  
+
+  void mousePressEvent(QMouseEvent* event) override;
+  void mouseMoveEvent(QMouseEvent* event) override;
+  void mouseReleaseEvent(QMouseEvent* event) override;
+  void hoverMoveEvent(QHoverEvent* event) override;
+
+  void paint(QPainter *painter) override;
+
   bool stylesheetHasErrors() const;
   int firstStylesheetErrorLine() const;
   int firstStylesheetErrorColumn() const;
   QString firstStylesheetErrorDescription() const;
-  
+
   bool isDatabaseLoaded();
   Q_INVOKABLE bool isInDatabaseBoundingBox(double lat, double lon);
   Q_INVOKABLE QPointF screenPosition(double lat, double lon);
 
   QString GetRenderingType() const;
   void SetRenderingType(QString type);
+
+  /**
+   * Helper for loading SVG graphics
+   */
+  static QImage loadSVGIcon(const QString &directory, const QString fileName, double iconPixelSize);
 };
 
 }

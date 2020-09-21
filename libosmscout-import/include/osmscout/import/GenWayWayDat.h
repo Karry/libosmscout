@@ -27,7 +27,6 @@
 
 #include <osmscout/Way.h>
 
-#include <osmscout/Coord.h>
 #include <osmscout/CoordDataFile.h>
 
 #include <osmscout/TypeInfoSet.h>
@@ -46,8 +45,8 @@ namespace osmscout {
   class WayWayDataGenerator CLASS_FINAL : public ImportModule
   {
   public:
-    static const char* WAYWAY_TMP;
-    static const char* TURNRESTR_DAT;
+    static const char* const WAYWAY_TMP;
+    static const char* const TURNRESTR_DAT;
 
   private:
     struct RestrictionData
@@ -55,10 +54,16 @@ namespace osmscout {
       std::multimap<OSMId,TurnRestrictionRef> restrictions;
     };
 
-    typedef std::list<RawWayRef>                     WayList;
-    typedef WayList::iterator                        WayListPtr;
-    typedef std::list<WayListPtr>                    WayListPtrList;
-    typedef std::unordered_map<OSMId,WayListPtrList> WaysByNodeMap;
+    using RouteMemberData = std::multimap<OSMId,OSMId>; // key is way id, values are route ids
+    using WayList = std::list<RawWayRef>;
+    using WayListPtr = WayList::iterator;
+    using WayListPtrList = std::list<WayListPtr>;
+    using WaysByNodeMap = std::unordered_map<OSMId, WayListPtrList>;
+
+    bool ReadRouteMemberData(const ImportParameter& parameter,
+                             const TypeConfig& typeConfig,
+                             Progress& progress,
+                             RouteMemberData& routeMembers);
 
     bool ReadTurnRestrictions(const ImportParameter& parameter,
                               Progress& progress,
@@ -85,7 +90,8 @@ namespace osmscout {
 
     bool MergeWays(Progress& progress,
                    std::list<RawWayRef>& ways,
-                   RestrictionData& restrictions);
+                   RestrictionData& restrictions,
+                   RouteMemberData& routeMembers);
 
     bool SplitLongWays(Progress& progress,
                        std::list<RawWayRef>& ways,

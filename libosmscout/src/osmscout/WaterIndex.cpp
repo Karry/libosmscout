@@ -29,12 +29,7 @@
 
 namespace osmscout {
 
-  const char* WaterIndex::WATER_IDX="water.idx";
-
-  WaterIndex::WaterIndex()
-  {
-    // no code
-  }
+  const char* const WaterIndex::WATER_IDX="water.idx";
 
   WaterIndex::~WaterIndex()
   {
@@ -111,6 +106,7 @@ namespace osmscout {
 
   void WaterIndex::Close()
   {
+    levels.clear();
     try  {
       if (scanner.IsOpen()) {
         scanner.Close();

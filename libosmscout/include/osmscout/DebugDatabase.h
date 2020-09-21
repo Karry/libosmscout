@@ -41,13 +41,10 @@ namespace osmscout {
     The following groups attributes are currently available:
     * cache sizes.
     */
-  class OSMSCOUT_API DebugDatabaseParameter
+  class OSMSCOUT_API DebugDatabaseParameter final
   {
-  private:
-
   public:
-    DebugDatabaseParameter();
-
+    DebugDatabaseParameter() = default;
   };
 
   /**
@@ -69,7 +66,7 @@ namespace osmscout {
                            RefType fileType,
                            const std::set<ObjectOSMRef>& ids,
                            const std::set<ObjectFileRef>& fileOffsets,
-                           std::map<ObjectOSMRef,ObjectFileRef>& idFileOffsetMap,
+                           std::multimap<ObjectOSMRef,ObjectFileRef>& idFileOffsetMap,
                            std::map<ObjectFileRef,ObjectOSMRef>& fileOffsetIdMap);
 
   public:
@@ -87,7 +84,7 @@ namespace osmscout {
 
     bool ResolveReferences(const std::set<ObjectOSMRef>& ids,
                            const std::set<ObjectFileRef>& fileOffsets,
-                           std::map<ObjectOSMRef,ObjectFileRef>& idFileOffsetMap,
+                           std::multimap<ObjectOSMRef,ObjectFileRef>& idFileOffsetMap,
                            std::map<ObjectFileRef,ObjectOSMRef>& fileOffsetIdMap);
   };
 }

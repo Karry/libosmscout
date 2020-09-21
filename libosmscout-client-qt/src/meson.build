@@ -8,6 +8,7 @@ osmscoutclientqtSrc = [
             'src/osmscout/QtRouteData.cpp',
             'src/osmscout/NavigationModule.cpp',
             'src/osmscout/NavigationModel.cpp',
+            'src/osmscout/VehiclePosition.cpp',
             'src/osmscout/InputHandler.cpp',
             'src/osmscout/OnlineTileProvider.cpp',
             'src/osmscout/OnlineTileProviderModel.cpp',
@@ -42,5 +43,10 @@ osmscoutclientqtSrc = [
             'src/osmscout/NearPOIModel.cpp',
             'src/osmscout/POILookupModule.cpp',
             'src/osmscout/InstalledMapsModel.cpp',
+            'src/osmscout/Voice.cpp',
+            'src/osmscout/VoiceManager.cpp',
+            'src/osmscout/AvailableVoicesModel.cpp',
+            'src/osmscout/VoiceProvider.cpp',
+            'src/osmscout/InstalledVoicesModel.cpp',
           ]
 

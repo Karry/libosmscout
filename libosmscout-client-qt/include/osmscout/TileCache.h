@@ -29,6 +29,7 @@
 #include <QMap>
 #include <QSet>
 #include <QTime>
+#include <QElapsedTimer>
 #include <QImage>
 #include <QPixmap>
 #include <QDebug>
@@ -51,7 +52,7 @@ namespace osmscout {
 struct TileCacheKey
 {
     uint32_t zoomLevel;
-    uint32_t xtile; 
+    uint32_t xtile;
     uint32_t ytile;
 };
 
@@ -68,7 +69,7 @@ QDebug& operator<<(QDebug &out, const TileCacheKey &key);
  */
 struct TileCacheVal
 {
-  QTime lastAccess;
+  QElapsedTimer lastAccess;
   QPixmap image;
   size_t epoch;
 };
@@ -83,35 +84,35 @@ struct RequestState
 
 /**
  * \ingroup QtAPI
- * 
+ *
  * Cache have to be locked by its mutex() while access.
  * It owns all inserted tiles and it is responsible for its release
  */
 class OSMSCOUT_CLIENT_QT_API TileCache : public QObject
 {
   Q_OBJECT
-  
-signals: 
+
+signals:
   void tileRequested(uint32_t zoomLevel, uint32_t x, uint32_t y);
-  
+
 public:
   TileCache(size_t cacheSize);
-  virtual ~TileCache();
-  
+  ~TileCache() override;
+
   /**
    * remove all pending requests
-   * TODO: in case of multiple map widgets, add some id to avoid removing requests 
+   * TODO: in case of multiple map widgets, add some id to avoid removing requests
    * of another widget
    */
   void clearPendingRequests();
   bool startRequestProcess(uint32_t zoomLevel, uint32_t x, uint32_t y);
-  void mergeAndStartRequests(uint32_t zoomLevel, uint32_t xtile, uint32_t ytile, 
+  void mergeAndStartRequests(uint32_t zoomLevel, uint32_t xtile, uint32_t ytile,
     uint32_t &xFrom, uint32_t &xTo, uint32_t &yFrom, uint32_t &yTo, uint32_t maxWidth, uint32_t maxHeight);
   bool isRequestQueueEmpty() const;
 
   /**
-   * try to create new tile request. 
-   * If this request don't exists already, it emit signal tileRequested and return 
+   * try to create new tile request.
+   * If this request don't exists already, it emit signal tileRequested and return
    * true. Otherwise false.
    */
   bool request(uint32_t zoomLevel, uint32_t x, uint32_t y);
@@ -121,13 +122,13 @@ public:
    */
   bool reemitRequests();
   bool contains(uint32_t zoomLevel, uint32_t x, uint32_t y);
-  bool containsRequest(uint32_t zoomLevel, uint32_t x, uint32_t y);  
+  bool containsRequest(uint32_t zoomLevel, uint32_t x, uint32_t y);
   TileCacheVal get(uint32_t zoomLevel, uint32_t x, uint32_t y);
-  
+
   /**
-   * 
+   *
    * @param box
-   * @return 
+   * @return
    */
   bool invalidate(osmscout::GeoBox box = osmscout::GeoBox());
 
@@ -141,7 +142,7 @@ public:
    */
   bool removeRequest(uint32_t zoomLevel, uint32_t x, uint32_t y);
   void put(uint32_t zoomLevel, uint32_t x, uint32_t y, QImage image, size_t epoch = 0);
-  
+
   void cleanupCache();
 
   inline size_t getEpoch() const
@@ -153,7 +154,7 @@ public:
   {
     epoch ++;
   }
-  
+
 private:
   QHash<TileCacheKey, TileCacheVal> tiles;
   QHash<TileCacheKey, RequestState> requests;

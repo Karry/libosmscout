@@ -11,6 +11,7 @@ osmscoutclientqtHeader = [
             'osmscout/QtRouteData.h',
             'osmscout/NavigationModule.h',
             'osmscout/NavigationModel.h',
+            'osmscout/VehiclePosition.h',
             'osmscout/InputHandler.h',
             'osmscout/OnlineTileProvider.h',
             'osmscout/OnlineTileProviderModel.h',
@@ -45,6 +46,11 @@ osmscoutclientqtHeader = [
             'osmscout/NearPOIModel.h',
             'osmscout/POILookupModule.h',
             'osmscout/InstalledMapsModel.h',
+            'osmscout/Voice.h',
+            'osmscout/VoiceManager.h',
+            'osmscout/AvailableVoicesModel.h',
+            'osmscout/VoiceProvider.h',
+            'osmscout/InstalledVoicesModel.h',
           ]
 
 install_headers(osmscoutclientqtHeader)

@@ -40,7 +40,7 @@ namespace osmscout {
   class OSMSCOUT_API WaterIndex
   {
   public:
-    static const char* WATER_IDX;
+    static const char* const WATER_IDX;
 
   private:
     struct Level
@@ -90,7 +90,7 @@ namespace osmscout {
                                std::list<GroundTile>& tiles) const;
 
   public:
-    WaterIndex();
+    WaterIndex() = default;
     virtual ~WaterIndex();
 
     virtual bool Open(const std::string& path,
@@ -105,7 +105,7 @@ namespace osmscout {
     virtual void DumpStatistics();
   };
 
-  typedef std::shared_ptr<WaterIndex> WaterIndexRef;
+  using WaterIndexRef = std::shared_ptr<WaterIndex>;
 }
 
 #endif

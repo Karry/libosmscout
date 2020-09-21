@@ -28,7 +28,6 @@
 #include <vector>
 
 #include <osmscout/GeoCoord.h>
-#include <osmscout/Coord.h>
 #include <osmscout/Pixel.h>
 
 #include <osmscout/GroundTile.h>
@@ -54,7 +53,7 @@ namespace osmscout {
     * and check the result...
     */
   template<typename InputIterator>
-  void WriteGpx(InputIterator begin, InputIterator end, const std::string name)
+  void WriteGpx(InputIterator begin, InputIterator end, const std::string &name)
   {
     std::ofstream gpxFile;
 
@@ -142,7 +141,7 @@ namespace osmscout {
       CoastState         right;
     };
 
-    typedef std::shared_ptr<Coast> CoastRef;
+    using CoastRef = std::shared_ptr<Coast>;
 
     /**
      * State of a cell
@@ -164,10 +163,10 @@ namespace osmscout {
       double               cellWidth;  //!< With of an cell
       double               cellHeight; //!< Height of an cell
       uint32_t             cellXStart; //!< First x-axis coordinate of cells
-      uint32_t             cellXEnd;   //!< Last x-axis coordinate cells
+      uint32_t             cellXEnd;   //!< Last x-axis coordinate cells (inclusive)
       uint32_t             cellYStart; //!< First y-axis coordinate of cells
-      uint32_t             cellYEnd;   //!< Last x-axis coordinate cells
-      uint32_t             cellXCount; //!< Number of cells in horizontal direction (with of bounding box in cells)
+      uint32_t             cellYEnd;   //!< Last x-axis coordinate cells (inclusive)
+      uint32_t             cellXCount; //!< Number of cells in horizontal direction (width of bounding box in cells)
       uint32_t             cellYCount; //!< Number of cells in vertical direction (height of bounding box in cells)
       std::vector<uint8_t> area;       //!< Actual index data
 
@@ -252,7 +251,7 @@ namespace osmscout {
       // Persistent
       bool                 hasCellData;      //!< If true, we have cell data
       uint8_t              dataOffsetBytes;  //!< Number of bytes per entry in bitmap
-      State                defaultCellData;  //!< If hasCellData is false, this is the vaue to be returned for all cells
+      State                defaultCellData;  //!< If hasCellData is false, this is the value to be returned for all cells
       FileOffset           indexDataOffset;  //!< File offset of start cell state data on disk
 
       StateMap             stateMap;         //!< Index to handle state of cells
@@ -279,13 +278,14 @@ namespace osmscout {
     {
       size_t        coastline;          //! Running number of the intersecting coastline
       size_t        prevWayPointIndex;  //! The index of the path point before the intersection
+      GeoCoord      prevPoint;          //! just helper for sorting
       GeoCoord      point;              //! The intersection point
       double        distanceSquare;     //! The distance^2 between the path point and the intersectionPoint
       Direction     direction;          //! 1 in, 0 touch, -1 out
       uint8_t       borderIndex;        //! The index of the border that gets intersected [0..3]
     };
 
-    typedef std::shared_ptr<Intersection> IntersectionRef;
+    using IntersectionRef = std::shared_ptr<Intersection>;
 
     /**
      * Holds all generated, calculated and extracted information about an
@@ -296,6 +296,7 @@ namespace osmscout {
       Id                                         id;                 //! The id of the coastline
       bool                                       isArea;             //! true,if the boundary forms an area
       bool                                       isCompletelyInCell; //! true, if the complete coastline is within one cell
+      GeoBox                                     boundingBox;        //! GeoBox from points (already transformed)
       Pixel                                      cell;               //! The cell that completely contains the coastline
       std::vector<GeoCoord>                      points;             //! The points of the coastline
       std::map<Pixel,std::list<IntersectionRef>> cellIntersections;  //! All intersections for each cell
@@ -303,7 +304,7 @@ namespace osmscout {
       CoastState                                 right;
     };
 
-    typedef std::shared_ptr<CoastlineData> CoastlineDataRef;
+    using CoastlineDataRef = std::shared_ptr<CoastlineData>;
 
     /**
      * Computed data for one index level
@@ -327,9 +328,8 @@ namespace osmscout {
         if (a->prevWayPointIndex==b->prevWayPointIndex) {
           return a->distanceSquare<b->distanceSquare;
         }
-        else {
-          return a->prevWayPointIndex<b->prevWayPointIndex;
-        }
+
+        return a->prevWayPointIndex<b->prevWayPointIndex;
       }
     };
 
@@ -343,12 +343,27 @@ namespace osmscout {
         if (a->borderIndex==b->borderIndex) {
           switch (a->borderIndex) {
           case 0:
+            if (a->point.GetLon()==b->point.GetLon()){
+              return a->prevPoint.GetLon()<b->prevPoint.GetLon();
+            }
             return a->point.GetLon()<b->point.GetLon();
+
           case 1:
+            if (a->point.GetLat()==b->point.GetLat()){
+              return a->prevPoint.GetLat()>b->prevPoint.GetLat();
+            }
             return a->point.GetLat()>b->point.GetLat();
+
           case 2:
+            if (a->point.GetLon()==b->point.GetLon()){
+              return a->prevPoint.GetLon()>b->prevPoint.GetLon();
+            }
             return a->point.GetLon()>b->point.GetLon();
+
           default: /* 3 */
+            if (a->point.GetLat()==b->point.GetLat()){
+              return a->prevPoint.GetLat()<b->prevPoint.GetLat();
+            }
             return a->point.GetLat()<b->point.GetLat();
           }
         }
@@ -576,7 +591,7 @@ namespace osmscout {
 
     /**
      * Take the given coastlines and bounding polygons and create a list of synthesized
-     * coastlines that fuly encircle the imported region. Coastlines are either
+     * coastlines that fully encircle the imported region. Coastlines are either
      * real-life coastlines or emulated coastlines based on the bounding
      * polygons.
      *
@@ -599,6 +614,30 @@ namespace osmscout {
                              const StateMap& stateMap,
                              std::map<Pixel,std::list<GroundTile> >& cellGroundTileMap,
                              Data& data);
+
+    void TransformCoastlines(Progress& progress,
+                             TransPolygon::OptimizeMethod optimizationMethod,
+                             double tolerance,
+                             double minObjectDimension,
+                             const Projection& projection,
+                             const std::list<CoastRef>& coastlines,
+                             std::vector<CoastlineDataRef> &transformedCoastlines);
+
+    void FilterIntersectCoastlines(Progress& progress,
+                                   std::vector<CoastlineDataRef> &transformedCoastlines);
+
+    void FilterEncapsulatedCoastlines(Progress& progress,
+                                      std::vector<CoastlineDataRef> &transformedCoastlines);
+
+    void ComputeCoveredTiles(Progress& progress,
+                           const StateMap& stateMap,
+                           Data& data,
+                           std::vector<CoastlineDataRef> &transformedCoastlines);
+
+      /**
+       * Comparator of coastline size (GeoBox::GetSize) for descending sort
+       */
+    static bool CoastlineGeoSizeSorter(const CoastlineDataRef &a, const CoastlineDataRef &b);
 
 public:
     /**
@@ -644,8 +683,8 @@ public:
      * @param boundingPolygons
      */
     void SynthesizeCoastlines(Progress& progress,
-                            std::list<CoastRef>& coastlines,
-                            std::list<CoastRef>& boundingPolygons);
+                              std::list<CoastRef>& coastlines,
+                              std::list<CoastRef>& boundingPolygons);
 
     /**
      * Collects, calculates and generates a number of data about a coastline.

@@ -38,47 +38,9 @@ namespace osmscout {
   const char* TypeConfig::FILE_TYPES_DAT="types.dat";
 
   TypeInfo::TypeInfo(const std::string& name)
-    : nodeId(0),
-      wayId(0),
-      areaId(0),
-      name(name),
-      index(0),
-      internal(false),
-      featureMaskBytes(0),
-      specialFeatureMaskBytes(0),
-      valueBufferSize(0),
-      canBeNode(false),
-      canBeWay(false),
-      canBeArea(false),
-      canBeRelation(false),
-      isPath(false),
-      canRouteFoot(false),
-      canRouteBicycle(false),
-      canRouteCar(false),
-      indexAsAddress(false),
-      indexAsLocation(false),
-      indexAsRegion(false),
-      indexAsPOI(false),
-      optimizeLowZoom(false),
-      multipolygon(false),
-      pinWay(false),
-      mergeAreas(false),
-      ignoreSeaLand(false),
-      ignore(false),
-      lanes(1),
-      onewayLanes(1)
+    : name(name)
   {
 
-  }
-
-  /**
-   * We forbid copying of TypeInfo instances
-   *
-   * @param other
-   */
-  TypeInfo::TypeInfo(const TypeInfo& /*other*/)
-  {
-    // no code
   }
 
   TypeInfo& TypeInfo::SetNodeId(TypeId id)
@@ -98,6 +60,13 @@ namespace osmscout {
   TypeInfo& TypeInfo::SetAreaId(TypeId id)
   {
     this->areaId=id;
+
+    return *this;
+  }
+
+  TypeInfo& TypeInfo::SetRouteId(TypeId id)
+  {
+    this->routeId=id;
 
     return *this;
   }
@@ -278,6 +247,82 @@ namespace osmscout {
     else {
       return "";
     }
+  }
+
+  TypeInfoRef TypeInfo::Read(FileScanner& scanner, uint32_t fileFormatVersion)
+  {
+    std::string name;
+
+    scanner.Read(name);
+
+    TypeInfoRef typeInfo=std::make_shared<TypeInfo>(name);
+
+    bool        canBeNode;
+    bool        canBeWay;
+    bool        canBeArea;
+    bool        canBeRelation;
+    bool        isPath;
+    bool        canRouteFoot;
+    bool        canRouteBicycle;
+    bool        canRouteCar;
+    bool        indexAsAddress;
+    bool        indexAsLocation;
+    bool        indexAsRegion;
+    bool        indexAsPOI;
+    bool        optimizeLowZoom;
+    uint8_t     specialType;
+    bool        pinWay;
+    bool        mergeAreas;
+    bool        ignore;
+    bool        ignoreSeaLand;
+    uint8_t     lanes{1};
+    uint8_t     onewayLanes{1};
+
+    scanner.Read(canBeNode);
+    scanner.Read(canBeWay);
+    scanner.Read(canBeArea);
+    scanner.Read(canBeRelation);
+    scanner.Read(isPath);
+    scanner.Read(canRouteFoot);
+    scanner.Read(canRouteBicycle);
+    scanner.Read(canRouteCar);
+    scanner.Read(indexAsAddress);
+    scanner.Read(indexAsLocation);
+    scanner.Read(indexAsRegion);
+    scanner.Read(indexAsPOI);
+    scanner.Read(optimizeLowZoom);
+    scanner.Read(specialType);
+    scanner.Read(pinWay);
+    scanner.Read(mergeAreas);
+    scanner.Read(ignoreSeaLand);
+    scanner.Read(ignore);
+    if (fileFormatVersion >= 18) {
+      scanner.Read(lanes);
+      scanner.Read(onewayLanes);
+    }
+
+    typeInfo->CanBeNode(canBeNode);
+    typeInfo->CanBeWay(canBeWay);
+    typeInfo->CanBeArea(canBeArea);
+    typeInfo->CanBeRelation(canBeRelation);
+    typeInfo->SetIsPath(isPath);
+    typeInfo->CanRouteFoot(canRouteFoot);
+    typeInfo->CanRouteBicycle(canRouteBicycle);
+    typeInfo->CanRouteCar(canRouteCar);
+    typeInfo->SetIndexAsAddress(indexAsAddress);
+    typeInfo->SetIndexAsLocation(indexAsLocation);
+    typeInfo->SetIndexAsRegion(indexAsRegion);
+    typeInfo->SetIndexAsPOI(indexAsPOI);
+    typeInfo->SetOptimizeLowZoom(optimizeLowZoom);
+    typeInfo->SetSpecialType(static_cast<SpecialType>(specialType));
+    typeInfo->SetPinWay(pinWay);
+    typeInfo->SetMergeAreas(mergeAreas);
+    typeInfo->SetIgnoreSeaLand(ignoreSeaLand);
+    typeInfo->SetIgnore(ignore);
+    typeInfo->SetLanes(lanes);
+    typeInfo->SetOnewayLanes(onewayLanes);
+
+    return typeInfo;
   }
 
   FeatureValueBuffer::FeatureValueBuffer()
@@ -753,6 +798,9 @@ namespace osmscout {
 
     RegisterFeature(std::make_shared<NameAltFeature>());
 
+    featureNameShort=std::make_shared<NameShortFeature>();
+    RegisterFeature(featureNameShort);
+
     featureRef=std::make_shared<RefFeature>();
     RegisterFeature(featureRef);
 
@@ -819,6 +867,11 @@ namespace osmscout {
 
     featureLanes = std::make_shared<LanesFeature>();
     RegisterFeature(featureLanes);
+
+    RegisterFeature(std::make_shared<OperatorFeature>());
+    RegisterFeature(std::make_shared<NetworkFeature>());
+    RegisterFeature(std::make_shared<FromToFeature>());
+    RegisterFeature(std::make_shared<ColorFeature>());
 
     // Make sure, that this is always registered first.
     // It assures that id 0 is always reserved for typeIgnore
@@ -1034,7 +1087,9 @@ namespace osmscout {
         !typeInfo->IsInternal() &&
         (typeInfo->CanBeNode() ||
          typeInfo->CanBeWay() ||
-         typeInfo->CanBeArea())) {
+         typeInfo->CanBeArea() ||
+         typeInfo->IsRoute())) {
+
       if (typeInfo->CanBeNode()) {
         typeInfo->SetNodeId((TypeId)(nodeTypes.size()+1));
         nodeTypes.push_back(typeInfo);
@@ -1055,6 +1110,13 @@ namespace osmscout {
 
         areaTypeIdBytes=BytesNeededToEncodeNumber(typeInfo->GetAreaId());
         areaTypeIdBits=BitsNeededToEncodeNumber(typeInfo->GetAreaId());
+      }
+
+      if (typeInfo->IsRoute()) {
+        typeInfo->SetRouteId((TypeId)(routeTypes.size()+1));
+        routeTypes.push_back(typeInfo);
+
+        routeTypeIdBytes=BytesNeededToEncodeNumber(typeInfo->GetRouteId());
       }
     }
 
@@ -1406,8 +1468,7 @@ namespace osmscout {
    */
   bool TypeConfig::LoadFromDataFile(const std::string& directory)
   {
-    StopClock timer;
-
+    StopClock   timer;
     FileScanner scanner;
 
     try {
@@ -1538,74 +1599,7 @@ namespace osmscout {
       scanner.ReadNumber(typeCount);
 
       for (uint32_t i=1; i<=typeCount; i++) {
-        std::string name;
-        bool        canBeNode;
-        bool        canBeWay;
-        bool        canBeArea;
-        bool        canBeRelation;
-        bool        isPath;
-        bool        canRouteFoot;
-        bool        canRouteBicycle;
-        bool        canRouteCar;
-        bool        indexAsAddress;
-        bool        indexAsLocation;
-        bool        indexAsRegion;
-        bool        indexAsPOI;
-        bool        optimizeLowZoom;
-        bool        multipolygon;
-        bool        pinWay;
-        bool        mergeAreas;
-        bool        ignore;
-        bool        ignoreSeaLand;
-        uint8_t     lanes{1};
-        uint8_t     onewayLanes{1};
-
-        scanner.Read(name);
-        scanner.Read(canBeNode);
-        scanner.Read(canBeWay);
-        scanner.Read(canBeArea);
-        scanner.Read(canBeRelation);
-        scanner.Read(isPath);
-        scanner.Read(canRouteFoot);
-        scanner.Read(canRouteBicycle);
-        scanner.Read(canRouteCar);
-        scanner.Read(indexAsAddress);
-        scanner.Read(indexAsLocation);
-        scanner.Read(indexAsRegion);
-        scanner.Read(indexAsPOI);
-        scanner.Read(optimizeLowZoom);
-        scanner.Read(multipolygon);
-        scanner.Read(pinWay);
-        scanner.Read(mergeAreas);
-        scanner.Read(ignoreSeaLand);
-        scanner.Read(ignore);
-        if (fileFormatVersion >= 18) {
-          scanner.Read(lanes);
-          scanner.Read(onewayLanes);
-        }
-
-        TypeInfoRef typeInfo=std::make_shared<TypeInfo>(name);
-
-        typeInfo->CanBeNode(canBeNode);
-        typeInfo->CanBeWay(canBeWay);
-        typeInfo->CanBeArea(canBeArea);
-        typeInfo->CanBeRelation(canBeRelation);
-        typeInfo->SetIsPath(isPath);
-        typeInfo->CanRouteFoot(canRouteFoot);
-        typeInfo->CanRouteBicycle(canRouteBicycle);
-        typeInfo->CanRouteCar(canRouteCar);
-        typeInfo->SetIndexAsAddress(indexAsAddress);
-        typeInfo->SetIndexAsLocation(indexAsLocation);
-        typeInfo->SetIndexAsRegion(indexAsRegion);
-        typeInfo->SetIndexAsPOI(indexAsPOI);
-        typeInfo->SetOptimizeLowZoom(optimizeLowZoom);
-        typeInfo->SetMultipolygon(multipolygon);
-        typeInfo->SetPinWay(pinWay);
-        typeInfo->SetMergeAreas(mergeAreas);
-        typeInfo->SetIgnoreSeaLand(ignoreSeaLand);
-        typeInfo->SetIgnore(ignore);
-        typeInfo->SetLanes(lanes);
-        typeInfo->SetOnewayLanes(onewayLanes);
+        TypeInfoRef typeInfo=TypeInfo::Read(scanner, fileFormatVersion);
 
         // Type Features
 
@@ -1754,7 +1748,7 @@ namespace osmscout {
         writer.Write(type->GetIndexAsRegion());
         writer.Write(type->GetIndexAsPOI());
         writer.Write(type->GetOptimizeLowZoom());
-        writer.Write(type->GetMultipolygon());
+        writer.Write(static_cast<uint8_t>(type->GetSpecialType()));
         writer.Write(type->GetPinWay());
         writer.Write(type->GetMergeAreas());
         writer.Write(type->GetIgnoreSeaLand());

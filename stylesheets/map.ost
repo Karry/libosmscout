@@ -30,6 +30,10 @@ OST
       This is a way, even if the path is closed
     MULTIPOLYGON:
       Type should be handled as multipolygon even if type is not set to multipolygon.
+    ROUTE_MASTER:
+      Type should be handled as route master relation (public transport schema)..
+    ROUTE:
+      Type should be handled as route relation.
     ADMIN_REGION:
       The given area or node describes an administrate region
       that should be part of the region tree for the city/street
@@ -118,6 +122,7 @@ GRADES
     "sett"
     "tarred"
     "tartan"
+    "iron"
   }
 
   SURFACE GRADE 2 {
@@ -127,13 +132,13 @@ GRADES
     "compacted_gravel"
     "fine_gravel"
     "gravel"
-    "gravel;grass"
     "grass_paver"
     "metal"
     "pebblestone"
     "stone"
     "wood"
     "marble"
+    "panel"
   }
 
   SURFACE GRADE 3 {
@@ -142,7 +147,6 @@ GRADES
     "dirt/sand"
     "earth"
     "grass"
-    "grass;earth"
     "ground"
     "mud"
     "sand"
@@ -153,6 +157,9 @@ GRADES
   SURFACE GRADE 4 {
     "artificial_turf"
     "bark_mulch"
+    "stones"
+    "rock"
+    "rocks"
   }
 
 FEATURES
@@ -402,7 +409,7 @@ TYPES
       {Name, NameAlt}
 
   TYPE highway_bus_stop
-    = NODE ("highway"=="bus_stop" OR (!("bus" IN ["no", "false", "0"]) AND "public_transport"=="platform"))
+    = NODE ("highway"=="bus_stop" OR (!("bus" IN ["no", "false", "0"]) AND ("public_transport" IN ["platform", "stop_position"])))
       {Name, NameAlt}
 
   TYPE highway_turning_cycle
@@ -424,7 +431,7 @@ TYPES
       PATH[CAR]
 
   TYPE highway_street_lamp
-    IGNORE // Too many for mobile offline map?
+     // Too many for mobile offline map?
     = NODE ("highway"=="street_lamp")
 
   // Since rendering of speed cameras is not allowed everwhere, it is disabled by default
@@ -442,7 +449,7 @@ TYPES
 
   TYPE waterway_stream
     = WAY ("waterway"=="stream")
-      {Name, NameAlt, Width}
+      {Name, NameAlt, Width, Tunnel}
       OPTIMIZE_LOW_ZOOM IGNORESEALAND PIN_WAY
 
   TYPE waterway_river
@@ -488,6 +495,11 @@ TYPES
 
   TYPE waterway_weir
     = NODE WAY AREA ("waterway"=="weir")
+      {Name, NameAlt, Width}
+      IGNORESEALAND
+
+  TYPE waterway_waterfall
+    = NODE WAY AREA ("waterway"=="waterfall")
       {Name, NameAlt, Width}
       IGNORESEALAND
 
@@ -555,7 +567,7 @@ TYPES
       {Name, NameAlt}
 
   TYPE railway_tram_stop
-    = NODE ("railway"=="tram_stop")
+    = NODE ("railway"=="tram_stop" OR (("tram" IN ["yes", "true", "1"]) AND ("public_transport" IN ["platform", "stop_position"])))
       {Name, NameAlt}
 
   TYPE railway_crossing
@@ -905,7 +917,7 @@ TYPES
       {Name, NameAlt}
 
   TYPE natural_tree
-    IGNORE // Too many for mobile?
+    //IGNORE // Too many for mobile?
     = NODE ("natural"=="tree")
 
   TYPE natural_volcano
@@ -1021,7 +1033,8 @@ TYPES
   TYPE boundary_protected_area
     = AREA RELATION ("boundary"=="national_park" OR "boundary"=="protected_area")
       {Name, NameAlt}
-      OPTIMIZE_LOW_ZOOM MERGE_AREAS
+      // national park may be relation of boundary type, but we always want to handle it as a multipolygon
+      MULTIPOLYGON OPTIMIZE_LOW_ZOOM MERGE_AREAS
 
   TYPE leisure_park
     = NODE AREA ("leisure"=="park")
@@ -1107,7 +1120,6 @@ TYPES
       GROUP amenity, routingPOI
 
   TYPE amenity_charging_station
-    IGNORE // No visualisation yet
     = NODE ("amenity"=="charging_station")
       GROUP amenity
 
@@ -1117,8 +1129,7 @@ TYPES
       GROUP amenity
 
   TYPE amenity_drinking_water
-    IGNORE // No visualisation yet
-    = NODE ("amenity"=="drinking_water")
+    = NODE ("amenity"=="drinking_water" OR ("amenity"=="fountain" AND "drinking_water"=="yes"))
       GROUP amenity
 
   TYPE amenity_ev_charging
@@ -1254,6 +1265,30 @@ TYPES
 
   TYPE amenity_restaurant
     = NODE AREA ("amenity"=="restaurant")
+      {Name, NameAlt}
+      ADDRESS POI
+      GROUP amenity, routingPOI
+
+  TYPE amenity_pub_building
+    = AREA ("amenity"=="pub" AND EXISTS "building" AND !("building" IN ["no","false","0"]))
+      {Name, NameAlt}
+      ADDRESS POI
+      GROUP amenity, building, routingPOI
+
+  TYPE amenity_pub
+    = NODE AREA ("amenity"=="pub")
+      {Name, NameAlt}
+      ADDRESS POI
+      GROUP amenity, routingPOI
+
+  TYPE amenity_bar_building
+    = AREA ("amenity"=="bar" AND EXISTS "building" AND !("building" IN ["no","false","0"]))
+      {Name, NameAlt}
+      ADDRESS POI
+      GROUP amenity, building, routingPOI
+
+  TYPE amenity_bar
+    = NODE AREA ("amenity"=="bar")
       {Name, NameAlt}
       ADDRESS POI
       GROUP amenity, routingPOI
@@ -2063,13 +2098,13 @@ TYPES
 
   TYPE barrier_wall
     = WAY AREA ("barrier"=="wall")
+      IGNORESEALAND
 
   TYPE barrier_ditch
     IGNORE
     = WAY AREA ("barrier"=="ditch")
 
   TYPE barrier_retaining_wall
-    IGNORE
     = WAY AREA ("barrier"=="retaining_wall")
       IGNORESEALAND
 
@@ -2196,11 +2231,130 @@ TYPES
   TYPE network_any IGNORE
     = RELATION ("type"=="network")
 
-  TYPE route_any IGNORE
-    = RELATION ("type"=="route")
+  //
+  // Route Masters and Routes
+  // DO NOT CHANGE, INTERNAL CODE RELIES ON IT!
+
+  // Aerialway
+
+  TYPE routemaster_aerialway
+    = RELATION ("type"=="route_master" AND "route_master"=="aerialway")
+      {Name, Ref, Operator, Network, Color}
+      ROUTE_MASTER
+
+  TYPE route_aerialway
+    = RELATION ("type"=="route" AND "route"=="aerialway")
+      {Name, Ref, Operator, Network, FromTo, Color}
+      ROUTE
+
+  // Bus
+
+  TYPE routemaster_bus
+    = RELATION ("type"=="route_master" AND "route_master"=="bus")
+      {Name, Ref, Operator, Network, Color}
+      ROUTE_MASTER
+
+  TYPE route_bus
+    = RELATION ("type"=="route" AND "route"=="bus")
+      {Name, Ref, Operator, Network, FromTo, Color}
+      ROUTE
+
+  // Ferry
+
+  TYPE routemaster_ferry
+    = RELATION ("type"=="route_master" AND "route_master"=="ferry")
+      {Name, Ref, Operator, Network, Color}
+      ROUTE_MASTER
+
+  TYPE route_ferry
+    = RELATION ("type"=="route" AND "route"=="ferry")
+      {Name, Ref, Operator, Network, FromTo, Color}
+      ROUTE
+
+  // Monorail
+
+  TYPE routemaster_monorail
+    = RELATION ("type"=="route_master" AND "route_master"=="monorail")
+      {Name, Ref, Operator, Network, Color}
+      ROUTE_MASTER
+
+  TYPE route_monorail
+    = RELATION ("type"=="route" AND "route"=="monorail")
+      {Name, Ref, Operator, Network, FromTo, Color}
+      ROUTE
+
+  // Subway
+
+  TYPE routemaster_subway
+    = RELATION ("type"=="route_master" AND "route_master"=="subway")
+      {Name, Ref, Operator, Network, Color}
+      ROUTE_MASTER
+
+  TYPE route_subway
+    = RELATION ("type"=="route" AND "route"=="subway")
+      {Name, Ref, Operator, Network, FromTo, Color}
+      ROUTE
+
+  // Train
+
+  TYPE routemaster_train
+    = RELATION ("type"=="route_master" AND "route_master"=="train")
+      {Name, Ref, Operator, Network, Color}
+      ROUTE_MASTER
+
+  TYPE route_train
+    = RELATION ("type"=="route" AND "route"=="train")
+      {Name, Ref, Operator, Network, FromTo, Color}
+      ROUTE
+
+  // Tram
+
+  TYPE routemaster_tram
+    = RELATION ("type"=="route_master" AND "route_master"=="tram")
+      {Name, Ref, Operator, Network, Color}
+      ROUTE_MASTER
+
+  TYPE route_tram
+    = RELATION ("type"=="route" AND "route"=="tram")
+      {Name, Ref, Operator, Network, FromTo, Color}
+      ROUTE
+
+  // Trolleybus
+
+  TYPE routemaster_trolleybus
+    = RELATION ("type"=="route_master" AND "route_master"=="trolleybus")
+      {Name, Ref, Operator, Network, Color}
+      ROUTE_MASTER
+
+  TYPE route_trolleybus
+    = RELATION ("type"=="route" AND "route"=="trolleybus")
+      {Name, Ref, Operator, Network, FromTo, Color}
+      ROUTE
+
+  TYPE route_bicycle
+    = RELATION ("type"=="route" AND "route"=="bicycle")
+      {Name, Ref, Operator, Network, Color}
+      ROUTE
+
+  TYPE route_mtb
+    = RELATION ("type"=="route" AND "route"=="mtb")
+      {Name, Ref, Operator, Network, Color}
+      ROUTE
+
+  TYPE route_hiking
+    = RELATION ("type"=="route" AND "route"=="hiking")
+      {Name, Ref, Operator, Network, Color}
+      ROUTE
+
+  // Catch-all fallback for other types
 
   TYPE routemaster_any IGNORE
     = RELATION ("type"=="route_master")
+
+  TYPE route_any IGNORE
+    = RELATION ("type"=="route")
+
+  // --
 
   TYPE superroute_any IGNORE
     = RELATION ("type"=="superroute")

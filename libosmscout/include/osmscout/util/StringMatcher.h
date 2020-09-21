@@ -43,7 +43,7 @@ namespace osmscout {
     virtual Result Match(const std::string& text) const = 0;
   };
 
-  typedef std::shared_ptr<StringMatcher> StringMatcherRef;
+  using StringMatcherRef = std::shared_ptr<StringMatcher>;
 
   class OSMSCOUT_API StringMatcherCI : public StringMatcher
   {
@@ -64,12 +64,31 @@ namespace osmscout {
     virtual StringMatcherRef CreateMatcher(const std::string& pattern) const = 0;
   };
 
-  typedef std::shared_ptr<StringMatcherFactory> StringMatcherFactoryRef;
+  using StringMatcherFactoryRef = std::shared_ptr<StringMatcherFactory>;
 
   class OSMSCOUT_API StringMatcherCIFactory : public StringMatcherFactory
   {
   public:
     StringMatcherRef CreateMatcher(const std::string& pattern) const override;
   };
+
+  class StringMatcherTransliterate: public StringMatcher
+  {
+  private:
+    std::string pattern;
+    std::string transliteratedPattern;
+
+  public:
+    explicit StringMatcherTransliterate(const std::string &pattern);
+
+    StringMatcher::Result Match(const std::string &text) const override;
+  };
+
+  class OSMSCOUT_API StringMatcherTransliterateFactory : public StringMatcherFactory
+  {
+  public:
+    StringMatcherRef CreateMatcher(const std::string& pattern) const override;
+  };
+
 }
 #endif

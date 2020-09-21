@@ -50,7 +50,7 @@ namespace osmscout {
 
   //! \ingroup Location
   //! Reference counted reference to a LocationCoordDescription instance
-  typedef std::shared_ptr<LocationCoordDescription> LocationCoordDescriptionRef;
+  using LocationCoordDescriptionRef = std::shared_ptr<LocationCoordDescription>;
 
   class OSMSCOUT_API LocationDescriptionCandicate CLASS_FINAL
   {
@@ -58,7 +58,7 @@ namespace osmscout {
     ObjectFileRef ref;      //!< Reference to the actual object
     std::string   name;     //!< Name of the object
     Distance      distance; //!< Distance to the object
-    double        bearing;  //!< Direction towards the object
+    Bearing       bearing;  //!< Direction towards the object
     bool          atPlace;  //!< We are at the place or only near the place
     double        size;     //!< The size o the place (size of the geographic bounding box)
 
@@ -66,7 +66,7 @@ namespace osmscout {
     inline LocationDescriptionCandicate(const ObjectFileRef &ref,
                                         const std::string& name,
                                         const Distance &distance,
-                                        const double bearing,
+                                        const Bearing &bearing,
                                         const bool atPlace,
                                         const double size)
     : ref(ref),
@@ -94,7 +94,7 @@ namespace osmscout {
       return distance;
     }
 
-    inline double GetBearing() const
+    inline Bearing GetBearing() const
     {
       return bearing;
     }
@@ -121,13 +121,13 @@ namespace osmscout {
     Place    place;     //!< Place
     bool     atPlace;   //!< 'true' if at the place itself
     Distance distance;  //!< distance to the place
-    double   bearing;   //!< bearing to take from place to reach location
+    Bearing  bearing;   //!< bearing to take from place to reach location
 
   public:
     explicit LocationAtPlaceDescription(const Place& place);
     LocationAtPlaceDescription(const Place& place,
                                const Distance &distance,
-                               double bearing);
+                               const Bearing &bearing);
 
     /**
      * Return the place this information is refering to
@@ -156,7 +156,7 @@ namespace osmscout {
     /**
      * Return the bearing you have to go to from the place for 'distance' to reach the location
      */
-    inline double GetBearing() const
+    inline Bearing GetBearing() const
     {
       return bearing;
     }
@@ -164,7 +164,7 @@ namespace osmscout {
 
   //! \ingroup Location
   //! Reference counted reference to a LocationAtPlaceDescription instance
-  typedef std::shared_ptr<LocationAtPlaceDescription> LocationAtPlaceDescriptionRef;
+  using LocationAtPlaceDescriptionRef = std::shared_ptr<LocationAtPlaceDescription>;
 
   /**
    * \ingroup Location
@@ -185,7 +185,7 @@ namespace osmscout {
     /**
      * Return the place this information is refering to
      */
-    inline const Place GetWay() const
+    inline Place GetWay() const
     {
       return way;
     }
@@ -201,7 +201,7 @@ namespace osmscout {
 
   //! \ingroup Location
   //! Reference counted reference to a LocationWayDescription instance
-  typedef std::shared_ptr<LocationWayDescription> LocationWayDescriptionRef;
+  using LocationWayDescriptionRef = std::shared_ptr<LocationWayDescription>;
 
   /**
    * \ingroup Location
@@ -215,7 +215,7 @@ namespace osmscout {
     bool             atPlace;   //!< 'true' if at the place itself
     std::list<Place> ways;      //!< List of streets
     Distance         distance;  //!< distance to the place
-    double           bearing;   //!< bearing to take from place to reach location
+    Bearing          bearing;   //!< bearing to take from place to reach location
 
   public:
     LocationCrossingDescription(const GeoCoord& crossing,
@@ -224,11 +224,11 @@ namespace osmscout {
     LocationCrossingDescription(const GeoCoord& crossing,
                                 const std::list<Place>& ways,
                                 const Distance &distance,
-                                double bearing);
+                                const Bearing &bearing);
     /**
      * Return the place this information is refering to
      */
-    inline const std::list<Place> GetWays() const
+    inline std::list<Place> GetWays() const
     {
       return ways;
     }
@@ -252,7 +252,7 @@ namespace osmscout {
     /**
      * Return the bearing you have to go to from the place for 'distance' to reach the location
      */
-    inline double GetBearing() const
+    inline Bearing GetBearing() const
     {
       return bearing;
     }
@@ -265,7 +265,7 @@ namespace osmscout {
 
   //! \ingroup Location
   //! Reference counted reference to a LocationCrossingDescription instance
-  typedef std::shared_ptr<LocationCrossingDescription> LocationCrossingDescriptionRef;
+  using LocationCrossingDescriptionRef = std::shared_ptr<LocationCrossingDescription>;
 
   /**
    * \ingroup Location
@@ -366,6 +366,8 @@ namespace osmscout {
       AddressRef     address;     //!< Address data if set
     };
 
+    using ReverseLookupRef = std::shared_ptr<ReverseLookupResult>;
+
   private:
     DatabaseRef database;
 
@@ -402,36 +404,36 @@ namespace osmscout {
 
     bool DescribeLocation(const GeoCoord& location,
                           LocationDescription& description,
-                          Distance lookupDistance=Distance::Of<Meter>(100),
+                          const Distance& lookupDistance=Distance::Of<Meter>(100),
                           double sizeFilter=1.0);
 
     bool DescribeLocationByName(const GeoCoord& location,
                                 LocationDescription& description,
-                                Distance lookupDistance=Distance::Of<Meter>(100),
+                                const Distance& lookupDistance=Distance::Of<Meter>(100),
                                 double sizeFilter=1.0);
 
     bool DescribeLocationByAddress(const GeoCoord& location,
                                    LocationDescription& description,
-                                   Distance lookupDistance=Distance::Of<Meter>(100),
+                                   const Distance& lookupDistance=Distance::Of<Meter>(100),
                                    double sizeFilter=1.0);
 
     bool DescribeLocationByPOI(const GeoCoord& location,
                                LocationDescription& description,
-                               Distance lookupDistance=Distance::Of<Meter>(100),
+                               const Distance& lookupDistance=Distance::Of<Meter>(100),
                                double sizeFilter=1.0);
 
     bool DescribeLocationByCrossing(const GeoCoord& location,
                                     LocationDescription& description,
-                                    Distance lookupDistance=Distance::Of<Meter>(100));
+                                    const Distance& lookupDistance=Distance::Of<Meter>(100));
 
     bool DescribeLocationByWay(const GeoCoord& location,
                                LocationDescription& description,
-                               Distance lookupDistance=Distance::Of<Meter>(100));
+                               const Distance& lookupDistance=Distance::Of<Meter>(100));
   };
 
   //! \ingroup Service
   //! Reference counted reference to a location service instance
-  typedef std::shared_ptr<LocationDescriptionService> LocationDescriptionServiceRef;
+  using LocationDescriptionServiceRef = std::shared_ptr<LocationDescriptionService>;
 }
 
 

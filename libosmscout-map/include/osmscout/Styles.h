@@ -28,10 +28,35 @@
 
 #include <osmscout/Pixel.h>
 #include <osmscout/util/Color.h>
+#include <osmscout/util/Projection.h>
 
 #include <osmscout/StyleDescription.h>
 
 namespace osmscout {
+
+  /**
+   * Offset for rendered line, relative to way.
+   */
+  enum class OffsetRel: int {
+    base,                       //!< way center
+    leftOutline,                //!< left side of the way
+    rightOutline,               //!< right side of the way
+    laneDivider,                //!< when way has multiple lanes, line is rendered as its divider
+
+    /** when way has explicit turns, following offsets may be used to decorate them specially */
+    laneForwardLeft,
+    laneForwardThroughLeft,
+    laneForwardThrough,
+    laneForwardThroughRight,
+    laneForwardRight,
+    laneBackwardLeft,
+    laneBackwardThroughLeft,
+    laneBackwardThrough,
+    laneBackwardThroughRight,
+    laneBackwardRight,
+
+    sidecar                     //!< special offset for routes, line are stacked next to way, same colors are "collapsed"
+  };
 
   /**
    * \ingroup Stylesheet
@@ -47,16 +72,10 @@ namespace osmscout {
       capSquare
     };
 
-    enum OffsetRel {
-      base,
-      leftOutline,
-      rightOutline,
-      laneDivider,
-    };
-
     enum Attribute {
       attrLineColor,
       attrGapColor,
+      attrPreferColorFeature,
       attrDisplayWidth,
       attrWidth,
       attrDisplayOffset,
@@ -73,6 +92,7 @@ namespace osmscout {
     std::string         slot;
     Color               lineColor;
     Color               gapColor;
+    bool                preferColorFeature;
     double              displayWidth;
     double              width;
     double              displayOffset;
@@ -92,11 +112,13 @@ namespace osmscout {
     void SetDoubleValue(int attribute, double value) override;
     void SetDoubleArrayValue(int attribute, const std::vector<double>& value) override;
     void SetIntValue(int attribute, int value) override;
+    void SetBoolValue(int attribute, bool value) override;
 
     LineStyle& SetSlot(const std::string& slot);
 
     LineStyle& SetLineColor(const Color& color);
     LineStyle& SetGapColor(const Color& color);
+    LineStyle& SetPreferColorFeature(bool value);
     LineStyle& SetDisplayWidth(double value);
     LineStyle& SetWidth(double value);
     LineStyle& SetDisplayOffset(double value);
@@ -128,6 +150,11 @@ namespace osmscout {
     inline const Color& GetGapColor() const
     {
       return gapColor;
+    }
+
+    inline bool GetPreferColorFeature() const
+    {
+      return preferColorFeature;
     }
 
     inline double GetDisplayWidth() const
@@ -217,14 +244,33 @@ namespace osmscout {
       : StyleEnumAttributeDescriptor(name,
                                      attribute)
     {
-      AddEnumValue("base",LineStyle::base);
-      AddEnumValue("leftOutline",LineStyle::leftOutline);
-      AddEnumValue("rightOutline",LineStyle::rightOutline);
-      AddEnumValue("laneDivider",LineStyle::laneDivider);
+      AddEnumValue2("base",OffsetRel::base);
+      AddEnumValue2("leftOutline",OffsetRel::leftOutline);
+      AddEnumValue2("rightOutline",OffsetRel::rightOutline);
+      AddEnumValue2("laneDivider",OffsetRel::laneDivider);
+
+      AddEnumValue2("laneForwardLeft",OffsetRel::laneForwardLeft);
+      AddEnumValue2("laneForwardThroughLeft",OffsetRel::laneForwardThroughLeft);
+      AddEnumValue2("laneForwardThrough",OffsetRel::laneForwardThrough);
+      AddEnumValue2("laneForwardThroughRight",OffsetRel::laneForwardThroughRight);
+      AddEnumValue2("laneForwardRight",OffsetRel::laneForwardRight);
+      AddEnumValue2("laneBackwardLeft",OffsetRel::laneBackwardLeft);
+      AddEnumValue2("laneBackwardThroughLeft",OffsetRel::laneBackwardThroughLeft);
+      AddEnumValue2("laneBackwardThrough",OffsetRel::laneBackwardThrough);
+      AddEnumValue2("laneBackwardThroughRight",OffsetRel::laneBackwardThroughRight);
+      AddEnumValue2("laneBackwardRight",OffsetRel::laneBackwardRight);
+
+      AddEnumValue2("sidecar", OffsetRel::sidecar);
+    }
+
+    void AddEnumValue2(const std::string& name,
+                       OffsetRel value)
+    {
+      AddEnumValue(name, static_cast<int>(value));
     }
   };
 
-  typedef std::shared_ptr<LineStyle>                       LineStyleRef;
+  using LineStyleRef = std::shared_ptr<LineStyle>;
 
   /**
    * \ingroup Stylesheet
@@ -300,7 +346,7 @@ namespace osmscout {
     bool operator<(const FillStyle& other) const;
   };
 
-  typedef std::shared_ptr<FillStyle>                       FillStyleRef;
+  using FillStyleRef = std::shared_ptr<FillStyle>;
 
   /**
    * \ingroup Stylesheet
@@ -409,7 +455,7 @@ namespace osmscout {
     bool operator<(const BorderStyle& other) const;
   };
 
-  typedef std::shared_ptr<BorderStyle>                         BorderStyleRef;
+  using BorderStyleRef = std::shared_ptr<BorderStyle>;
 
   /**
    * \ingroup Stylesheet
@@ -447,7 +493,7 @@ namespace osmscout {
     }
   };
 
-  typedef std::shared_ptr<LabelStyle> LabelStyleRef;
+  using LabelStyleRef = std::shared_ptr<LabelStyle>;
 
   /**
    * \ingroup Stylesheet
@@ -573,7 +619,7 @@ namespace osmscout {
     }
   };
 
-  typedef std::shared_ptr<TextStyle>                       TextStyleRef;
+  using TextStyleRef = std::shared_ptr<TextStyle>;
 
   /**
    * \ingroup Stylesheet
@@ -643,7 +689,7 @@ namespace osmscout {
                         const std::set<Attribute>& attributes);
   };
 
-  typedef std::shared_ptr<ShieldStyle>                         ShieldStyleRef;
+  using ShieldStyleRef = std::shared_ptr<ShieldStyle>;
 
   /**
    * \ingroup Stylesheet
@@ -742,7 +788,7 @@ namespace osmscout {
                         const std::set<Attribute>& attributes);
   };
 
-  typedef std::shared_ptr<PathShieldStyle>                             PathShieldStyleRef;
+  using PathShieldStyleRef = std::shared_ptr<PathShieldStyle>;
 
   /**
    * \ingroup Stylesheet
@@ -828,7 +874,7 @@ namespace osmscout {
                         const std::set<Attribute>& attributes);
   };
 
-  typedef std::shared_ptr<PathTextStyle>                           PathTextStyleRef;
+  using PathTextStyleRef = std::shared_ptr<PathTextStyle>;
 
   /**
    * \ingroup Stylesheet
@@ -841,7 +887,9 @@ namespace osmscout {
     enum Attribute {
       attrSymbol,
       attrIconName,
-      attrPosition
+      attrPosition,
+      attrPriority,
+      attrOverlay
     };
 
   private:
@@ -851,11 +899,14 @@ namespace osmscout {
     unsigned int width;    //!< width of icon in pixels
     unsigned int height;   //!< height of icon in pixels
     size_t       position; //!< Relative vertical position of the label
+    size_t       priority; //!< Rendering priority
+    bool         overlay;  //!< Render in any case, do not clip if it overlaps with something else. Default: false
 
   public:
     IconStyle();
     IconStyle(const IconStyle& style);
 
+    void SetBoolValue(int attribute, bool value) override;
     void SetStringValue(int attribute, const std::string& value) override;
     void SetSymbolValue(int attribute, const SymbolRef& value) override;
     void SetUIntValue(int attribute, size_t value) override;
@@ -866,6 +917,13 @@ namespace osmscout {
     IconStyle& SetWidth(unsigned int w);
     IconStyle& SetHeight(unsigned int h);
     IconStyle& SetPosition(size_t position);
+    IconStyle& SetPriority(size_t priority);
+    IconStyle& SetOverlay(bool overlay);
+
+    inline size_t GetPriority() const
+    {
+      return priority;
+    }
 
     inline bool IsVisible() const
     {
@@ -903,13 +961,18 @@ namespace osmscout {
       return position;
     }
 
+    inline bool IsOverlay() const
+    {
+      return overlay;
+    }
+
     static StyleDescriptorRef GetDescriptor();
 
     void CopyAttributes(const IconStyle& other,
                         const std::set<Attribute>& attributes);
   };
 
-  typedef std::shared_ptr<IconStyle>                       IconStyleRef;
+  using IconStyleRef = std::shared_ptr<IconStyle>;
 
   /**
    * \ingroup Stylesheet
@@ -955,7 +1018,7 @@ namespace osmscout {
                                 double& maxY) const = 0;
   };
 
-  typedef std::shared_ptr<DrawPrimitive> DrawPrimitiveRef;
+  using DrawPrimitiveRef = std::shared_ptr<DrawPrimitive>;
 
   /**
    * \ingroup Stylesheet
@@ -984,7 +1047,7 @@ namespace osmscout {
                         double& maxY) const override;
   };
 
-  typedef std::shared_ptr<PolygonPrimitive> PolygonPrimitiveRef;
+  using PolygonPrimitiveRef = std::shared_ptr<PolygonPrimitive>;
 
   /**
    * \ingroup Stylesheet
@@ -1026,7 +1089,7 @@ namespace osmscout {
                         double& maxY) const override;
   };
 
-  typedef std::shared_ptr<RectanglePrimitive> RectanglePrimitiveRef;
+  using RectanglePrimitiveRef = std::shared_ptr<RectanglePrimitive>;
 
   /**
    * \ingroup Stylesheet
@@ -1061,7 +1124,7 @@ namespace osmscout {
                         double& maxY) const override;
   };
 
-  typedef std::shared_ptr<CirclePrimitive> CirclePrimitiveRef;
+  using CirclePrimitiveRef = std::shared_ptr<CirclePrimitive>;
 
   /**
    * \ingroup Stylesheet
@@ -1074,10 +1137,35 @@ namespace osmscout {
   private:
     std::string                 name;
     std::list<DrawPrimitiveRef> primitives;
-    double                      minX;
-    double                      minY;
-    double                      maxX;
-    double                      maxY;
+
+    struct BoundingBox{
+      double minX{0};
+      double minY{0};
+      double maxX{0};
+      double maxY{0};
+
+      inline double GetWidth() const
+      {
+        return maxX-minX;
+      }
+
+      inline double GetHeight() const
+      {
+        return maxY-minY;
+      }
+
+      inline void Update(double minX, double minY, double maxX, double maxY)
+      {
+        this->minX = std::min(this->minX, minX);
+        this->minY = std::min(this->minY, minY);
+
+        this->maxX = std::max(this->maxX, maxX);
+        this->maxY = std::max(this->maxY, maxY);
+      }
+    };
+
+    BoundingBox mapBoundingBox;     //!< bounding box in map canvas coordinates [mm]
+    BoundingBox groundBoundingBox;  //!< bounding box in ground coordinates [m]
 
   public:
     explicit Symbol(const std::string& name);
@@ -1094,27 +1182,44 @@ namespace osmscout {
       return primitives;
     }
 
-    inline void GetBoundingBox(double& minX,
+    /**
+     * bounding box in pixels for given projection
+     */
+    inline void GetBoundingBox(const Projection &projection,
+                               double& minX,
                                double& minY,
                                double& maxX,
                                double& maxY) const
     {
-      minX=this->minX;
-      minY=this->minY;
+      minX=std::min(projection.ConvertWidthToPixel(mapBoundingBox.minX),
+                    projection.GetMeterInPixel() * groundBoundingBox.minX);
+      minY=std::min(projection.ConvertWidthToPixel(mapBoundingBox.minY),
+                    projection.GetMeterInPixel() * groundBoundingBox.minY);
 
-      maxX=this->maxX;
-      maxY=this->maxY;
+      maxX=std::max(projection.ConvertWidthToPixel(mapBoundingBox.maxX),
+                    projection.GetMeterInPixel() * groundBoundingBox.maxX);
+      maxY=std::max(projection.ConvertWidthToPixel(mapBoundingBox.maxY),
+                    projection.GetMeterInPixel() * groundBoundingBox.maxY);
     }
 
-    inline double GetWidth() const
+    /**
+     * width in pixels for given projection
+     */
+    inline double GetWidth(const Projection &projection) const
     {
-      return maxX-minX;
+      return std::max(projection.ConvertWidthToPixel(mapBoundingBox.GetWidth()),
+                      projection.GetMeterInPixel() * groundBoundingBox.GetWidth());
     }
 
-    inline double GetHeight() const
+    /**
+     * height in pixels for given projection
+     */
+    inline double GetHeight(const Projection &projection) const
     {
-      return maxY-minY;
+      return std::max(projection.ConvertWidthToPixel(mapBoundingBox.GetHeight()),
+                      projection.GetMeterInPixel() * groundBoundingBox.GetHeight());
     }
+
   };
 
   /**
@@ -1130,14 +1235,17 @@ namespace osmscout {
       attrSymbol,
       attrSymbolSpace,
       attrDisplayOffset,
-      attrOffset
+      attrOffset,
+      attrOffsetRel
     };
 
   private:
-    SymbolRef symbol;
-    double    symbolSpace;
-    double    displayOffset;
-    double    offset;
+    std::string slot;
+    SymbolRef   symbol;
+    double      symbolSpace;
+    double      displayOffset;
+    double      offset;
+    OffsetRel   offsetRel{OffsetRel::base};
 
   public:
     PathSymbolStyle();
@@ -1145,15 +1253,24 @@ namespace osmscout {
 
     void SetDoubleValue(int attribute, double value) override;
     void SetSymbolValue(int attribute, const SymbolRef& value) override;
+    void SetIntValue(int attribute, int value) override;
+
+    PathSymbolStyle& SetSlot(const std::string& slot);
 
     PathSymbolStyle& SetSymbol(const SymbolRef& symbol);
     PathSymbolStyle& SetSymbolSpace(double space);
     PathSymbolStyle& SetDisplayOffset(double value);
     PathSymbolStyle& SetOffset(double value);
+    PathSymbolStyle& SetOffsetRel(OffsetRel offsetRel);
 
     inline bool IsVisible() const
     {
       return (bool)symbol;
+    }
+
+    inline const std::string& GetSlot() const
+    {
+      return slot;
     }
 
     inline const SymbolRef& GetSymbol() const
@@ -1176,13 +1293,18 @@ namespace osmscout {
       return offset;
     }
 
+    inline OffsetRel GetOffsetRel() const
+    {
+      return offsetRel;
+    }
+
     static StyleDescriptorRef GetDescriptor();
 
     void CopyAttributes(const PathSymbolStyle& other,
                         const std::set<Attribute>& attributes);
   };
 
-  typedef std::shared_ptr<PathSymbolStyle>                             PathSymbolStyleRef;
+  using PathSymbolStyleRef = std::shared_ptr<PathSymbolStyle>;
 }
 
 #endif

@@ -90,10 +90,12 @@ TEST_CASE("Check node in area")
 
   for (int i=0;;i+=2){
     double lat = areaCoords[i];
-    if (lat == 0.0)
+    if (lat == 0.0) {
       break;
+    }
+
     double lon = areaCoords[i+1];
-    area.push_back(osmscout::Point(0, osmscout::GeoCoord(lat, lon)));
+    area.emplace_back(0, osmscout::GeoCoord(lat, lon));
   }
 
   SECTION("Nodes outside bounding box"){
@@ -164,7 +166,7 @@ TEST_CASE("Target computation from bearing and distance")
   //    Latitude: 51°27'48" N (51.463397)
   //    Longitude: 7°0'22" E (7.006078)
   osmscout::Distance distance = osmscout::Distance::Of<osmscout::Meter>(14665.298166863819);
-  double angle = 76.010085273091411718093847668127; // [deg]
+  auto angle = osmscout::Bearing::Degrees(76.010085273091411718093847668127);
 
   osmscout::GeoCoord target = location1.Add(angle, distance);
   REQUIRE(IsSame(target, osmscout::GeoCoord(51.463397, 7.006078)));
@@ -180,7 +182,7 @@ TEST_CASE("Ellipsoidal distance up")
 {
   osmscout::GeoCoord location(51.57178,7.45879);
   osmscout::Distance distance=osmscout::Distance::Of<osmscout::Kilometer>(5);
-  double             angle=0; // [deg]
+  auto               angle=osmscout::Bearing::Degrees(0);
 
   osmscout::GeoCoord target=location.Add(angle,distance);
 
@@ -192,7 +194,7 @@ TEST_CASE("Ellipsoidal distance right")
 {
   osmscout::GeoCoord location(51.5718,7.45879);
   osmscout::Distance distance=osmscout::Distance::Of<osmscout::Kilometer>(5);
-  double             angle=90; // [deg]
+  auto               angle=osmscout::Bearing::Degrees(90);
 
   osmscout::GeoCoord target=location.Add(angle,distance);
 
@@ -206,7 +208,7 @@ TEST_CASE("Ellipsoidal distance down")
 {
   osmscout::GeoCoord location(51.57178,7.45879);
   osmscout::Distance distance=osmscout::Distance::Of<osmscout::Kilometer>(5);
-  double             angle=180; // [deg]
+  auto               angle=osmscout::Bearing::Degrees(180);
 
   osmscout::GeoCoord target=location.Add(angle,distance);
 
@@ -218,7 +220,7 @@ TEST_CASE("Ellipsoidal distance left")
 {
   osmscout::GeoCoord location(51.57178,7.45879);
   osmscout::Distance distance=osmscout::Distance::Of<osmscout::Kilometer>(5);
-  double             angle=270; // [deg]
+  auto               angle=osmscout::Bearing::Degrees(270);
 
   osmscout::GeoCoord target=location.Add(angle,distance);
 
@@ -234,10 +236,12 @@ TEST_CASE("Angle diff")
   for (double a = -M_PI; a < M_PI; a += step) {
     for (double diff = -M_PI; diff < M_PI - step; diff += step) {
       double b = a + diff;
-      if (b < -M_PI)
-        b += 2*M_PI;
-      if (b > M_PI)
-        b -= 2*M_PI;
+      if (b<-M_PI) {
+        b+=2*M_PI;
+      }
+      if (b>M_PI) {
+        b-=2*M_PI;
+      }
 
       // std::cout << osmscout::RadToDeg(a) << ", " <<
       //           osmscout::RadToDeg(b) << "; " <<

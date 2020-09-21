@@ -30,6 +30,7 @@
 struct Arguments
 {
   bool                   help=false;
+  bool                   debug=false;
   std::string            databaseDirectory;
   std::string            defaultAdminRegion;
   bool                   searchForLocation=true;
@@ -37,11 +38,12 @@ struct Arguments
   bool                   adminRegionOnlyMatch=false;
   bool                   poiOnlyMatch=false;
   bool                   locationOnlyMatch=false;
-  bool                   addressOnlyMatch=true;
+  bool                   addressOnlyMatch=false;
   bool                   partialMatch=false;
   size_t                 limit=30;
   size_t                 repeat=1;
   std::list<std::string> location;
+  bool                   transliterate=false;
 };
 
 bool GetAdminRegionHierachie(const osmscout::LocationServiceRef& locationService,
@@ -296,6 +298,10 @@ void DumpResult(const osmscout::DatabaseRef& database,
 
       std::cout << std::endl;
 
+      for (const auto& alias : entry.adminRegion->aliases) {
+        std::cout << "   - alias " << alias.name << std::endl;
+      }
+
       if (entry.adminRegion->aliasObject.Valid()) {
         std::cout << "   - " << GetObject(database,entry.adminRegion->aliasObject);
       }
@@ -325,6 +331,13 @@ int main(int argc, char* argv[])
                       helpArgs,
                       "Return argument help",
                       true);
+
+  argParser.AddOption(osmscout::CmdLineFlag([&args](const bool& value) {
+                        args.debug=value;
+                      }),
+                      "debug",
+                      "Enable debug output",
+                      false);
 
   argParser.AddOption(osmscout::CmdLineBoolOption([&args](bool value) {
                         args.searchForLocation=value;
@@ -386,6 +399,13 @@ int main(int argc, char* argv[])
                       "repeat",
                       "Cout of repeat for performance test");
 
+  argParser.AddOption(osmscout::CmdLineFlag([&args](const bool& value) {
+                        args.transliterate=value;
+                      }),
+                      "transliterate",
+                      "Transliterate non-ascii characters for matching",
+                      false);
+
   argParser.AddPositional(osmscout::CmdLineStringOption([&args](const std::string& value) {
                             args.databaseDirectory=value;
                           }),
@@ -411,11 +431,10 @@ int main(int argc, char* argv[])
     return 0;
   }
 
-  /*
-  osmscout::log.Debug(true);
+  osmscout::log.Debug(args.debug);
   osmscout::log.Info(true);
   osmscout::log.Warn(true);
-  osmscout::log.Error(true);*/
+  osmscout::log.Error(true);
 
   try {
     std::locale::global(std::locale(""));
@@ -443,8 +462,14 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-  osmscout::StringMatcherFactoryRef matcherFactory=std::make_shared<osmscout::StringMatcherCIFactory>();
-  osmscout::LocationServiceRef     locationService=std::make_shared<osmscout::LocationService>(database);
+  osmscout::StringMatcherFactoryRef matcherFactory;
+  if(args.transliterate) {
+    matcherFactory=std::make_shared<osmscout::StringMatcherTransliterateFactory>();
+  } else {
+    matcherFactory=std::make_shared<osmscout::StringMatcherCIFactory>();
+  }
+
+  osmscout::LocationServiceRef locationService=std::make_shared<osmscout::LocationService>(database);
 
   osmscout::LocationStringSearchParameter searchParameter(osmscout::LocaleStringToUTF8String(searchPattern));
 
@@ -500,6 +525,7 @@ int main(int argc, char* argv[])
   std::cout << "Location only match:     " << (searchParameter.GetLocationOnlyMatch() ? "true" : "false") << std::endl;
   std::cout << "Address only match:      " << (searchParameter.GetAddressOnlyMatch() ? "true" : "false") << std::endl;
   std::cout << "Partial match:           " << (searchParameter.GetPartialMatch() ? "true" : "false") << std::endl;
+  std::cout << "Transliterate:           " << (args.transliterate ? "true" : "false") << std::endl;
 
   if (searchParameter.GetDefaultAdminRegion()) {
     std::cout << "Default admin region:    " << searchParameter.GetDefaultAdminRegion()->name << " (" << searchParameter.GetDefaultAdminRegion()->object.GetName() << ")" << std::endl;

@@ -34,7 +34,7 @@
 
 namespace osmscout
 {
-  const char* OptimizeWaysLowZoom::FILE_WAYSOPT_DAT = "waysopt.dat";
+  const char* const OptimizeWaysLowZoom::FILE_WAYSOPT_DAT = "waysopt.dat";
 
   OptimizeWaysLowZoom::OptimizeWaysLowZoom()
   : magnification(0.0)
@@ -128,6 +128,8 @@ namespace osmscout
 
   bool OptimizeWaysLowZoom::Close()
   {
+    typeConfig=nullptr;
+    wayTypesData.clear();
     try  {
       if (scanner.IsOpen()) {
         scanner.Close();

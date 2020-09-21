@@ -22,7 +22,6 @@
 #include <limits>
 #include <map>
 
-#include <osmscout/Coord.h>
 #include <osmscout/CoordDataFile.h>
 
 #include <osmscout/import/Preprocess.h>
@@ -108,7 +107,7 @@ namespace osmscout {
 
           if (currentCoordCount>parameter.GetRawCoordBlockSize()
               && coordPages.size()>1) {
-            Id oldUpperLimit=currentUpperLimit;
+            [[maybe_unused]] Id oldUpperLimit=currentUpperLimit;
 
             while (currentCoordCount>parameter.GetRawCoordBlockSize()
                    && coordPages.size()>1) {
@@ -122,7 +121,6 @@ namespace osmscout {
             }
 
             assert(currentUpperLimit<oldUpperLimit);
-            unused(oldUpperLimit);
           }
         }
 
@@ -181,7 +179,7 @@ namespace osmscout {
 
   bool CoordDataGenerator::DumpCurrentPage(FileWriter& writer,
                                            std::vector<bool>& isSetInPage,
-                                           std::vector<Coord>& page) const
+                                           std::vector<Point>& page) const
   {
     bool somethingToStore=false;
 
@@ -227,7 +225,7 @@ namespace osmscout {
 
     PageId             currentPageId=0;
     std::vector<bool>  isSetInPage(coordDiskPageSize,false);
-    std::vector<Coord> page(coordDiskPageSize);
+    std::vector<Point> page(coordDiskPageSize);
 
     std::unordered_map<OSMId,FileOffset> pageIndex;
 
@@ -285,7 +283,7 @@ namespace osmscout {
 
           if (currentCoordCount>parameter.GetRawCoordBlockSize()
               && coordPages.size()>1) {
-            OSMId oldUpperLimit=currentUpperLimit;
+            [[maybe_unused]] OSMId oldUpperLimit=currentUpperLimit;
 
             while (currentCoordCount>parameter.GetRawCoordBlockSize()
                    && coordPages.size()>1) {
@@ -299,7 +297,6 @@ namespace osmscout {
             }
 
             assert(currentUpperLimit<oldUpperLimit);
-            unused(oldUpperLimit);
           }
         }
 
@@ -349,7 +346,7 @@ namespace osmscout {
             size_t pageIndex=relatedId%coordDiskPageSize;
 
             isSetInPage[pageIndex]=true;
-            page[pageIndex]=Coord(serial,
+            page[pageIndex]=Point(serial,
                                   osmCoord.GetCoord());
           }
         }

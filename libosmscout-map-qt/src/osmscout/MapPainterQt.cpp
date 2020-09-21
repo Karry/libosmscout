@@ -149,7 +149,7 @@ namespace osmscout {
 
       if (success) {
         images[style.GetIconName()] = image;
-        //std::cout << "Loaded image '" << filename << "'" << std::endl;
+        log.Info() << "Loaded icon '" << style.GetIconName() << "' from \"" << filename << "\"";
         return true;
       }
 
@@ -310,8 +310,9 @@ namespace osmscout {
       return;
     }
 
-    if (dynamic_cast<const TextStyle*>(label.style.get())!=nullptr) {
-      const auto *style=dynamic_cast<const TextStyle*>(label.style.get());
+    if (const auto *style = dynamic_cast<const TextStyle*>(label.style.get());
+        style != nullptr) {
+
       double      r=style->GetTextColor().GetR();
       double      g=style->GetTextColor().GetG();
       double      b=style->GetTextColor().GetB();
@@ -348,12 +349,12 @@ namespace osmscout {
         textLayout.draw(painter, rect.topLeft());
       }
     }
-    else if (dynamic_cast<const ShieldStyle*>(label.style.get())!=nullptr) {
+    else if (const auto *style = dynamic_cast<const ShieldStyle*>(label.style.get());
+             style != nullptr) {
 
       QPointF marginMove(-5,-5);
       QSizeF marginResize(10,10);
 
-      const auto *style=dynamic_cast<const ShieldStyle*>(label.style.get());
       QColor     textColor=QColor::fromRgbF(style->GetTextColor().GetR(),
                                             style->GetTextColor().GetG(),
                                             style->GetTextColor().GetB(),
@@ -571,10 +572,9 @@ namespace osmscout {
     double           maxX;
     double           maxY;
 
-    symbol.GetBoundingBox(minX,minY,maxX,maxY);
+    symbol.GetBoundingBox(projection,minX,minY,maxX,maxY);
 
-    double           widthPx=projection.ConvertWidthToPixel(maxX-minX);
-    double           height=maxY-minY;
+    double           widthPx=maxX-minX;
     bool             isClosed=false;
     Vertex2D         origin;
     double           x1,y1,x2,y2,x3,y3,slope;
@@ -613,7 +613,7 @@ namespace osmscout {
           t=QTransform::fromTranslate(x2, y2);
           t.rotateRadians(slope);
           painter->setTransform(t);
-          DrawSymbol(projection, parameter, symbol, 0, -height*2);
+          DrawSymbol(projection, parameter, symbol, 0, 0);
           loop=FollowPath(followPathHnd, space, origin);
         }
       }
@@ -647,7 +647,7 @@ namespace osmscout {
     double centerX;
     double centerY;
 
-    symbol.GetBoundingBox(minX,minY,maxX,maxY);
+    symbol.GetBoundingBox(projection,minX,minY,maxX,maxY);
 
     centerX=(minX+maxX)/2;
     centerY=(minY+maxY)/2;
@@ -655,8 +655,9 @@ namespace osmscout {
     for (const auto& primitive : symbol.GetPrimitives()) {
       const DrawPrimitive *primitivePtr=primitive.get();
 
-      if (dynamic_cast<const PolygonPrimitive*>(primitivePtr)!=nullptr) {
-        const auto     *polygon=dynamic_cast<const PolygonPrimitive*>(primitivePtr);
+      if (const auto *polygon = dynamic_cast<const PolygonPrimitive*>(primitivePtr);
+          polygon != nullptr) {
+
         FillStyleRef   fillStyle=polygon->GetFillStyle();
         BorderStyleRef borderStyle=polygon->GetBorderStyle();
 
@@ -685,12 +686,12 @@ namespace osmscout {
                pixel!=polygon->GetCoords().end();
                ++pixel) {
             if (pixel==polygon->GetCoords().begin()) {
-              path.moveTo(x+projection.ConvertWidthToPixel(pixel->GetX()-centerX),
-                          y+projection.ConvertWidthToPixel(pixel->GetY()-centerY));
+              path.moveTo(x+projection.ConvertWidthToPixel(pixel->GetX())-centerX,
+                          y+projection.ConvertWidthToPixel(pixel->GetY())-centerY);
             }
             else {
-              path.lineTo(x+projection.ConvertWidthToPixel(pixel->GetX()-centerX),
-                          y+projection.ConvertWidthToPixel(pixel->GetY()-centerY));
+              path.lineTo(x+projection.ConvertWidthToPixel(pixel->GetX())-centerX,
+                          y+projection.ConvertWidthToPixel(pixel->GetY())-centerY);
             }
           }
         }
@@ -699,12 +700,12 @@ namespace osmscout {
                pixel!=polygon->GetCoords().end();
                ++pixel) {
             if (pixel==polygon->GetCoords().begin()) {
-              path.moveTo(x+projection.GetMeterInPixel()*(pixel->GetX()-centerX),
-                          y+projection.GetMeterInPixel()*(pixel->GetY()-centerY));
+              path.moveTo(x+projection.GetMeterInPixel()*pixel->GetX()-centerX,
+                          y+projection.GetMeterInPixel()*pixel->GetY()-centerY);
             }
             else {
-              path.lineTo(x+projection.GetMeterInPixel()*(pixel->GetX()-centerX),
-                          y+projection.GetMeterInPixel()*(pixel->GetY()-centerY));
+              path.lineTo(x+projection.GetMeterInPixel()*pixel->GetX()-centerX,
+                          y+projection.GetMeterInPixel()*pixel->GetY()-centerY);
 
             }
           }
@@ -712,8 +713,9 @@ namespace osmscout {
 
         painter->drawPath(path);
       }
-      else if (dynamic_cast<const RectanglePrimitive*>(primitivePtr)!=nullptr) {
-        const auto     *rectangle=dynamic_cast<const RectanglePrimitive*>(primitivePtr);
+      else if (const auto *rectangle = dynamic_cast<const RectanglePrimitive*>(primitivePtr);
+               rectangle != nullptr) {
+
         FillStyleRef   fillStyle=rectangle->GetFillStyle();
         BorderStyleRef borderStyle=rectangle->GetBorderStyle();
 
@@ -738,36 +740,37 @@ namespace osmscout {
         QPainterPath path;
 
         if (rectangle->GetProjectionMode()==DrawPrimitive::ProjectionMode::MAP) {
-          path.addRect(x+projection.ConvertWidthToPixel(rectangle->GetTopLeft().GetX()-centerX),
-                       y+projection.ConvertWidthToPixel(rectangle->GetTopLeft().GetY()-centerY),
+          path.addRect(x+projection.ConvertWidthToPixel(rectangle->GetTopLeft().GetX())-centerX,
+                       y+projection.ConvertWidthToPixel(rectangle->GetTopLeft().GetY())-centerY,
                        projection.ConvertWidthToPixel(rectangle->GetWidth()),
                        projection.ConvertWidthToPixel(rectangle->GetHeight()));
         }
         else {
-          path.addRect(x+projection.GetMeterInPixel()*(rectangle->GetTopLeft().GetX()-centerX),
-                       y+projection.GetMeterInPixel()*(rectangle->GetTopLeft().GetY()-centerY),
+          path.addRect(x+projection.GetMeterInPixel()*rectangle->GetTopLeft().GetX()-centerX,
+                       y+projection.GetMeterInPixel()*rectangle->GetTopLeft().GetY()-centerY,
                        projection.GetMeterInPixel()*rectangle->GetWidth(),
                        projection.GetMeterInPixel()*rectangle->GetHeight());
         }
 
         painter->drawPath(path);
       }
-      else if (dynamic_cast<const CirclePrimitive*>(primitivePtr)!=nullptr) {
-        const auto     *circle=dynamic_cast<const CirclePrimitive*>(primitivePtr);
+      else if (const auto *circle = dynamic_cast<const CirclePrimitive*>(primitivePtr);
+               circle != nullptr) {
+
         FillStyleRef   fillStyle=circle->GetFillStyle();
         BorderStyleRef borderStyle=circle->GetBorderStyle();
         QPointF        center;
         double         radius;
 
         if (circle->GetProjectionMode()==DrawPrimitive::ProjectionMode::MAP) {
-          center=QPointF(x+projection.ConvertWidthToPixel(circle->GetCenter().GetX()-centerX),
-                         y+projection.ConvertWidthToPixel(circle->GetCenter().GetY()-centerY));
+          center=QPointF(x+projection.ConvertWidthToPixel(circle->GetCenter().GetX())-centerX,
+                         y+projection.ConvertWidthToPixel(circle->GetCenter().GetY())-centerY);
 
           radius=projection.ConvertWidthToPixel(circle->GetRadius());
         }
         else {
-          center=QPointF(x+projection.GetMeterInPixel()*(circle->GetCenter().GetX()-centerX),
-                         y+projection.GetMeterInPixel()*(circle->GetCenter().GetY()-centerY));
+          center=QPointF(x+projection.GetMeterInPixel()*circle->GetCenter().GetX()-centerX,
+                         y+projection.GetMeterInPixel()*circle->GetCenter().GetY()-centerY);
 
           radius=projection.GetMeterInPixel()*circle->GetRadius();
         }
@@ -835,6 +838,7 @@ namespace osmscout {
     else {
       QVector<qreal> dashes;
 
+      dashes << 0 << 0; // skip butt?
       for (size_t i=0; i<dash.size(); i++) {
         dashes << dash[i];
       }
@@ -979,6 +983,19 @@ namespace osmscout {
     return labelLayouter;
   }
 
+  void MapPainterQt::DrawRectangle(int x, int y,
+                                   int width, int height,
+                                   const Color &color)
+  {
+    QPen pen;
+    pen.setColor(QColor::fromRgbF(color.GetR(),color.GetG(),color.GetB(),color.GetA()));
+    painter->setPen(pen);
+    painter->setBrush(Qt::NoBrush);
+
+    painter->drawRect(x,y,width,height);
+  }
+
+
   void MapPainterQt::RegisterRegularLabel(const Projection &projection,
                                           const MapParameter &parameter,
                                           const std::vector<LabelData> &labels,
@@ -1116,277 +1133,21 @@ namespace osmscout {
                                      QPainter* painter)
   {
     std::lock_guard<std::mutex> guard(mutex);
-#if defined(DEBUG_GROUNDTILES)
-    std::set<GeoCoord>          drawnLabels;
-#endif
 
     this->painter=painter;
 
     painter->setRenderHint(QPainter::Antialiasing);
     painter->setRenderHint(QPainter::TextAntialiasing);
 
-    FillStyleRef landFill=styleConfig->GetLandFillStyle(projection);
+    // TODO: remove this method and use standard Draw
+    MapData data;
+    data.baseMapTiles=groundTiles;
 
-    if (!landFill) {
-      return;
-    }
-
-    if (parameter.GetRenderBackground()) {
-      DrawGround(projection,
-                 parameter,
-                 *landFill);
-    }
-
-    FillStyleRef       seaFill=styleConfig->GetSeaFillStyle(projection);
-    FillStyleRef       coastFill=styleConfig->GetCoastFillStyle(projection);
-    FillStyleRef       unknownFill=styleConfig->GetUnknownFillStyle(projection);
-    LineStyleRef       coastlineLine=styleConfig->GetCoastlineLineStyle(projection);
-    std::vector<Point> points;
-    size_t             start=0; // Make the compiler happy
-    size_t             end=0;   // Make the compiler happy
-
-    ;
-
-    if (!seaFill) {
-      return;
-    }
-
-    double             errorTolerancePixel=projection.ConvertWidthToPixel(parameter.GetOptimizeErrorToleranceMm());
-    FeatureValueBuffer coastlineSegmentAttributes;
-
-    for (const auto& tile : groundTiles) {
-      AreaData areaData;
-
-      if (tile.type==GroundTile::unknown &&
-          !parameter.GetRenderUnknowns()) {
-        continue;
-      }
-
-      switch (tile.type) {
-      case GroundTile::land:
-#if defined(DEBUG_GROUNDTILES)
-        std::cout << "Drawing land tile: " << tile.xRel << "," << tile.yRel << std::endl;
-#endif
-        areaData.fillStyle=landFill;
-        break;
-      case GroundTile::water:
-#if defined(DEBUG_GROUNDTILES)
-        std::cout << "Drawing water tile: " << tile.xRel << "," << tile.yRel << std::endl;
-#endif
-        areaData.fillStyle=seaFill;
-        break;
-      case GroundTile::coast:
-#if defined(DEBUG_GROUNDTILES)
-        std::cout << "Drawing coast tile: " << tile.xRel << "," << tile.yRel << std::endl;
-#endif
-        areaData.fillStyle=coastFill;
-        break;
-      case GroundTile::unknown:
-#if defined(DEBUG_GROUNDTILES)
-        std::cout << "Drawing unknown tile: " << tile.xRel << "," << tile.yRel << std::endl;
-#endif
-        areaData.fillStyle=unknownFill;
-        break;
-      }
-
-      if (!areaData.fillStyle) {
-        continue;
-      }
-
-      GeoCoord minCoord(tile.yAbs*tile.cellHeight-90.0,
-                        tile.xAbs*tile.cellWidth-180.0);
-      GeoCoord maxCoord(minCoord.GetLat()+tile.cellHeight,
-                        minCoord.GetLon()+tile.cellWidth);
-
-      areaData.boundingBox.Set(minCoord,maxCoord);
-
-      if (tile.coords.empty()) {
-#if defined(DEBUG_GROUNDTILES)
-        std::cout << " >= fill" << std::endl;
-#endif
-        // Fill the cell completely with the fill for the given cell type
-        points.resize(5);
-
-        points[0].SetCoord(areaData.boundingBox.GetMinCoord());
-        points[1].SetCoord(GeoCoord(areaData.boundingBox.GetMinCoord().GetLat(),
-                                    areaData.boundingBox.GetMaxCoord().GetLon()));
-        points[2].SetCoord(areaData.boundingBox.GetMaxCoord());
-        points[3].SetCoord(GeoCoord(areaData.boundingBox.GetMaxCoord().GetLat(),
-                                    areaData.boundingBox.GetMinCoord().GetLon()));
-        points[4]=points[0];
-
-        transBuffer.transPolygon.TransformArea(projection,
-                                               TransPolygon::none,
-                                               points,
-                                               errorTolerancePixel);
-
-        size_t s=transBuffer.transPolygon.GetStart();
-
-        start=transBuffer.buffer->PushCoord(floor(transBuffer.transPolygon.points[s+0].x),
-                                            ceil(transBuffer.transPolygon.points[s+0].y));
-
-
-        transBuffer.buffer->PushCoord(ceil(transBuffer.transPolygon.points[s+1].x),
-                                      ceil(transBuffer.transPolygon.points[s+1].y));
-
-        transBuffer.buffer->PushCoord(ceil(transBuffer.transPolygon.points[s+2].x),
-                                      floor(transBuffer.transPolygon.points[s+2].y));
-
-        transBuffer.buffer->PushCoord(floor(transBuffer.transPolygon.points[s+3].x),
-                                      floor(transBuffer.transPolygon.points[s+3].y));
-
-        end=transBuffer.buffer->PushCoord(floor(transBuffer.transPolygon.points[s+4].x),
-                                          ceil(transBuffer.transPolygon.points[s+4].y));
-      }
-      else {
-#if defined(DEBUG_GROUNDTILES)
-        std::cout << " >= sub" << std::endl;
-#endif
-        points.resize(tile.coords.size());
-
-        for (size_t i=0; i<tile.coords.size(); i++) {
-          double lat;
-          double lon;
-
-          lat=areaData.boundingBox.GetMinCoord().GetLat()+tile.coords[i].y*tile.cellHeight/GroundTile::Coord::CELL_MAX;
-          lon=areaData.boundingBox.GetMinCoord().GetLon()+tile.coords[i].x*tile.cellWidth/GroundTile::Coord::CELL_MAX;
-
-          points[i].SetCoord(GeoCoord(lat,lon));
-        }
-
-        transBuffer.transPolygon.TransformArea(projection,
-                                               TransPolygon::none,
-                                               points,
-                                               errorTolerancePixel);
-
-        for (size_t i=transBuffer.transPolygon.GetStart(); i<=transBuffer.transPolygon.GetEnd(); i++) {
-          double x,y;
-
-          if (tile.coords[i].x==0) {
-            x=floor(transBuffer.transPolygon.points[i].x);
-          }
-          else if (tile.coords[i].x==GroundTile::Coord::CELL_MAX) {
-            x=ceil(transBuffer.transPolygon.points[i].x);
-          }
-          else {
-            x=transBuffer.transPolygon.points[i].x;
-          }
-
-          if (tile.coords[i].y==0) {
-            y=ceil(transBuffer.transPolygon.points[i].y);
-          }
-          else if (tile.coords[i].y==GroundTile::Coord::CELL_MAX) {
-            y=floor(transBuffer.transPolygon.points[i].y);
-          }
-          else {
-            y=transBuffer.transPolygon.points[i].y;
-          }
-
-          size_t idx=transBuffer.buffer->PushCoord(x,y);
-
-          if (i==transBuffer.transPolygon.GetStart()) {
-            start=idx;
-          }
-          else if (i==transBuffer.transPolygon.GetEnd()) {
-            end=idx;
-          }
-        }
-
-        if (coastlineLine) {
-          size_t lineStart=0;
-          size_t lineEnd;
-
-          while (lineStart<tile.coords.size()) {
-            while (lineStart<tile.coords.size() &&
-                   !tile.coords[lineStart].coast) {
-              lineStart++;
-            }
-
-            if (lineStart>=tile.coords.size()) {
-              continue;
-            }
-
-            lineEnd=lineStart;
-
-            while (lineEnd<tile.coords.size() &&
-                   tile.coords[lineEnd].coast) {
-              lineEnd++;
-            }
-
-            if (lineStart!=lineEnd) {
-              WayData data;
-
-              data.buffer=&coastlineSegmentAttributes;
-              data.layer=0;
-              data.lineStyle=coastlineLine;
-              data.wayPriority=std::numeric_limits<int>::max();
-              data.transStart=start+lineStart;
-              data.transEnd=start+lineEnd;
-              data.lineWidth=GetProjectedWidth(projection,
-                                               projection.ConvertWidthToPixel(coastlineLine->GetDisplayWidth()),
-                                               coastlineLine->GetWidth());
-              data.startIsClosed=false;
-              data.endIsClosed=false;
-
-              DrawWay(*styleConfig,
-                      projection,
-                      parameter,
-                      data);
-            }
-
-            lineStart=lineEnd+1;
-          }
-        }
-      }
-
-      areaData.ref=ObjectFileRef();
-      areaData.transStart=start;
-      areaData.transEnd=end;
-
-      DrawArea(projection,parameter,areaData);
-
-#if defined(DEBUG_GROUNDTILES)
-      GeoCoord cc=areaData.boundingBox.GetCenter();
-
-      std::string label;
-
-      size_t x=(cc.GetLon()+180)/tile.cellWidth;
-      size_t y=(cc.GetLat()+90)/tile.cellHeight;
-
-      label=std::to_string(tile.xRel)+","+std::to_string(tile.yRel);
-
-      double lon=(x*tile.cellWidth+tile.cellWidth/2)-180.0;
-      double lat=(y*tile.cellHeight+tile.cellHeight/2)-90.0;
-
-      double px;
-      double py;
-
-      projection.GeoToPixel(GeoCoord(lat,lon),
-                            px,py);
-
-      if (drawnLabels.find(GeoCoord(x,y))!=drawnLabels.end()) {
-        continue;
-      }
-
-      LabelData labelBox;
-
-      labelBox.priority=0;
-      labelBox.alpha=debugLabel->GetAlpha();;
-      labelBox.fontSize=debugLabel->GetSize();
-      labelBox.style=debugLabel;
-      labelBox.text=label;
-
-      std::vector<LabelData> vect;
-      vect.push_back(labelBox);
-      RegisterRegularLabel(projection,
-                           parameter,
-                           vect,
-                           Vertex2D(px,py),
-                           /*proposedWidth*/ -1);
-
-      drawnLabels.insert(GeoCoord(x,y));
-#endif
-    }
+    Draw(projection,
+         parameter,
+         data,
+         RenderSteps::DrawBaseMapTiles,
+         RenderSteps::DrawBaseMapTiles);
   }
 
   bool MapPainterQt::DrawMap(const Projection& projection,

@@ -24,10 +24,9 @@
 
 #include <osmscout/Database.h>
 #include <osmscout/StyleConfig.h>
+#include <osmscout/util/CmdLineParsing.h>
 
-static const size_t DATAFILEACCESS_THREAD_COUNT=100;
-static const size_t DATAFILEACCESS_ITERATION_COUNT=1000000;
-
+// TODO: configurable
 static const size_t AREAINDEXACCESS_THREAD_COUNT=10;
 static const size_t AREAINDEXACCESS_ITERATION_COUNT=100;
 static const osmscout::MagnificationLevel AREAINDEXACCESS_AREA_LEVEL(10);
@@ -166,7 +165,7 @@ void AccessAreaIndex(osmscout::DatabaseRef& database,
       std::cout << "Thread " << std::this_thread::get_id() << ": iteration " << i << std::endl;
     }
 
-    for (auto& testData : testDataSet) {
+    for (const auto & testData : testDataSet) {
       std::vector<osmscout::FileOffset>    nodeOffsets;
       osmscout::TypeInfoSet                loadedNodeTypes;
       std::vector<osmscout::NodeRef>       nodeData;
@@ -278,14 +277,17 @@ void AccessAreaIndex(osmscout::DatabaseRef& database,
       std::vector<osmscout::FileOffset> loadedWayOffsets;
       std::vector<osmscout::FileOffset> loadedAreaOffsets;
 
+      loadedNodeOffsets.reserve(nodeData.size());
       for (const auto& node : nodeData) {
         loadedNodeOffsets.push_back(node->GetFileOffset());
       }
 
+      loadedWayOffsets.reserve(wayData.size());
       for (const auto& way : wayData) {
         loadedWayOffsets.push_back(way->GetFileOffset());
       }
 
+      loadedAreaOffsets.reserve(areaData.size());
       for (const auto& area : areaData) {
         loadedAreaOffsets.push_back(area->GetFileOffset());
       }
@@ -458,11 +460,58 @@ bool TestAreaIndexAcceess(osmscout::DatabaseRef& database,
 
 int main(int argc, char* argv[])
 {
-  if (argc!=3) {
-    std::cerr << "ThreadedDatabase <database directory> <style config>" << std::endl;
+  using namespace std::string_literals;
+  bool help=false;
+  std::string databasePath;
+  std::string styleSheet;
 
+  size_t datafileAccessThreadCount=100;
+  size_t datafileAccessIterationCount=1000000;
+
+  osmscout::CmdLineParser argParser("ThreadedDatabase", argc, argv);
+
+  argParser.AddOption(osmscout::CmdLineFlag([&](const bool& value) {
+                        help=value;
+                      }),
+                      std::vector<std::string>{"h","help"},
+                      "Display help",
+                      true);
+
+  argParser.AddOption(osmscout::CmdLineSizeTOption([&](const size_t& value) {
+                        datafileAccessThreadCount=value;
+                      }),
+                      "threads",
+                      "Thread count for test, default: "s + std::to_string(datafileAccessThreadCount));
+
+  argParser.AddOption(osmscout::CmdLineSizeTOption([&](const size_t& value) {
+                        datafileAccessIterationCount=value;
+                      }),
+                      "iterations",
+                      "Iterations for test, default: "s + std::to_string(datafileAccessIterationCount));
+
+  argParser.AddPositional(osmscout::CmdLineStringOption([&](const std::string& value) {
+                            databasePath=value;
+                          }),
+                          "database directory",
+                          "Database directory");
+
+  argParser.AddPositional(osmscout::CmdLineStringOption([&](const std::string& value) {
+                            styleSheet=value;
+                          }),
+                          "style config",
+                          "Style config file");
+
+  osmscout::CmdLineParseResult argResult=argParser.Parse();
+  if (argResult.HasError()) {
+    std::cerr << "ERROR: " << argResult.GetErrorDescription() << std::endl;
+    std::cout << argParser.GetHelp() << std::endl;
     return 1;
   }
+  if (help){
+    std::cout << argParser.GetHelp() << std::endl;
+    return 0;
+  }
+
 
   // Database
 
@@ -471,7 +520,7 @@ int main(int argc, char* argv[])
 
   std::cout << "Opening database..." << std::endl;
 
-  if (!database->Open(argv[1])) {
+  if (!database->Open(databasePath)) {
     std::cerr << "Cannot open database" << std::endl;
 
     return 1;
@@ -485,7 +534,7 @@ int main(int argc, char* argv[])
 
   osmscout::StyleConfigRef styleConfig=std::make_shared<osmscout::StyleConfig>(database->GetTypeConfig());
 
-  if (!styleConfig->Load(argv[2])) {
+  if (!styleConfig->Load(styleSheet)) {
     std::cerr << "Cannot open style config" << std::endl;
 
     return 1;
@@ -493,11 +542,11 @@ int main(int argc, char* argv[])
 
   std::cout << "Done." << std::endl;
 
-  std::cout << "Testing data file access with " << DATAFILEACCESS_THREAD_COUNT << " threads iterating " << DATAFILEACCESS_ITERATION_COUNT << " times each..." << std::endl;
+  std::cout << "Testing data file access with " << datafileAccessThreadCount << " threads iterating " << datafileAccessIterationCount << " times each..." << std::endl;
 
   if (TestDatafilesAcceess(database,
-                           DATAFILEACCESS_THREAD_COUNT,
-                           DATAFILEACCESS_ITERATION_COUNT)) {
+                           datafileAccessThreadCount,
+                           datafileAccessIterationCount)) {
     std::cout << "Test result: OK" << std::endl;
   }
   else {

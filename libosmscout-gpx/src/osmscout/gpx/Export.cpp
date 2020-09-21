@@ -82,17 +82,17 @@ public:
              const std::string &filePath,
              BreakerRef breaker,
              ProcessCallbackRef callback):
-      writer(NULL),
+      writer(nullptr),
       callback(callback),
       gpxFile(gpxFile),
       breaker(breaker)
   {
     /* Create a new XmlWriter for uri, with no compression. */
     writer = xmlNewTextWriterFilename(filePath.c_str(), 0);
-    if (writer == NULL && callback) {
+    if (writer == nullptr && callback) {
       callback->Error("Error creating the xml writer");
     }
-    if (writer) {
+    if (writer != nullptr) {
       if (xmlTextWriterSetIndent(writer, 1) < 0){
         callback->Error("Error at xmlTextWriterSetIndent");
       }
@@ -101,19 +101,19 @@ public:
 
   ~GpxWritter()
   {
-    if (writer!=NULL){
+    if (writer!=nullptr){
       xmlFreeTextWriter(writer);
-      writer=NULL;
+      writer=nullptr;
     }
   }
 
   bool Process()
   {
-    if (writer==NULL) {
+    if (writer==nullptr) {
       return false;
     }
 
-    if (xmlTextWriterStartDocument(writer, NULL, Encoding, NULL) < 0) {
+    if (xmlTextWriterStartDocument(writer, nullptr, Encoding, nullptr) < 0) {
       if (callback) {
         callback->Error("Error at xmlTextWriterStartDocument");
       }
@@ -153,7 +153,7 @@ public:
 
 bool GpxWritter::StartElement(const char *name)
 {
-  if (writer==NULL){
+  if (writer==nullptr){
     return false;
   }
   if (xmlTextWriterStartElement(writer, (const xmlChar *)name) < 0) {
@@ -167,7 +167,7 @@ bool GpxWritter::StartElement(const char *name)
 
 bool GpxWritter::EndElement()
 {
-  if (writer==NULL){
+  if (writer==nullptr){
     return false;
   }
   if (xmlTextWriterEndElement(writer) < 0) {
@@ -181,7 +181,7 @@ bool GpxWritter::EndElement()
 
 bool GpxWritter::WriteTextElement(const char *elementName, const std::string &text)
 {
-  if (writer==NULL){
+  if (writer==nullptr){
     return false;
   }
   if (xmlTextWriterWriteElement(writer, (const xmlChar *)elementName, (const xmlChar *)text.c_str()) < 0) {
@@ -201,17 +201,17 @@ bool GpxWritter::WriteTextElement(const char *elementName, double value, std::st
   stream.precision(precision);
   stream << value;
 
-  return WriteTextElement(elementName, stream.str().c_str());
+  return WriteTextElement(elementName, stream.str());
 }
 
 bool GpxWritter::WriteTextElement(const char *elementName, const Timestamp &timestamp)
 {
-  return WriteTextElement(elementName, TimestampToISO8601TimeString(timestamp).c_str());
+  return WriteTextElement(elementName, TimestampToISO8601TimeString(timestamp));
 }
 
 bool GpxWritter::WriteAttribute(const char *name, const char *content)
 {
-  if (writer==NULL){
+  if (writer==nullptr){
     return false;
   }
   if (xmlTextWriterWriteAttribute(writer, (const xmlChar *)name, (const xmlChar *)content) < 0) {
@@ -251,48 +251,51 @@ bool GpxWritter::WriteWaypoint(const Waypoint &waypoint)
       WriteAttribute("lon", waypoint.coord.GetLon()))){
     return false;
   }
-  if (waypoint.name.hasValue()){
-    if (!WriteTextElement("name", waypoint.name.get())){
+  // <xsd:sequence> is used in gpx xsd, elements must appear in exact order:
+  //  ele, time, magvar, geoidheight, name, cmt, desc, src, link, sym, type, fix, sat, hdop, vdop, pdop, ageofdgpsdata, dgpsid, extensions
+  // see http://www.topografix.com/GPX/1/1/gpx.xsd
+  if (waypoint.elevation){
+    if (!WriteTextElement("ele", *waypoint.elevation, 2)){
       return false;
     }
   }
-  if (waypoint.description.hasValue()){
-    if (!WriteTextElement("desc", waypoint.description.get())){
+  if (waypoint.time){
+    if (!WriteTextElement("time", *waypoint.time)){
       return false;
     }
   }
-  if (waypoint.symbol.hasValue()){
-    if (!WriteTextElement("sym", waypoint.symbol.get())){
+  if (waypoint.course){
+    if (!WriteTextElement("magvar", *waypoint.course, 2)){
       return false;
     }
   }
-  if (waypoint.time.hasValue()){
-    if (!WriteTextElement("time", waypoint.time.get())){
+  if (waypoint.name){
+    if (!WriteTextElement("name", *waypoint.name)){
       return false;
     }
   }
-  if (waypoint.elevation.hasValue()){
-    if (!WriteTextElement("ele", waypoint.elevation.get(), 2)){
+  if (waypoint.description){
+    if (!WriteTextElement("desc", *waypoint.description)){
       return false;
     }
   }
-  if (waypoint.course.hasValue()){
-    if (!WriteTextElement("course", waypoint.course.get(), 2)){
+  if (waypoint.symbol){
+    if (!WriteTextElement("sym", *waypoint.symbol)){
       return false;
     }
   }
-  if (waypoint.hdop.hasValue()){
-    if (!WriteTextElement("hdop", waypoint.hdop.get(), 2)){
+  if (waypoint.hdop){
+    if (!WriteTextElement("hdop", *waypoint.hdop, 2)){
       return false;
     }
   }
-  if (waypoint.vdop.hasValue()){
-    if (!WriteTextElement("vdop", waypoint.vdop.get(), 2)){
+  if (waypoint.vdop){
+    if (!WriteTextElement("vdop", *waypoint.vdop, 2)){
       return false;
     }
   }
-  if (waypoint.pdop.hasValue()){
-    if (!WriteTextElement("pdop", waypoint.pdop.get(), 2)){
+  if (waypoint.pdop){
+    if (!WriteTextElement("pdop", *waypoint.pdop, 2)){
       return false;
     }
   }
@@ -306,33 +309,36 @@ bool GpxWritter::WriteTrackPoint(const char *elemName, const TrackPoint &point)
         WriteAttribute("lon", point.coord.GetLon()))){
     return false;
   }
-  if (point.time.hasValue()){
-    if (!WriteTextElement("time", point.time.get())){
+  // <xsd:sequence> is used in gpx xsd, elements must appear in exact order:
+  //  ele, time, magvar, geoidheight, name, cmt, desc, src, link, sym, type, fix, sat, hdop, vdop, pdop, ageofdgpsdata, dgpsid, extensions
+  // see http://www.topografix.com/GPX/1/1/gpx.xsd
+  if (point.elevation){
+    if (!WriteTextElement("ele", *point.elevation, 2)){
       return false;
     }
   }
-  if (point.elevation.hasValue()){
-    if (!WriteTextElement("ele", point.elevation.get(), 2)){
+  if (point.time){
+    if (!WriteTextElement("time", *point.time)){
       return false;
     }
   }
-  if (point.course.hasValue()){
-    if (!WriteTextElement("course", point.course.get(), 2)){
+  if (point.course){
+    if (!WriteTextElement("magvar", *point.course, 2)){
       return false;
     }
   }
-  if (point.hdop.hasValue()){
-    if (!WriteTextElement("hdop", point.hdop.get(), 2)){
+  if (point.hdop){
+    if (!WriteTextElement("hdop", *point.hdop, 2)){
       return false;
     }
   }
-  if (point.vdop.hasValue()){
-    if (!WriteTextElement("vdop", point.vdop.get(), 2)){
+  if (point.vdop){
+    if (!WriteTextElement("vdop", *point.vdop, 2)){
       return false;
     }
   }
-  if (point.pdop.hasValue()){
-    if (!WriteTextElement("pdop", point.pdop.get(), 2)){
+  if (point.pdop){
+    if (!WriteTextElement("pdop", *point.pdop, 2)){
       return false;
     }
   }
@@ -379,8 +385,13 @@ bool GpxWritter::WriteTrack(const Track &track)
   if (!StartElement("trk")){
     return false;
   }
-  if (track.name.hasValue()){
-    if (!WriteTextElement("name", track.name.get())){
+  if (track.name){
+    if (!WriteTextElement("name", *track.name)){
+      return false;
+    }
+  }
+  if (track.desc){
+    if (!WriteTextElement("desc", *track.desc)){
       return false;
     }
   }
@@ -403,8 +414,8 @@ bool GpxWritter::WriteRoute(const Route &route){
   if (!StartElement("rte")){
     return false;
   }
-  if (route.name.hasValue()){
-    if (!WriteTextElement("name", route.name.get())){
+  if (route.name){
+    if (!WriteTextElement("name", *route.name)){
       return false;
     }
   }
@@ -425,7 +436,7 @@ bool GpxWritter::WriteRoutes(const std::vector<Route> &routes)
 
 bool GpxWritter::WriteMetadata(const GpxFile file)
 {
-  if (!file.name.hasValue() && !file.desc.hasValue() && !file.time.hasValue()){
+  if (!file.name && !file.desc && !file.time){
     return true;
   }
 
@@ -433,27 +444,23 @@ bool GpxWritter::WriteMetadata(const GpxFile file)
     return false;
   }
 
-  if (file.name.hasValue()){
-    if (!WriteTextElement("name", file.name.get())){
+  if (file.name){
+    if (!WriteTextElement("name", *file.name)){
       return false;
     }
   }
-  if (file.desc.hasValue()){
-    if (!WriteTextElement("desc", file.desc.get())){
+  if (file.desc){
+    if (!WriteTextElement("desc", *file.desc)){
       return false;
     }
   }
-  if (file.time.hasValue()){
-    if (!WriteTextElement("time", file.time.get())){
+  if (file.time){
+    if (!WriteTextElement("time", *file.time)){
       return false;
     }
   }
 
-  if (!EndElement()) {
-    return false;
-  }
-
-  return true;
+  return EndElement();
 }
 
 bool GpxWritter::WriteWaypoints(const std::vector<Waypoint> &waypoints)

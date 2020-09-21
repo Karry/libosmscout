@@ -41,7 +41,7 @@ namespace osmscout {
     size_t                   nextArg;
 
   public:
-    CmdLineScanner(int argc, char* argv[]);
+    CmdLineScanner(int argc, char* argv[]); // NOLINT
 
     explicit CmdLineScanner(const std::vector<std::string>& arguments);
 
@@ -90,12 +90,12 @@ namespace osmscout {
     virtual CmdLineParseResult Parse(CmdLineScanner& scanner) = 0;
   };
 
-  typedef std::shared_ptr<CmdLineArgParser> CmdLineArgParserRef;
+  using CmdLineArgParserRef = std::shared_ptr<CmdLineArgParser>;
 
   class OSMSCOUT_API CmdLineFlagArgParser : public CmdLineArgParser
   {
   public:
-    typedef std::function<void(const bool&)> SetterFunction;
+    using SetterFunction = std::function<void (const bool &)>;
 
   private:
      SetterFunction setter;
@@ -112,7 +112,7 @@ namespace osmscout {
   class OSMSCOUT_API CmdLineAlternativeFlagArgParser : public CmdLineArgParser
   {
   public:
-    typedef std::function<void(const std::string&)> SetterFunction;
+    using SetterFunction = std::function<void (const std::string &)>;
 
   private:
     SetterFunction setter;
@@ -130,7 +130,7 @@ namespace osmscout {
   class OSMSCOUT_API CmdLineBoolArgParser : public CmdLineArgParser
   {
   public:
-    typedef std::function<void(const bool&)> SetterFunction;
+    using SetterFunction = std::function<void (const bool &)>;
 
   private:
     SetterFunction setter;
@@ -147,7 +147,7 @@ namespace osmscout {
   class OSMSCOUT_API CmdLineStringArgParser : public CmdLineArgParser
   {
   public:
-    typedef std::function<void(const std::string&)> SetterFunction;
+    using SetterFunction = std::function<void (const std::string &)>;
 
   private:
     SetterFunction setter;
@@ -164,7 +164,7 @@ namespace osmscout {
   class OSMSCOUT_API CmdLineStringListArgParser : public CmdLineArgParser
   {
   public:
-    typedef std::function<void(const std::string&)> AppendFunction;
+    using AppendFunction = std::function<void (const std::string &)>;
 
   private:
     AppendFunction appender;
@@ -182,7 +182,7 @@ namespace osmscout {
   class CmdLineNumberArgParser : public CmdLineArgParser
   {
   public:
-    typedef std::function<void(const N&)> SetterFunction;
+    using SetterFunction = std::function<void (const N &)>;
 
   private:
     SetterFunction setter;
@@ -217,16 +217,15 @@ namespace osmscout {
         setter(value);
         return CmdLineParseResult();
       }
-      else {
-        return CmdLineParseResult("Value for number argument '"+GetArgumentName()+"' is not a valid number '"+valueString+"'");
-      }
+
+      return CmdLineParseResult("Value for number argument '"+GetArgumentName()+"' is not a valid number '"+valueString+"'");
     }
   };
 
   class OSMSCOUT_API CmdLineGeoCoordArgParser : public CmdLineArgParser
   {
   public:
-    typedef std::function<void(const GeoCoord&)> SetterFunction;
+    using SetterFunction = std::function<void (const GeoCoord &)>;
 
   private:
     SetterFunction setter;
@@ -387,7 +386,7 @@ namespace osmscout {
 
   public:
     CmdLineParser(const std::string& appName,
-                  int argc, char* argv[]);
+                  int argc, char* argv[]); // NOLINT
     CmdLineParser(const std::string& appName,
                   const std::vector<std::string>& arguments);
 
@@ -411,19 +410,23 @@ namespace osmscout {
   };
 
   extern OSMSCOUT_API bool ParseBoolArgument(int argc,
-                                             char* argv[],
+                                             char* argv[], // NOLINT
                                              int& currentIndex,
                                              bool& value);
 
   extern OSMSCOUT_API bool ParseStringArgument(int argc,
-                                               char* argv[],
+                                               char* argv[], // NOLINT
                                                int& currentIndex,
                                                std::string& value);
 
   extern OSMSCOUT_API bool ParseSizeTArgument(int argc,
-                                              char* argv[],
+                                              char* argv[], // NOLINT
                                               int& currentIndex,
                                               size_t& value);
+  extern OSMSCOUT_API bool ParseUInt32Argument(int argc,
+                                               char* argv[], // NOLINT
+                                               int& currentIndex,
+                                               uint32_t& value);
 }
 
 #endif

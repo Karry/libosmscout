@@ -95,6 +95,34 @@ namespace osmscout {
     }
   };
 
+  class OSMSCOUT_API RoutePositionResult CLASS_FINAL
+  {
+  private:
+    RoutePosition routePosition;
+    Distance distance;
+
+  public:
+    RoutePositionResult();
+
+    RoutePositionResult(const RoutePosition &routePosition, const Distance &distance);
+
+    inline RoutePosition GetRoutePosition() const
+    {
+      return routePosition;
+    }
+
+    inline Distance GetDistance() const
+    {
+      return distance;
+    }
+
+    inline bool IsValid() const
+    {
+      return routePosition.IsValid();
+    }
+  };
+
+
   /**
    * \ingroup Routing
    *
@@ -146,7 +174,7 @@ namespace osmscout {
   /**
    * \ingroup Routing
    */
-  typedef std::shared_ptr<RoutingProgress> RoutingProgressRef;
+  using RoutingProgressRef = std::shared_ptr<RoutingProgress>;
 
   /**
    * \ingroup Routing
@@ -202,18 +230,13 @@ namespace osmscout {
 
       bool          access;        //!< Flags to signal, if we had access ("access restrictions") to this node
 
-      RNode()
-      : id()
-      {
-        // no code
-      }
+      RNode() = default;
 
       RNode(const DBId& id,
             const RouteNodeRef& node,
             const ObjectFileRef& object)
       : id(id),
         node(node),
-        prev(),
         object(object),
         currentCost(0),
         estimateCost(0),
@@ -239,7 +262,7 @@ namespace osmscout {
         // no code
       }
 
-      inline bool operator==(const RNode& other)
+      inline bool operator==(const RNode& other) const
       {
         return id==other.id;
       }
@@ -250,7 +273,7 @@ namespace osmscout {
       }
     };
 
-    typedef std::shared_ptr<RNode> RNodeRef;
+    using RNodeRef = std::shared_ptr<RNode>;
 
     struct RNodeCostCompare
     {
@@ -260,9 +283,8 @@ namespace osmscout {
         if (a->overallCost==b->overallCost) {
          return a->id<b->id;
         }
-        else {
-          return a->overallCost<b->overallCost;
-        }
+
+        return a->overallCost<b->overallCost;
       }
     };
 
@@ -304,8 +326,7 @@ namespace osmscout {
        *    Offset of the node to search for
        */
       inline explicit VNode(const DBId& currentNode)
-        : currentNode(currentNode),
-          previousNode()
+        : currentNode(currentNode)
       {
         // no code
       }
@@ -344,11 +365,11 @@ namespace osmscout {
       }
     };
 
-    typedef std::set<RNodeRef,RNodeCostCompare>           OpenList;
-    typedef std::set<RNodeRef,RNodeCostCompare>::iterator OpenListRef;
+    using OpenList    = std::set<RNodeRef, RNodeCostCompare>;
+    using OpenListRef = std::set<RNodeRef, RNodeCostCompare>::iterator;
 
-    typedef std::unordered_map<DBId,OpenListRef>          OpenMap;
-    typedef std::unordered_set<VNode,ClosedNodeHasher>    ClosedSet;
+    using OpenMap     = std::unordered_map<DBId, OpenListRef>;
+    using ClosedSet   = std::unordered_set<VNode, ClosedNodeHasher>;
 
   public:
     //! Relative filename of the intersection data file

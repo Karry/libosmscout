@@ -18,10 +18,12 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307  USA
  */
 
-#include <QtCore/qabstractitemmodel.h>
-
 #include <osmscout/LocationInfoModel.h>
 #include <osmscout/OSMScoutQt.h>
+
+#include <QtCore/qabstractitemmodel.h>
+
+#include <algorithm>
 
 namespace osmscout {
 
@@ -30,32 +32,32 @@ LocationInfoModel::LocationInfoModel():
 {
     lookupModule=OSMScoutQt::GetInstance().MakeLookupModule();
 
-    connect(lookupModule, SIGNAL(initialisationFinished(const DatabaseLoadedResponse&)),
-            this, SLOT(dbInitialized(const DatabaseLoadedResponse&)),
+    connect(lookupModule, &LookupModule::initialisationFinished,
+            this, &LocationInfoModel::dbInitialized,
             Qt::QueuedConnection);
     
-    connect(this, SIGNAL(locationDescriptionRequested(const osmscout::GeoCoord)), 
-            lookupModule, SLOT(requestLocationDescription(const osmscout::GeoCoord)),
+    connect(this, &LocationInfoModel::locationDescriptionRequested,
+            lookupModule, &LookupModule::requestLocationDescription,
             Qt::QueuedConnection);
     
-    connect(lookupModule, SIGNAL(locationDescription(const osmscout::GeoCoord, const QString, const osmscout::LocationDescription, const QStringList)),
-            this, SLOT(onLocationDescription(const osmscout::GeoCoord, const QString, const osmscout::LocationDescription, const QStringList)),
+    connect(lookupModule, &LookupModule::locationDescription,
+            this, &LocationInfoModel::onLocationDescription,
             Qt::QueuedConnection);
     
-    connect(lookupModule, SIGNAL(locationDescriptionFinished(const osmscout::GeoCoord)),
-            this, SLOT(onLocationDescriptionFinished(const osmscout::GeoCoord)),
+    connect(lookupModule, &LookupModule::locationDescriptionFinished,
+            this, &LocationInfoModel::onLocationDescriptionFinished,
             Qt::QueuedConnection);
 
-    connect(this, SIGNAL(regionLookupRequested(osmscout::GeoCoord)),
-            lookupModule, SLOT(requestRegionLookup(osmscout::GeoCoord)),
+    connect(this, &LocationInfoModel::regionLookupRequested,
+            lookupModule, &LookupModule::requestRegionLookup,
             Qt::QueuedConnection);
 
-    connect(lookupModule, SIGNAL(locationAdminRegions(const osmscout::GeoCoord,QList<AdminRegionInfoRef>)),
-              this, SLOT(onLocationAdminRegions(const osmscout::GeoCoord,QList<AdminRegionInfoRef>)),
-              Qt::QueuedConnection);
+    connect(lookupModule, &LookupModule::locationAdminRegions,
+            this, &LocationInfoModel::onLocationAdminRegions,
+            Qt::QueuedConnection);
 
-    connect(lookupModule, SIGNAL(locationAdminRegionFinished(const osmscout::GeoCoord)),
-            this, SLOT(onLocationAdminRegionFinished(const osmscout::GeoCoord)),
+    connect(lookupModule, &LookupModule::locationAdminRegionFinished,
+            this, &LocationInfoModel::onLocationAdminRegionFinished,
             Qt::QueuedConnection);
 }
 
@@ -197,17 +199,17 @@ void LocationInfoModel::addToModel(const QString database,
           osmscout::FeatureValue *value=place.GetObjectFeatures()->GetValue(featureInstance.GetIndex());
           
           const osmscout::PostalCodeFeatureValue *postalCodeValue = dynamic_cast<const osmscout::PostalCodeFeatureValue*>(value);
-          if (postalCodeValue!=NULL){
+          if (postalCodeValue!=nullptr){
             postalCode = QString::fromStdString(postalCodeValue->GetPostalCode());
           }
           
           const osmscout::WebsiteFeatureValue *websiteValue = dynamic_cast<const osmscout::WebsiteFeatureValue*>(value);
-          if (websiteValue!=NULL){
+          if (websiteValue!=nullptr){
             website = QString::fromStdString(websiteValue->GetWebsite());
           }
           
           const osmscout::PhoneFeatureValue *phoneValue = dynamic_cast<const osmscout::PhoneFeatureValue*>(value);
-          if (phoneValue!=NULL){
+          if (phoneValue!=nullptr){
             phone = QString::fromStdString(phoneValue->GetPhone());
           }
         }
@@ -225,7 +227,7 @@ void LocationInfoModel::addToModel(const QString database,
   obj[AddressRole] = address;
   obj[InPlaceRole] = inPlace;
   obj[DistanceRole] = distance.AsMeter();
-  obj[BearingRole] = QString::fromStdString(osmscout::BearingDisplayString(description->GetBearing()));
+  obj[BearingRole] = QString::fromStdString(description->GetBearing().LongDisplayString());
   obj[PoiRole] = (poiRef) ? QString::fromStdString(poiRef->name): "";
   obj[TypeRole] = QString::fromStdString(place.GetObjectFeatures()->GetType()->GetName());
   obj[PostalCodeRole] = postalCode;
@@ -235,7 +237,8 @@ void LocationInfoModel::addToModel(const QString database,
   obj[AddressNumberRole] = addressNumber;
   
   model << obj;
-  qSort(model.begin(),model.end(),distanceComparator);
+
+  std::sort(model.begin(),model.end(),distanceComparator);
   endResetModel();
 }
 
@@ -268,7 +271,7 @@ void LocationInfoModel::onLocationDescription(const osmscout::GeoCoord location,
         }else{
             qDebug() << "Place " << QString::fromStdString(location.GetDisplayText()) << " description: " 
                      << atAddressDescription->GetDistance().AsMeter() << " m "
-                     << QString::fromStdString(osmscout::BearingDisplayString(atAddressDescription->GetBearing())) << " from "
+                     << QString::fromStdString(atAddressDescription->GetBearing().LongDisplayString()) << " from "
                      << QString::fromStdString(place.GetDisplayString());
         }
     }else{
@@ -301,7 +304,7 @@ void LocationInfoModel::onLocationAdminRegions(const osmscout::GeoCoord location
 
   QMap<int, QVariant> obj;
 
-  qSort(regions.begin(),regions.end(),adminRegionComparator);
+  std::sort(regions.begin(),regions.end(),adminRegionComparator);
 
   const AdminRegionInfoRef bottom=regions.first();
   QStringList regionNames;
@@ -329,7 +332,8 @@ void LocationInfoModel::onLocationAdminRegions(const osmscout::GeoCoord location
   obj[AddressNumberRole] = "";
 
   model << obj;
-  qSort(model.begin(),model.end(),distanceComparator);
+
+  std::sort(model.begin(),model.end(),distanceComparator);
   endResetModel();
 }
 
@@ -357,9 +361,8 @@ QString LocationInfoModel::bearing(double lat1, double lon1,
                                    double lat2, double lon2)
 {
     return QString::fromStdString(
-            osmscout::BearingDisplayString(
                 osmscout::GetSphericalBearingInitial(
                     osmscout::GeoCoord(lat1, lon1),
-                    osmscout::GeoCoord(lat2, lon2))));
+                    osmscout::GeoCoord(lat2, lon2)).LongDisplayString());
 }
 }

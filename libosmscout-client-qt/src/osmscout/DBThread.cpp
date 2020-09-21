@@ -60,12 +60,12 @@ DBThread::DBThread(QThread *backgroundThread,
   stylesheetFlags=settings->GetStyleSheetFlags();
   osmscout::log.Debug() << "Using stylesheet: " << stylesheetFilename.toStdString();
 
-  connect(settings.get(), SIGNAL(MapDPIChange(double)),
-          this, SLOT(onMapDPIChange(double)),
+  connect(settings.get(), &Settings::MapDPIChange,
+          this, &DBThread::onMapDPIChange,
           Qt::QueuedConnection);
 
-  connect(mapManager.get(), SIGNAL(databaseListChanged(QList<QDir>)),
-          this, SLOT(onDatabaseListChanged(QList<QDir>)),
+  connect(mapManager.get(), &MapManager::databaseListChanged,
+          this, &DBThread::onDatabaseListChanged,
           Qt::QueuedConnection);
 }
 
@@ -76,7 +76,7 @@ DBThread::~DBThread()
 
   if (basemapDatabase) {
     basemapDatabase->Close();
-    basemapDatabase=NULL;
+    basemapDatabase=nullptr;
   }
 
   for (auto db:databases){
@@ -94,7 +94,7 @@ DBThread::~DBThread()
 bool DBThread::isInitializedInternal()
 {
   for (auto db:databases){
-    if (!db->database->IsOpen()){
+    if (!db->IsOpen()){
       return false;
     }
   }
@@ -120,13 +120,7 @@ const DatabaseLoadedResponse DBThread::loadedResponse() const {
   QReadLocker locker(&lock);
   DatabaseLoadedResponse response;
   for (auto db:databases){
-    if (response.boundingBox.IsValid()){
-      osmscout::GeoBox boundingBox;
-      db->database->GetBoundingBox(boundingBox);
-      response.boundingBox.Include(boundingBox);
-    }else{
-      db->database->GetBoundingBox(response.boundingBox);
-    }
+    response.boundingBox.Include(db->GetDBGeoBox());
   }
   return response;
 }
@@ -138,14 +132,7 @@ DatabaseCoverage DBThread::databaseCoverage(const osmscout::Magnification &magni
 
   osmscout::GeoBox boundingBox;
   for (const auto &db:databases){
-    if (boundingBox.IsValid()){
-      osmscout::GeoBox dbBox;
-      if (db->database->GetBoundingBox(dbBox)){
-        boundingBox.Include(dbBox);
-      }
-    }else{
-      db->database->GetBoundingBox(boundingBox);
-    }
+    boundingBox.Include(db->GetDBGeoBox());
   }
   if (boundingBox.IsValid()) {
     /*
@@ -162,7 +149,7 @@ DatabaseCoverage DBThread::databaseCoverage(const osmscout::Magnification &magni
       bool fullCoverage=false;
       for (const auto &db:databases){
         std::list<osmscout::GroundTile> groundTiles;
-        if (!db->mapService->GetGroundTiles(bbox,magnification,groundTiles)){
+        if (!db->GetMapService()->GetGroundTiles(bbox,magnification,groundTiles)){
           break;
         }
         bool mayContainsUnknown=false;
@@ -200,7 +187,7 @@ void DBThread::onDatabaseListChanged(QList<QDir> databaseDirectories)
 
   if (basemapDatabase) {
     basemapDatabase->Close();
-    basemapDatabase=NULL;
+    basemapDatabase=nullptr;
   }
 
   for (auto db:databases){
@@ -210,13 +197,13 @@ void DBThread::onDatabaseListChanged(QList<QDir> databaseDirectories)
   osmscout::GeoBox boundingBox;
 
 #if defined(HAVE_MMAP)
-  if (sizeof(void*)<=4){
+  if (sizeof(void*)<=4 || true){
     // we are on 32 bit system probably, we have to be careful with mmap
     qint64 mmapQuota=1.5 * (1<<30); // 1.5 GiB
     QStringList mmapFiles;
     mmapFiles << "bounding.dat" << "router2.dat" << "types.dat" << "textregion.dat" << "textpoi.dat"
               << "textother.dat" << "areasopt.dat" << "areanode.idx" << "textloc.dat" << "water.idx"
-              << "areaway.idx" << "waysopt.dat" << "intersections.idx" << "areaarea.idx"
+              << "areaway.idx" << "waysopt.dat" << "intersections.idx" << "areaarea.idx" << "arearoute.idx"
               << "location.idx" << "intersections.dat";
 
     for (auto &databaseDirectory:databaseDirectories){
@@ -259,6 +246,17 @@ void DBThread::onDatabaseListChanged(QList<QDir> databaseDirectories)
       databaseParameter.SetWaysDataMMap(false);
     }else{
       mmapQuota-=waysSize;
+    }
+
+    qint64 routeSize=0;
+    for (auto &databaseDirectory:databaseDirectories){
+      routeSize+=QFileInfo(databaseDirectory, "route.dat").size();
+    }
+    if (mmapQuota-routeSize<0){
+      qWarning() << "Route data files can't be mmapped";
+      databaseParameter.SetRoutesDataMMap(false);
+    }else{
+      mmapQuota-=routeSize;
     }
 
     qint64 routerSize=0;
@@ -315,12 +313,12 @@ void DBThread::onDatabaseListChanged(QList<QDir> databaseDirectories)
 
         if (!styleConfig->Load(stylesheetFilename.toLocal8Bit().data())) {
           qWarning() << "Cannot load style sheet '" << stylesheetFilename << "'!";
-          styleConfig=NULL;
+          styleConfig=nullptr;
         }
       }
       else {
         qWarning() << "TypeConfig invalid!";
-        styleConfig=NULL;
+        styleConfig=nullptr;
       }
     }
     else {
@@ -334,26 +332,16 @@ void DBThread::onDatabaseListChanged(QList<QDir> databaseDirectories)
       continue;
     }
 
-    osmscout::MapServiceRef mapService = std::make_shared<osmscout::MapService>(database);
-
     databases.push_back(std::make_shared<DBInstance>(databaseDirectory.absolutePath(),
                                                      database,
                                                      std::make_shared<osmscout::LocationService>(database),
                                                      std::make_shared<osmscout::LocationDescriptionService>(database),
-                                                     mapService,
-                                                     std::make_shared<QBreaker>(),
+                                                     std::make_shared<osmscout::MapService>(database),
                                                      styleConfig));
   }
 
   emit databaseLoadFinished(boundingBox);
   emit stylesheetFilenameChanged();
-}
-
-void DBThread::CancelCurrentDataLoading()
-{
-  for (auto db:databases){
-    db->dataLoadingBreaker->Break();
-  }
 }
 
 void DBThread::ToggleDaylight()
@@ -434,11 +422,11 @@ const QMap<QString,bool> DBThread::GetStyleFlags() const
 
   // add flags defined by stylesheet
   for (auto &db:databases){
-    if (!db->styleConfig) {
+    if (!db->GetStyleConfig()) {
       continue;
     }
 
-    auto styleFlags = db->styleConfig->GetFlags(); // iterate temporary container is UB!
+    auto styleFlags = db->GetStyleConfig()->GetFlags(); // iterate temporary container is UB!
     for (const auto& flag : styleFlags){
       if (!flags.contains(QString::fromStdString(flag.first))){
         flags[QString::fromStdString(flag.first)]=flag.second;
@@ -447,6 +435,21 @@ const QMap<QString,bool> DBThread::GetStyleFlags() const
   }
 
   return flags;
+}
+
+void DBThread::FlushCaches(qint64 idleMs)
+{
+  RunSynchronousJob([idleMs](const std::list<DBInstanceRef> &dbs){
+    for (const auto &db:dbs){
+      if (db->LastUsageMs() > idleMs){
+        auto database=db->GetDatabase();
+        osmscout::log.Debug() << "Flushing caches for " << database->GetPath();
+        database->DumpStatistics();
+        database->FlushCache();
+        db->GetMapService()->FlushTileCache();
+      }
+    }
+  });
 }
 
 void DBThread::RunJob(DBJob *job)

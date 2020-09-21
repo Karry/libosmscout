@@ -63,8 +63,8 @@ namespace osmscout {
       */
     struct CacheEntry
     {
-      K key;
-      V value;
+      K key; // NOLINT
+      V value; // NOLINT
 
       CacheEntry(const CacheEntry& entry)
       : key(entry.key),
@@ -101,9 +101,9 @@ namespace osmscout {
       virtual size_t GetSize(const V& value) const = 0;
     };
 
-    typedef std::list<CacheEntry>                              OrderList;
-    typedef typename OrderList::iterator                       CacheRef;
-    typedef std::unordered_map<K,typename OrderList::iterator> Map;
+    using OrderList = std::list<CacheEntry>;
+    using CacheRef  = typename OrderList::iterator;
+    using Map       = std::unordered_map<K, typename OrderList::iterator>;
 
   private:
     size_t    size;          //<! Current size fo the cache
@@ -216,6 +216,7 @@ namespace osmscout {
 
         order.push_front(entry);
 
+        previousEntry=order.begin();
         return order.begin();
       }
 
@@ -240,6 +241,7 @@ namespace osmscout {
         StripCache();
       }
 
+      previousEntry=order.begin();
       return order.begin();
     }
 
@@ -272,6 +274,7 @@ namespace osmscout {
       order.clear();
       map.clear();
       size=0;
+      previousEntry=order.end();
     }
 
     /**

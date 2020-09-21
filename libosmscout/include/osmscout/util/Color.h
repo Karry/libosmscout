@@ -38,21 +38,28 @@ namespace osmscout {
     static const Color GREEN;
     static const Color BLUE;
 
+    static const Color SILVER;
+    static const Color GRAY;
+    static const Color MAROON;
+    static const Color PURPLE;
+    static const Color FUCHSIA;
+    static const Color LIME;
+    static const Color OLIVE;
+    static const Color YELLOW;
+    static const Color NAVY;
+    static const Color TEAL;
+    static const Color AQUA;
+
+    static const Color LUCENT_WHITE;
+
   private:
-    double r;
-    double g;
-    double b;
-    double a;
+    double r=1.0;
+    double g=0.0;
+    double b=0.0;
+    double a=0.0;
 
   public:
-    inline Color()
-    : r(1.0),
-      g(0.0),
-      b(0.0),
-      a(1.0)
-    {
-      // no code
-    }
+    Color() = default;
 
     inline Color(double r,
                  double g,
@@ -75,7 +82,7 @@ namespace osmscout {
     : r(r),
       g(g),
       b(b),
-      a(1)
+      a(1.0)
     {
       assert(r>=0.0 && r<=1.0);
       assert(g>=0.0 && g<=1.0);
@@ -149,6 +156,14 @@ namespace osmscout {
                    a);
     }
 
+    inline Color Alpha(double newAlpha) const
+    {
+      return Color(r,
+                   g,
+                   b,
+                   newAlpha);
+    }
+
     inline Color Decolor() const
     {
       double grey=(r+g+b)/3.0;
@@ -172,7 +187,33 @@ namespace osmscout {
 
     bool operator<(const Color& other) const;
 
+    static bool IsHexString(const std::string& hexString);
+
+    /**
+     * Convert the given color string to a color value
+     *
+     * The string must either be of the format
+     * - #HHHHHH
+     * - #HHHHHHHH
+     *
+     * where '#' is the symbol itself and 'H' represents a hexadecimal value
+     *
+     * @param hexString (lowercase)
+     * @return
+     */
     static Color FromHexString(const std::string& hexString);
+
+    static bool FromHexString(const std::string& hexString, Color &color);
+
+    /**
+     * Convert the give color keyword to a color value.
+     * Just basic color set is supported. See https://www.w3.org/TR/css-color-3/#html4
+     *
+     * @param colorKeyword
+     * @param color
+     * @return true on success, false otherwise
+     */
+    static bool FromW3CKeywordString(const std::string& colorKeyword, Color &color);
   };
 }
 

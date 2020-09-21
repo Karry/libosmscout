@@ -36,8 +36,8 @@ Router::Router(QThread *thread,
   settings(settings),
   dbThread(dbThread)
 {
-  connect(thread, SIGNAL(started()),
-          this, SLOT(Initialize()));
+  connect(thread, &QThread::started,
+          this, &Router::Initialize);
 }
 
 Router::~Router()
@@ -111,8 +111,8 @@ osmscout::MultiDBRoutingServiceRef Router::MakeRoutingService(const std::list<DB
 
   std::vector<osmscout::DatabaseRef> dbs;
   dbs.reserve(databases.size());
-  for (const auto& instance:databases){
-    dbs.push_back(instance->database);
+  for (auto& instance:databases){
+    dbs.push_back(instance->GetDatabase());
   }
   osmscout::MultiDBRoutingServiceRef routingService=std::make_shared<osmscout::MultiDBRoutingService>(routerParameter,dbs);
   if (!routingService->Open(profileBuilder)){
@@ -159,7 +159,7 @@ RouteDescriptionResult Router::TransformRouteDataToRouteDescription(osmscout::Mu
 {
   auto result=routingService->TransformRouteDataToRouteDescription(data);
 
-  if (!result.success) {
+  if (!result.Success()) {
     return result;
   }
 
@@ -175,9 +175,11 @@ RouteDescriptionResult Router::TransformRouteDataToRouteDescription(osmscout::Mu
   postprocessors.push_back(std::make_shared<osmscout::RoutePostprocessor::MotorwayJunctionPostprocessor>());
   postprocessors.push_back(std::make_shared<osmscout::RoutePostprocessor::DestinationPostprocessor>());
   postprocessors.push_back(std::make_shared<osmscout::RoutePostprocessor::MaxSpeedPostprocessor>());
+  postprocessors.push_back(std::make_shared<osmscout::RoutePostprocessor::LanesPostprocessor>());
+  postprocessors.push_back(std::make_shared<osmscout::RoutePostprocessor::SuggestedLanesPostprocessor>());
   postprocessors.push_back(std::make_shared<osmscout::RoutePostprocessor::InstructionPostprocessor>());
 
-  if (!routingService->PostProcessRouteDescription(*result.description,
+  if (!routingService->PostProcessRouteDescription(*result.GetDescription(),
                                                    postprocessors)){
     return {};
   }
@@ -201,25 +203,27 @@ void Router::ProcessRouteRequest(osmscout::MultiDBRoutingServiceRef &routingServ
                                  int requestId,
                                  const osmscout::BreakerRef &breaker)
 {
-  osmscout::RoutePosition startNode=routingService->GetClosestRoutableNode(
+  auto startResult=routingService->GetClosestRoutableNode(
                                 start->getCoord(),
-                                /*radius*/ Distance::Of<Kilometer>(1));
-  if (!startNode.IsValid()){
+                                /*radius*/ Kilometers(1));
+  if (!startResult.IsValid()){
     osmscout::log.Warn() << "Can't found route node near start coord " << start->getCoord().GetDisplayText();
     emit routeFailed(QString("Can't found route node near start coord %1").arg(QString::fromStdString(start->getCoord().GetDisplayText())),
                      requestId);
     return;
   }
+  osmscout::RoutePosition startNode=startResult.GetRoutePosition();
 
-  osmscout::RoutePosition targetNode=routingService->GetClosestRoutableNode(
+  auto targetResult=routingService->GetClosestRoutableNode(
                                 target->getCoord(),
-                                /*radius*/ Distance::Of<Kilometer>(1));
-  if (!targetNode.IsValid()){
+                                /*radius*/ Kilometers(1));
+  if (!targetResult.IsValid()){
     osmscout::log.Warn() << "Can't found route node near target coord " << target->getCoord().GetDisplayText();
     emit routeFailed(QString("Can't found route node near target coord %1").arg(QString::fromStdString(target->getCoord().GetDisplayText())),
                      requestId);
     return;
   }
+  osmscout::RoutePosition targetNode=targetResult.GetRoutePosition();
 
   osmscout::RouteData routeData;
   if (!CalculateRoute(routingService,
@@ -244,22 +248,28 @@ void Router::ProcessRouteRequest(osmscout::MultiDBRoutingServiceRef &routingServ
                                                                    routeData,
                                                                    start->getLabel().toUtf8().constData(),
                                                                    target->getLabel().toUtf8().constData());
+  if (!routeDescriptionResult.Success()){
+    osmscout::log.Warn() << "Route postprocessing failed!";
+    emit routeFailed("Route postprocessing failed!",requestId);
+    return;
+  }
+  assert(routeDescriptionResult.GetDescription()); // should be setup when success==true
   osmscout::log.Debug() << "Route transformed";
 
   RouteDescriptionBuilder builder;
   QList<RouteStep>        routeSteps;
-  builder.GenerateRouteSteps(*routeDescriptionResult.description, routeSteps);
+  builder.GenerateRouteSteps(*routeDescriptionResult.GetDescription(), routeSteps);
 
   auto routeWayResult=routingService->TransformRouteDataToWay(routeData);
 
-  if (!routeWayResult.success) {
+  if (!routeWayResult.Success()) {
     emit routeFailed("Error while transforming route",requestId);
     return;
   }
 
-  emit routeComputed(QtRouteData(std::move(*routeDescriptionResult.description),
+  emit routeComputed(QtRouteData(std::move(*routeDescriptionResult.GetDescription()),
                                  std::move(routeSteps),
-                                 std::move(*routeWayResult.way)),
+                                 std::move(*routeWayResult.GetWay())),
                      requestId);
 }
 

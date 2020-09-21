@@ -21,7 +21,7 @@
 */
 
 #include <osmscout/DataFile.h>
-#include <osmscout/Coord.h>
+#include <osmscout/Point.h>
 
 #include <osmscout/util/Cache.h>
 
@@ -33,13 +33,13 @@ namespace osmscout {
   class OSMSCOUT_API CoordDataFile
   {
   public:
-    static const char* COORD_DAT;
+    static const char* const COORD_DAT;
 
   private:
-    typedef std::unordered_map<PageId,FileOffset> PageIdFileOffsetMap;
+    using PageIdFileOffsetMap = std::unordered_map<PageId, FileOffset>;
 
   public:
-    typedef std::unordered_map<OSMId,Coord> ResultMap;
+    using ResultMap = std::unordered_map<OSMId, Point>;
 
   private:
     bool                isOpen;             //!< If true,the data file is opened
@@ -57,7 +57,10 @@ namespace osmscout {
               uint32_t fileFormatVersion);
     bool Close();
 
-    std::string GetFilename() const;
+    inline std::string GetFilename() const
+    {
+      return datafilename;
+    }
 
     bool Get(const std::set<OSMId>& ids, ResultMap& resultMap) const;
   };

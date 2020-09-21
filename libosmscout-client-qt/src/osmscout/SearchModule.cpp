@@ -34,12 +34,12 @@ SearchModule::SearchModule(QThread *thread,DBThreadRef dbThread,LookupModule *lo
 SearchModule::~SearchModule()
 {
   lookupModule->deleteLater();
-  lookupModule=NULL;
+  lookupModule=nullptr;
 
   if (thread!=QThread::currentThread()){
     qWarning() << "Destroy" << this << "from non incorrect thread;" << thread << "!=" << QThread::currentThread();
   }
-  if (thread!=NULL){
+  if (thread!=nullptr){
     thread->quit();
   }
 }
@@ -56,13 +56,7 @@ void SearchModule::SearchLocations(DBInstanceRef &db,
 
   osmscout::LocationStringSearchParameter searchParameter(stdSearchPattern);
 
-  // searchParameter.SetSearchForLocation(args.searchForLocation);
-  // searchParameter.SetSearchForPOI(args.searchForPOI);
-  // searchParameter.SetAdminRegionOnlyMatch(args.adminRegionOnlyMatch);
-  // searchParameter.SetPOIOnlyMatch(args.poiOnlyMatch);
-  // searchParameter.SetLocationOnlyMatch(args.locationOnlyMatch);
-  // searchParameter.SetAddressOnlyMatch(args.addressOnlyMatch);
-  // searchParameter.SetStringMatcherFactory(matcherFactory);
+  searchParameter.SetStringMatcherFactory(std::make_shared<osmscout::StringMatcherTransliterateFactory>());
   if (defaultRegion)
     searchParameter.SetDefaultAdminRegion(defaultRegion);
 
@@ -71,7 +65,7 @@ void SearchModule::SearchLocations(DBInstanceRef &db,
 
   osmscout::LocationSearchResult result;
 
-  if (!db->locationService->SearchForLocationByString(searchParameter, result)){
+  if (!db->GetLocationService()->SearchForLocationByString(searchParameter, result)){
     emit searchFinished(searchPattern, /*error*/ true);
     return;
   }
@@ -86,12 +80,12 @@ void SearchModule::SearchLocations(DBInstanceRef &db,
   emit searchResult(searchPattern, locations);
 }
 
-void SearchModule::FreeTextSearch(DBInstanceRef &db,
-                                  const QString searchPattern,
-                                  int limit,
-                                  std::map<osmscout::FileOffset,osmscout::AdminRegionRef> &adminRegionMap)
-{
 #ifdef OSMSCOUT_HAVE_LIB_MARISA
+  void SearchModule::FreeTextSearch(DBInstanceRef &db,
+                                    const QString searchPattern,
+                                    int limit,
+                                    std::map<osmscout::FileOffset,osmscout::AdminRegionRef> &adminRegionMap)
+  {
   // Search by free text
   QList<LocationEntry> locations;
   QList<osmscout::ObjectFileRef> objectSet;
@@ -133,8 +127,16 @@ void SearchModule::FreeTextSearch(DBInstanceRef &db,
   // TODO: merge locations with same label database type
   // bus stations can have more points for example...
   emit searchResult(searchPattern, locations);
+  }
+#else
+  void SearchModule::FreeTextSearch(DBInstanceRef &/*db*/,
+                                    const QString /*1:1searchPattern*/,
+                                    int /*limit*/,
+                                    std::map<osmscout::FileOffset,osmscout::AdminRegionRef> &/*adminRegionMap*/)
+  {
+    // no code
+  }
 #endif
-}
 
 void SearchModule::SearchForLocations(const QString searchPattern,
                                       int limit,
@@ -145,7 +147,7 @@ void SearchModule::SearchForLocations(const QString searchPattern,
   QMutexLocker locker(&mutex);
 
   osmscout::log.Debug() << "Searching for " << searchPattern.toStdString();
-  QTime timer;
+  QElapsedTimer timer;
   timer.start();
 
   OSMScoutQt::GetInstance().GetDBThread()->RunSynchronousJob(
@@ -156,10 +158,8 @@ void SearchModule::SearchForLocations(const QString searchPattern,
       std::list<DBInstanceRef> sortedDbs=databases;
       sortedDbs.sort(
           [&searchCenter](const DBInstanceRef &a,const DBInstanceRef &b){
-            osmscout::GeoBox abox;
-            osmscout::GeoBox bbox;
-            a->database->GetBoundingBox(abox);
-            b->database->GetBoundingBox(bbox);
+            osmscout::GeoBox abox=a->GetDBGeoBox();
+            osmscout::GeoBox bbox=b->GetDBGeoBox();
             bool ain=abox.Includes(searchCenter);
             bool bin=bbox.Includes(searchCenter);
             //std::cout << "  " << a->path.toStdString() << " ? " << b->path.toStdString() << std::endl;
@@ -252,7 +252,7 @@ bool SearchModule::BuildLocationEntry(const osmscout::LocationSearchResult::Entr
                                       )
 {
     if (entry.adminRegion){
-      db->locationService->ResolveAdminRegionHierachie(entry.adminRegion, adminRegionMap);
+      db->GetLocationService()->ResolveAdminRegionHierachie(entry.adminRegion, adminRegionMap);
     }
 
     QStringList adminRegionList=LookupModule::BuildAdminRegionList(entry.adminRegion, adminRegionMap);
@@ -371,6 +371,7 @@ bool SearchModule::GetObjectDetails(DBInstanceRef db,
                                     osmscout::GeoCoord& coordinates,
                                     osmscout::GeoBox& bbox)
 {
+  auto database=db->GetDatabase();
   for (const osmscout::ObjectFileRef& object:objects) {
     if (!object.Valid()){
       continue;
@@ -378,7 +379,7 @@ bool SearchModule::GetObjectDetails(DBInstanceRef db,
     if (object.GetType() == osmscout::RefType::refNode) {
       osmscout::NodeRef node;
 
-      if (!db->database->GetNodeByOffset(object.GetFileOffset(), node)) {
+      if (!database->GetNodeByOffset(object.GetFileOffset(), node)) {
         return false;
       }
       if (typeName.isEmpty()) {
@@ -389,7 +390,7 @@ bool SearchModule::GetObjectDetails(DBInstanceRef db,
     } else if (object.GetType() == osmscout::RefType::refArea) {
       osmscout::AreaRef area;
 
-      if (!db->database->GetAreaByOffset(object.GetFileOffset(), area)) {
+      if (!database->GetAreaByOffset(object.GetFileOffset(), area)) {
         return false;
       }
       if (typeName.isEmpty()) {
@@ -398,7 +399,7 @@ bool SearchModule::GetObjectDetails(DBInstanceRef db,
       bbox.Include(area->GetBoundingBox());
     } else if (object.GetType() == osmscout::RefType::refWay) {
       osmscout::WayRef way;
-      if (!db->database->GetWayByOffset(object.GetFileOffset(), way)) {
+      if (!database->GetWayByOffset(object.GetFileOffset(), way)) {
         return false;
       }
       if (typeName.isEmpty()) {

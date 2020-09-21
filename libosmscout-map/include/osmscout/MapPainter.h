@@ -37,6 +37,8 @@
 
 #include <osmscout/GroundTile.h>
 
+#include <osmscout/MapData.h>
+
 #include <osmscout/util/Breaker.h>
 #include <osmscout/util/Geometry.h>
 #include <osmscout/util/Projection.h>
@@ -56,42 +58,22 @@ namespace osmscout {
     DumpStatistics        =  1, //!< Prints details for debugging, if debug flag (performance, data) is set in renderer parameter
     PreprocessData        =  2, //!< Convert geographical coordinates of object points to screen coordinates,
     Prerender             =  3, //!< Implementation specific preparison
-    DrawGroundTiles       =  4, //!< Draw unknown/sea/land tiles and tiles with "coastlines"
-    DrawOSMTileGrids      =  5, //!< If special style exists, renders grid corresponding to OSM tiles
-    DrawAreas             =  6,
-    DrawWays              =  7,
-    DrawWayDecorations    =  8,
-    DrawWayContourLabels  =  9,
-    PrepareAreaLabels     = 10,
-    DrawAreaBorderLabels  = 11,
-    DrawAreaBorderSymbols = 12,
-    PrepareNodeLabels     = 13,
-    DrawLabels            = 14,
-    Postrender            = 15, //!< Implementation specific final step
-    LastStep              = 15
+    DrawBaseMapTiles      =  4, //!< Draw unknown/sea/land tiles and tiles with "coastlines" from base map
+    DrawGroundTiles       =  5, //!< Same as previous, but from main database
+    DrawOSMTileGrids      =  6, //!< If special style exists, renders grid corresponding to OSM tiles
+    DrawAreas             =  7,
+    DrawWays              =  8,
+    DrawRoutes            =  9,
+    DrawWayDecorations    = 10,
+    DrawWayContourLabels  = 11,
+    PrepareAreaLabels     = 12,
+    DrawAreaBorderLabels  = 13,
+    DrawAreaBorderSymbols = 14,
+    PrepareNodeLabels     = 15,
+    DrawLabels            = 16,
+    Postrender            = 17, //!< Implementation specific final step
+    LastStep              = 17
   };
-
-  /**
-   * \ingroup Renderer
-   *
-   * This is the data structure holding all to be rendered data.
-   */
-  class OSMSCOUT_MAP_API MapData CLASS_FINAL
-  {
-  public:
-    std::vector<NodeRef>  nodes;       //!< Nodes as retrieved from database
-    std::vector<AreaRef>  areas;       //!< Areas as retrieved from database
-    std::vector<WayRef>   ways;        //!< Ways as retrieved from database
-    std::list<NodeRef>    poiNodes;    //!< List of manually added nodes (not managed or changed by the database)
-    std::list<AreaRef>    poiAreas;    //!< List of manually added areas (not managed or changed by the database)
-    std::list<WayRef>     poiWays;     //!< List of manually added ways (not managed or changed by the database)
-    std::list<GroundTile> groundTiles; //!< List of ground tiles (optional)
-
-  public:
-    void ClearDBData();
-  };
-
-  typedef std::shared_ptr<MapData> MapDataRef;
 
   /**
    * Abstract base class of all renders (though you can always write
@@ -103,9 +85,7 @@ namespace osmscout {
   class OSMSCOUT_MAP_API MapPainter
   {
   private:
-    typedef void (MapPainter::*StepMethod)(const Projection&,
-                                           const MapParameter&,
-                                           const MapData&);
+    using StepMethod = void (MapPainter::*)(const Projection &, const MapParameter &, const MapData &);
 
   public:
 
@@ -115,25 +95,15 @@ namespace osmscout {
     struct OSMSCOUT_MAP_API DataStatistic
     {
       TypeInfoRef type;        //!< Type
-      size_t      objectCount; //!< Sum of nodeCount, wayCount, areaCont
-      size_t      nodeCount;   //!< Number of Node objects
-      size_t      wayCount;    //!< Number of Way objects
-      size_t      areaCount;   //!< Number of Area objects
-      size_t      coordCount;  //!< Number of coordinates
-      size_t      labelCount;  //!< Number of labels
-      size_t      iconCount;   //!< Number of icons
+      size_t      objectCount=0; //!< Sum of nodeCount, wayCount, areaCont
+      size_t      nodeCount=0;   //!< Number of Node objects
+      size_t      wayCount=0;    //!< Number of Way objects
+      size_t      areaCount=0;   //!< Number of Area objects
+      size_t      coordCount=0;  //!< Number of coordinates
+      size_t      labelCount=0;  //!< Number of labels
+      size_t      iconCount=0;   //!< Number of icons
 
-      DataStatistic()
-      : objectCount(0),
-        nodeCount(0),
-        wayCount(0),
-        areaCount(0),
-        coordCount(0),
-        labelCount(0),
-        iconCount(0)
-      {
-        // no code
-      }
+      DataStatistic() = default;
     };
 
     /**
@@ -141,13 +111,13 @@ namespace osmscout {
      */
     struct OSMSCOUT_MAP_API WayData
     {
-      ObjectFileRef            ref;
+      FileOffset               ref;
       const FeatureValueBuffer *buffer;         //!< Features of the line segment
       int8_t                   layer;           //!< Layer this way is in
       LineStyleRef             lineStyle;       //!< Line style
       size_t                   wayPriority;     //!< Priority of way (from style sheet)
       size_t                   transStart;      //!< Start of coordinates in transformation buffer
-      size_t                   transEnd;        //!< End of coordinates in transformation buffer
+      size_t                   transEnd;        //!< End of coordinates in transformation buffer (inclusive)
       double                   lineWidth;       //!< Line width
       bool                     startIsClosed;   //!< The end of the way is closed, it does not lead to another way or area
       bool                     endIsClosed;     //!< The end of the way is closed, it does not lead to another way or area
@@ -171,16 +141,35 @@ namespace osmscout {
         {
           return layer<other.layer;
         }
-        else if (lineStyle->GetZIndex()!=other.lineStyle->GetZIndex()) {
+
+        if (lineStyle->GetZIndex()!=other.lineStyle->GetZIndex()) {
           return lineStyle->GetZIndex()<other.lineStyle->GetZIndex();
         }
-        else if (lineStyle->GetPriority()!=other.lineStyle->GetPriority()) {
+
+        if (lineStyle->GetPriority()!=other.lineStyle->GetPriority()) {
           return lineStyle->GetPriority()<other.lineStyle->GetPriority();
         }
-        else {
-          return wayPriority>other.wayPriority;
-        }
+
+        return wayPriority>other.wayPriority;
       }
+    };
+
+    struct OSMSCOUT_MAP_API RouteSegmentData
+    {
+      size_t                   transStart;      //!< Start of coordinates in transformation buffer
+      size_t                   transEnd;        //!< End of coordinates in transformation buffer (inclusive)
+      Route::MemberDirection   direction;
+    };
+
+    /**
+     * Data structure for holding temporary data about route
+     */
+    struct OSMSCOUT_MAP_API RouteData
+    {
+      LineStyleRef                lineStyle;       //!< Line style
+      Color                       color;           //!< Color of route
+      double                      lineWidth;
+      std::list<RouteSegmentData> transSegments;   //!< Transformation buffer segments
     };
 
     /**
@@ -189,16 +178,17 @@ namespace osmscout {
      */
     struct OSMSCOUT_MAP_API WayPathData
     {
-      ObjectFileRef            ref;
-      const FeatureValueBuffer *buffer;         //!< Features of the line segment
+      FileOffset               ref;
+      const FeatureValueBuffer *buffer;         //!< Features of the line segment. Not owned pointer.
       size_t                   transStart;      //!< Start of coordinates in transformation buffer
-      size_t                   transEnd;        //!< End of coordinates in transformation buffer
+      size_t                   transEnd;        //!< End of coordinates in transformation buffer (inclusive)
+      double                   mainSlotWidth;   //!< Width of main slot, used for relative positioning
     };
 
     struct OSMSCOUT_MAP_API PolyData
     {
       size_t                   transStart;      //!< Start of coordinates in transformation buffer
-      size_t                   transEnd;        //!< End of coordinates in transformation buffer
+      size_t                   transEnd;        //!< End of coordinates in transformation buffer (inclusive)
     };
 
     /**
@@ -214,70 +204,13 @@ namespace osmscout {
       GeoBox                   boundingBox;     //!< Bounding box of the area
       bool                     isOuter;         //!< flag if this area is outer ring of some relation
       size_t                   transStart;      //!< Start of coordinates in transformation buffer
-      size_t                   transEnd;        //!< End of coordinates in transformation buffer
+      size_t                   transEnd;        //!< End of coordinates in transformation buffer (inclusive)
       std::list<PolyData>      clippings;       //!< Clipping polygons to be used during drawing of this area
-    };
-
-    /**
-     * Helper class for drawing contours. Allows the MapPainter base class
-     * to inject itself at certain points in the contour label rendering code of
-     * the actual backend.
-     */
-    class OSMSCOUT_MAP_API ContourLabelHelper CLASS_FINAL
-    {
-    private:
-      double contourLabelOffset;
-      double contourLabelSpace;
-      double pathLength;
-      double textWidth;
-      double currentOffset;
-
-    public:
-      explicit ContourLabelHelper(const MapPainter& painter);
-
-      bool Init(double pathLength,
-                double textWidth);
-
-      inline bool ContinueDrawing() const
-      {
-        return currentOffset<pathLength;
-      }
-
-      inline double GetCurrentOffset() const
-      {
-        return currentOffset;
-      }
-
-      inline void AdvancePartial(double width)
-      {
-        currentOffset+=width;
-      }
-
-      inline void AdvanceText()
-      {
-        currentOffset+=textWidth;
-      }
-
-      inline void AdvanceSpace()
-      {
-        currentOffset+=contourLabelSpace;
-      }
     };
 
   protected:
     CoordBuffer                  *coordBuffer;      //!< Reference to the coordinate buffer
     TextStyleRef                 debugLabel;
-
-  private:
-    std::vector<StepMethod>      stepMethods;
-    double                       errorTolerancePixel;
-
-    std::list<AreaData>          areaData;
-    std::list<WayData>           wayData;
-    std::list<WayPathData>       wayPathData;
-
-    std::vector<TextStyleRef>    textStyles;     //!< Temporary storage for StyleConfig return value
-    std::vector<LineStyleRef>    lineStyles;     //!< Temporary storage for StyleConfig return value
 
     /**
       Fallback styles in case they are missing for the style sheet
@@ -287,6 +220,18 @@ namespace osmscout {
     FillStyleRef                 seaFill;
     FeatureValueBuffer           coastlineSegmentAttributes;
     //@}
+
+  private:
+    std::vector<StepMethod>      stepMethods;
+    double                       errorTolerancePixel;
+
+    std::list<AreaData>          areaData;
+    std::list<WayData>           wayData;
+    std::list<WayPathData>       wayPathData;
+    std::list<RouteData>         routeData;
+
+    std::vector<TextStyleRef>    textStyles;     //!< Temporary storage for StyleConfig return value
+    std::vector<LineStyleRef>    lineStyles;     //!< Temporary storage for StyleConfig return value
 
     /**                           L
      Precalculations
@@ -317,6 +262,7 @@ namespace osmscout {
     AddressFeatureValueReader    addressReader;      //!< Value reader for the 'address' feature
     LanesFeatureValueReader      lanesReader;        //!< Value reader for the 'lanes' feature
     AccessFeatureValueReader     accessReader;       //!< Value reader for the 'lanes' feature
+    ColorFeatureValueReader      colorReader;        //!< Value reader for the 'color' feature
     //@}
 
     /**
@@ -356,17 +302,25 @@ namespace osmscout {
                       const MapParameter& parameter,
                       const MapData& data);
 
+    void TransformPathData(const Projection& projection,
+                           const MapParameter& parameter,
+                           const Way& way,
+                           WayPathData &pathData);
+
     void CalculatePaths(const StyleConfig& styleConfig,
                         const Projection& projection,
                         const MapParameter& parameter,
-                        const ObjectFileRef& ref,
-                        const FeatureValueBuffer& buffer,
                         const Way& way);
 
     void PrepareWays(const StyleConfig& styleConfig,
                      const Projection& projection,
                      const MapParameter& parameter,
                      const MapData& data);
+
+    void PrepareRoutes(const StyleConfig& styleConfig,
+                       const Projection& projection,
+                       const MapParameter& parameter,
+                       const MapData& data);
 
     void PrepareArea(const StyleConfig& styleConfig,
                      const Projection& projection,
@@ -427,6 +381,11 @@ namespace osmscout {
                          const MapParameter& parameter,
                          const Magnification& magnification,
                          const LineStyleRef& osmTileLine);
+
+    void DrawGroundTiles(const Projection& projection,
+                         const MapParameter& parameter,
+                         const std::list<GroundTile> &groundTiles);
+
     //@}
 
     /**
@@ -449,6 +408,10 @@ namespace osmscout {
                    const MapParameter& parameter,
                    const MapData& data);
 
+    void DrawBaseMapTiles(const Projection& projection,
+                          const MapParameter& parameter,
+                          const MapData& data);
+
     void DrawGroundTiles(const Projection& projection,
                          const MapParameter& parameter,
                          const MapData& data);
@@ -460,6 +423,10 @@ namespace osmscout {
     void DrawAreas(const Projection& projection,
                    const MapParameter& parameter,
                    const MapData& data);
+
+    void DrawRoutes(const Projection& projection,
+                    const MapParameter& parameter,
+                    const MapData& data);
 
     void DrawWays(const Projection& projection,
                   const MapParameter& parameter,
@@ -664,12 +631,19 @@ namespace osmscout {
                                          double objectWidth,
                                          size_t stringLength);
 
+    virtual void DrawRoute(const StyleConfig& styleConfig,
+                           const Projection& projection,
+                           const MapParameter& parameter,
+                           const RouteData& data);
+
     virtual void DrawWay(const StyleConfig& styleConfig,
                          const Projection& projection,
                          const MapParameter& parameter,
                          const WayData& data);
 
     //@}
+
+    std::vector<OffsetRel> ParseLaneTurns(const LanesFeatureValue&);
 
   public:
     MapPainter(const StyleConfigRef& styleConfig,
@@ -730,13 +704,13 @@ namespace osmscout {
     }
 
   public:
-    MapPainterBatch(size_t expectedCount)
+    explicit MapPainterBatch(size_t expectedCount)
     {
       data.reserve(expectedCount);
       painters.reserve(expectedCount);
     }
 
-    virtual ~MapPainterBatch(){}
+    virtual ~MapPainterBatch() = default;
 
     void addData(MapDataRef &d, PainterType &painter)
     {

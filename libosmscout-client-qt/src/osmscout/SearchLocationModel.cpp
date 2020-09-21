@@ -23,6 +23,7 @@
 #include <osmscout/OSMScoutQt.h>
 
 #include <QtQml>
+#include <QElapsedTimer>
 
 #include <iostream>
 
@@ -36,28 +37,28 @@ LocationListModel::LocationListModel(QObject* parent)
   searchModule=OSMScoutQt::GetInstance().MakeSearchModule();
   lookupModule=OSMScoutQt::GetInstance().MakeLookupModule();
 
-  connect(this, SIGNAL(SearchRequested(const QString, int, osmscout::GeoCoord, AdminRegionInfoRef, osmscout::BreakerRef)),
-          searchModule, SLOT(SearchForLocations(const QString, int, osmscout::GeoCoord, AdminRegionInfoRef, osmscout::BreakerRef)),
+  connect(this, &LocationListModel::SearchRequested,
+          searchModule, &SearchModule::SearchForLocations,
           Qt::QueuedConnection);
 
-  connect(searchModule, SIGNAL(searchResult(const QString, const QList<LocationEntry>)),
-          this, SLOT(onSearchResult(const QString, const QList<LocationEntry>)),
+  connect(searchModule, &SearchModule::searchResult,
+          this, &LocationListModel::onSearchResult,
           Qt::QueuedConnection);
 
-  connect(searchModule, SIGNAL(searchFinished(const QString, bool)),
-          this, SLOT(onSearchFinished(const QString, bool)),
+  connect(searchModule, &SearchModule::searchFinished,
+          this, &LocationListModel::onSearchFinished,
           Qt::QueuedConnection);
 
-  connect(this, SIGNAL(regionLookupRequested(osmscout::GeoCoord)),
-          lookupModule, SLOT(requestRegionLookup(osmscout::GeoCoord)),
+  connect(this, &LocationListModel::regionLookupRequested,
+          lookupModule, &LookupModule::requestRegionLookup,
           Qt::QueuedConnection);
 
-  connect(lookupModule, SIGNAL(locationAdminRegions(const osmscout::GeoCoord,QList<AdminRegionInfoRef>)),
-          this, SLOT(onLocationAdminRegions(const osmscout::GeoCoord,QList<AdminRegionInfoRef>)),
+  connect(lookupModule, &LookupModule::locationAdminRegions,
+          this, &LocationListModel::onLocationAdminRegions,
           Qt::QueuedConnection);
 
-  connect(lookupModule, SIGNAL(locationAdminRegionFinished(const osmscout::GeoCoord)),
-          this, SLOT(onLocationAdminRegionFinished(const osmscout::GeoCoord)),
+  connect(lookupModule, &LookupModule::locationAdminRegionFinished,
+          this, &LocationListModel::onLocationAdminRegionFinished,
           Qt::QueuedConnection);
 }
 
@@ -75,13 +76,13 @@ LocationListModel::~LocationListModel()
     breaker->Break();
     breaker.reset();
   }
-  if (searchModule!=NULL){
+  if (searchModule!=nullptr){
     searchModule->deleteLater();
-    searchModule=NULL;
+    searchModule=nullptr;
   }
-  if (lookupModule!=NULL){
+  if (lookupModule!=nullptr){
     lookupModule->deleteLater();
-    lookupModule=NULL;
+    lookupModule=nullptr;
   }
 }
 
@@ -95,7 +96,7 @@ void LocationListModel::onSearchResult(const QString searchPattern,
     return; // result is not for us
   }
 
-  QTime timer;
+  QElapsedTimer timer;
   timer.start();
 
   QQmlEngine *engine = qmlEngine(this);
@@ -114,6 +115,10 @@ void LocationListModel::onSearchResult(const QString searchPattern,
           args << engine->newQObject(new LocationEntry(location));
           args << engine->newQObject(new LocationEntry(*secondLocation));
           QJSValue result = equalsFn.call(args);
+          if (result.isError()){
+            qWarning() << "Equals failed: " << result.toString();
+            break;
+          }
           if (result.isBool() && result.toBool()){
 
             // qDebug() << "Merge " << location.getLabel() << " to location " << secondLocation->getLabel();
@@ -146,6 +151,10 @@ void LocationListModel::onSearchResult(const QString searchPattern,
         args << engine->newQObject(new LocationEntry(location));
         args << engine->newQObject(new LocationEntry(*secondLocation));
         QJSValue result = compareFn.call(args);
+        if (result.isError()){
+          qWarning() << "Compare failed: " << result.toString();
+          break;
+        }
         if (result.isNumber() && result.toNumber() <= 0){
           break;
         }
@@ -298,8 +307,8 @@ QVariant LocationListModel::data(const QModelIndex &index, int role) const
   case BearingRole:
     if (searchCenter.GetLat()!=INVALID_COORD && searchCenter.GetLon()!=INVALID_COORD) {
       return QString::fromStdString(
-          osmscout::BearingDisplayString(
-              osmscout::GetSphericalBearingInitial(searchCenter, location->getCoord())));
+              osmscout::GetSphericalBearingInitial(searchCenter, location->getCoord())
+                .LongDisplayString());
     }else{
       return "";
     }
@@ -341,7 +350,7 @@ QHash<int, QByteArray> LocationListModel::roleNames() const
 QObject* LocationListModel::get(int row) const
 {
     if(row < 0 || row >= locations.size()) {
-        return NULL;
+        return nullptr;
     }
 
     LocationEntry* location=locations.at(row);

@@ -26,11 +26,6 @@
 
 namespace osmscout {
 
-  TagCondition::~TagCondition()
-  {
-    // no code
-  }
-
   TagNotCondition::TagNotCondition(const TagConditionRef& condition)
   : condition(condition)
   {
@@ -331,19 +326,19 @@ namespace osmscout {
                                             grade));
   }
 
-  bool TagRegistry::GetGradeForSurface(const std::string& surface,
+  bool TagRegistry::GetGradeForSurface(const std::string& surfaceStr,
                                        size_t& grade) const
   {
-    auto entry=surfaceToGradeMap.find(surface);
+    for (auto const &surface : SplitString(surfaceStr, ";")) {
+      auto entry = surfaceToGradeMap.find(surface);
 
-    if (entry!=surfaceToGradeMap.end()) {
-      grade=entry->second;
+      if (entry != surfaceToGradeMap.end()) {
+        grade = entry->second;
 
-      return true;
+        return true;
+      }
     }
-    else {
-      return false;
-    }
+    return false;
   }
 
   void TagRegistry::RegisterMaxSpeedAlias(const std::string& alias,

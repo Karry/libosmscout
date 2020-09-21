@@ -27,6 +27,8 @@
 #include <osmscout/TypeConfig.h>
 #include <osmscout/TypeFeature.h>
 
+#include <osmscout/util/Color.h>
+
 namespace osmscout {
 
   class OSMSCOUT_API NameFeatureValue : public FeatureValue
@@ -35,10 +37,8 @@ namespace osmscout {
     std::string name;
 
   public:
-    inline NameFeatureValue()
-    {
-      // no code
-    }
+    NameFeatureValue() = default;
+    NameFeatureValue(const NameFeatureValue& featureValue) = default;
 
     inline explicit NameFeatureValue(const std::string& name)
     : name(name)
@@ -56,7 +56,7 @@ namespace osmscout {
       return name;
     }
 
-    inline std::string GetLabel(size_t /*labelIndex*/) const override
+    inline std::string GetLabel(const Locale &/*locale*/, size_t /*labelIndex*/) const override
     {
       return name;
     }
@@ -103,10 +103,8 @@ namespace osmscout {
     std::string nameAlt;
 
   public:
-    inline NameAltFeatureValue()
-    {
-      // no code
-    }
+    NameAltFeatureValue() = default;
+    NameAltFeatureValue(const NameAltFeatureValue& featureValue) = default;
 
     inline explicit NameAltFeatureValue(const std::string& nameAlt)
     : nameAlt(nameAlt)
@@ -124,7 +122,7 @@ namespace osmscout {
       return nameAlt;
     }
 
-    inline std::string GetLabel(size_t /*labelIndex*/) const override
+    inline std::string GetLabel(const Locale &/*locale*/, size_t /*labelIndex*/) const override
     {
       return nameAlt;
     }
@@ -165,16 +163,82 @@ namespace osmscout {
                FeatureValueBuffer& buffer) const override;
   };
 
+  class OSMSCOUT_API NameShortFeatureValue : public FeatureValue
+  {
+  private:
+    std::string nameShort;
+
+  public:
+    inline NameShortFeatureValue() = default;
+
+    inline explicit NameShortFeatureValue(const std::string& nameShort)
+    : nameShort(nameShort)
+    {
+      // no code
+    }
+
+    inline void SetNameShort(const std::string& nameShort)
+    {
+      this->nameShort=nameShort;
+    }
+
+    inline std::string GetNameShort() const
+    {
+      return nameShort;
+    }
+
+    inline std::string GetLabel(const Locale &/*locale*/, size_t /*labelIndex*/) const override
+    {
+      return nameShort;
+    }
+
+    void Read(FileScanner& scanner) override;
+    void Write(FileWriter& writer) override;
+
+    NameShortFeatureValue& operator=(const FeatureValue& other) override;
+    bool operator==(const FeatureValue& other) const override;
+  };
+
+  class OSMSCOUT_API NameShortFeature : public Feature
+  {
+  private:
+      TagId tagShortName;
+
+  public:
+    /** Name of this feature */
+    static const char* const NAME;
+
+    /** Name of the "name" label */
+    static const char* const NAME_LABEL;
+
+    /** Index of the 'name' label */
+    static const size_t      NAME_LABEL_INDEX;
+
+  public:
+    NameShortFeature();
+    void Initialize(TagRegistry& tagRegistry) override;
+
+    std::string GetName() const override;
+
+    size_t GetValueSize() const override;
+    FeatureValue* AllocateValue(void* buffer) override;
+
+    void Parse(TagErrorReporter& reporter,
+               const TagRegistry& tagRegistry,
+               const FeatureInstance& feature,
+               const ObjectOSMRef& object,
+               const TagMap& tags,
+               FeatureValueBuffer& buffer) const override;
+  };
+
   class OSMSCOUT_API RefFeatureValue : public FeatureValue
   {
   private:
     std::string ref;
 
   public:
-    inline RefFeatureValue()
-    {
-      // no code
-    }
+    RefFeatureValue() = default;
+    RefFeatureValue(const RefFeatureValue& featureValue) = default;
 
     inline explicit RefFeatureValue(const std::string& ref)
     : ref(ref)
@@ -192,7 +256,7 @@ namespace osmscout {
       return ref;
     }
 
-    inline std::string GetLabel(size_t /*labelIndex*/) const override
+    inline std::string GetLabel(const Locale &/*locale*/, size_t /*labelIndex*/) const override
     {
       return ref;
     }
@@ -240,10 +304,8 @@ namespace osmscout {
     std::string location;
 
   public:
-    inline LocationFeatureValue()
-    {
-      // no code
-    }
+    LocationFeatureValue() = default;
+    LocationFeatureValue(const LocationFeatureValue& featureValue) = default;
 
     inline explicit LocationFeatureValue(const std::string& location)
     : location(location)
@@ -261,7 +323,7 @@ namespace osmscout {
       return location;
     }
 
-    inline std::string GetLabel(size_t /*labelIndex*/) const override
+    inline std::string GetLabel(const Locale &/*locale*/, size_t /*labelIndex*/) const override
     {
       return location;
     }
@@ -318,10 +380,8 @@ namespace osmscout {
     std::string address;
 
   public:
-    inline AddressFeatureValue()
-    {
-      // no code
-    }
+    AddressFeatureValue() = default;
+    AddressFeatureValue(const AddressFeatureValue& featureValue) = default;
 
     inline explicit AddressFeatureValue(const std::string& address)
     : address(address)
@@ -339,7 +399,7 @@ namespace osmscout {
       return address;
     }
 
-    inline std::string GetLabel(size_t /*labelIndex*/) const override
+    inline std::string GetLabel(const Locale &/*locale*/, size_t /*labelIndex*/) const override
     {
       return address;
     }
@@ -400,14 +460,11 @@ namespace osmscout {
     };
 
   private:
-    uint8_t access;
+    uint8_t access=0;
 
   public:
-    inline AccessFeatureValue()
-    : access(0)
-    {
-
-    }
+    AccessFeatureValue() = default;
+    AccessFeatureValue(const AccessFeatureValue& other) = default;
 
     inline explicit AccessFeatureValue(uint8_t access)
     : access(access)
@@ -420,7 +477,7 @@ namespace osmscout {
       this->access=access;
     }
 
-    inline uint8_t GetAccess()
+    inline uint8_t GetAccess() const
     {
       return access;
     }
@@ -643,14 +700,10 @@ namespace osmscout {
     };
 
   private:
-    uint8_t access;
+    uint8_t access=0;
 
   public:
-    inline AccessRestrictedFeatureValue()
-    : access(0)
-    {
-      // no code
-    }
+    AccessRestrictedFeatureValue() = default;
 
     inline explicit AccessRestrictedFeatureValue(uint8_t access)
     : access(access)
@@ -663,7 +716,7 @@ namespace osmscout {
       this->access=access;
     }
 
-    inline uint8_t GetAccess()
+    inline uint8_t GetAccess() const
     {
       return access;
     }
@@ -767,14 +820,10 @@ namespace osmscout {
   class OSMSCOUT_API LayerFeatureValue : public FeatureValue
   {
   private:
-    int8_t layer;
+    int8_t layer=0;
 
   public:
-    inline LayerFeatureValue()
-    : layer(0)
-    {
-
-    }
+    LayerFeatureValue() = default;
 
     inline explicit LayerFeatureValue(int8_t layer)
     : layer(layer)
@@ -827,14 +876,10 @@ namespace osmscout {
   class OSMSCOUT_API WidthFeatureValue : public FeatureValue
   {
   private:
-    uint8_t width;
+    uint8_t width=0;
 
   public:
-    inline WidthFeatureValue()
-    : width(0)
-    {
-
-    }
+    WidthFeatureValue() = default;
 
     inline explicit WidthFeatureValue(uint8_t width)
     : width(width)
@@ -887,14 +932,10 @@ namespace osmscout {
   class OSMSCOUT_API MaxSpeedFeatureValue : public FeatureValue
   {
   private:
-    uint8_t maxSpeed;
+    uint8_t maxSpeed=0;
 
   public:
-    inline MaxSpeedFeatureValue()
-    : maxSpeed(0)
-    {
-
-    }
+    MaxSpeedFeatureValue() = default;
 
     inline explicit MaxSpeedFeatureValue(uint8_t maxSpeed)
     : maxSpeed(maxSpeed)
@@ -923,10 +964,20 @@ namespace osmscout {
   {
   private:
     TagId tagMaxSpeed;
+    TagId tagMaxSpeedForward;
+    TagId tagMaxSpeedBackward;
 
   public:
     /** Name of this feature */
     static const char* const NAME;
+
+  private:
+    bool GetTagValue(TagErrorReporter& errorReporter,
+                     const TagRegistry& tagRegistry,
+                     const ObjectOSMRef& object,
+                     const TagMap& tags,
+                     const std::string& input,
+                     uint8_t& speed) const;
 
   public:
     void Initialize(TagRegistry& tagRegistry) override;
@@ -947,14 +998,10 @@ namespace osmscout {
   class OSMSCOUT_API GradeFeatureValue : public FeatureValue
   {
   private:
-    uint8_t grade;
+    uint8_t grade=0;
 
   public:
-    inline GradeFeatureValue()
-    : grade(0)
-    {
-
-    }
+    GradeFeatureValue() = default;
 
     inline explicit GradeFeatureValue(uint8_t grade)
     : grade(grade)
@@ -1008,15 +1055,11 @@ namespace osmscout {
   class OSMSCOUT_API AdminLevelFeatureValue : public FeatureValue
   {
   private:
-    uint8_t     adminLevel;
+    uint8_t     adminLevel=0;
     std::string isIn;
 
   public:
-    inline AdminLevelFeatureValue()
-    : adminLevel(0)
-    {
-      // no code
-    }
+    AdminLevelFeatureValue() = default;
 
     inline AdminLevelFeatureValue(uint8_t adminLevel,
                                   const std::string& isIn)
@@ -1085,11 +1128,7 @@ namespace osmscout {
     std::string postalCode;
 
   public:
-    inline PostalCodeFeatureValue()
-    : postalCode("")
-    {
-
-    }
+    PostalCodeFeatureValue() = default;
 
     inline explicit PostalCodeFeatureValue(const std::string& postalCode)
     : postalCode(postalCode)
@@ -1107,7 +1146,7 @@ namespace osmscout {
       return postalCode;
     }
 
-    inline std::string GetLabel(size_t /*labelIndex*/) const override
+    inline std::string GetLabel(const Locale &/*locale*/, size_t /*labelIndex*/) const override
     {
       return postalCode;
     }
@@ -1128,6 +1167,12 @@ namespace osmscout {
   public:
     /** Name of this feature */
     static const char* const NAME;
+
+    /** Name of the "name" label */
+    static const char* const NAME_LABEL;
+
+    /** Index of the 'name' label */
+    static const size_t      NAME_LABEL_INDEX;
 
   public:
     PostalCodeFeature();
@@ -1238,14 +1283,10 @@ namespace osmscout {
   class OSMSCOUT_API EleFeatureValue : public FeatureValue
   {
   private:
-    uint32_t ele;
+    uint32_t ele=0;
 
   public:
-    inline EleFeatureValue()
-    : ele(0)
-    {
-
-    }
+    EleFeatureValue() = default;
 
     inline explicit EleFeatureValue(uint32_t ele)
     : ele(ele)
@@ -1263,10 +1304,7 @@ namespace osmscout {
       return ele;
     }
 
-    inline std::string GetLabel(size_t /*labelIndex*/) const override
-    {
-      return std::to_string(ele)+"m";
-    }
+    std::string GetLabel(const Locale &locale, size_t labelIndex) const override;
 
     void Read(FileScanner& scanner) override;
     void Write(FileWriter& writer) override;
@@ -1284,11 +1322,23 @@ namespace osmscout {
     /** Name of this feature */
     static const char* const NAME;
 
-    /** Name of the "name" label */
-    static const char* const NAME_LABEL;
+    /** Name of the "inMeter" label */
+    static const char* const IN_METER_LABEL;
 
-    /** Index of the 'name' label */
-    static const size_t      NAME_LABEL_INDEX;
+    /** Index of the 'inMeter' label */
+    static const size_t      IN_METER_LABEL_INDEX;
+
+    /** Name of the "inFeet" label */
+    static const char* const IN_FEET_LABEL;
+
+    /** Index of the 'inFeet' label */
+    static const size_t      IN_FEET_LABEL_INDEX;
+
+    /** Name of the "inLocaleUnit" label */
+    static const char* const IN_LOCALE_UNIT_LABEL;
+
+    /** Index of the 'inLocaleUnit' label */
+    static const size_t      IN_LOCALE_UNIT_LABEL_INDEX;
 
   public:
     EleFeature();
@@ -1313,10 +1363,7 @@ namespace osmscout {
     std::string destination;
 
   public:
-    inline DestinationFeatureValue()
-    {
-      // no code
-    }
+    DestinationFeatureValue() = default;
 
     inline explicit DestinationFeatureValue(const std::string& destination)
     : destination(destination)
@@ -1334,7 +1381,7 @@ namespace osmscout {
       return destination;
     }
 
-    inline std::string GetLabel(size_t /*labelIndex*/) const override
+    inline std::string GetLabel(const Locale &/*locale*/, size_t /*labelIndex*/) const override
     {
       return destination;
     }
@@ -1408,10 +1455,7 @@ namespace osmscout {
     std::string website;
 
   public:
-    inline WebsiteFeatureValue()
-    {
-      // no code
-    }
+    WebsiteFeatureValue() = default;
 
     inline explicit WebsiteFeatureValue(const std::string& website)
     : website(website)
@@ -1429,7 +1473,7 @@ namespace osmscout {
       return website;
     }
 
-    inline std::string GetLabel(size_t /*labelIndex*/) const override
+    inline std::string GetLabel(const Locale &/*locale*/, size_t /*labelIndex*/) const override
     {
       return website;
     }
@@ -1445,13 +1489,17 @@ namespace osmscout {
   {
   private:
     TagId tagWebsite;
+    TagId tagContactWebsite;
 
   public:
     /** Name of this feature */
     static const char* const NAME;
 
-    /** Name of the "name" label */
-    static const char* const NAME_LABEL;
+    /** Name of the "url" label */
+    static const char* const URL_LABEL;
+
+    /** Index of the 'url' label */
+    static const size_t      URL_LABEL_INDEX;
 
   public:
     WebsiteFeature();
@@ -1477,10 +1525,7 @@ namespace osmscout {
     std::string phone;
 
   public:
-    inline PhoneFeatureValue()
-    {
-      // no code
-    }
+    PhoneFeatureValue() = default;
 
     inline explicit PhoneFeatureValue(const std::string& phone)
     : phone(phone)
@@ -1498,7 +1543,7 @@ namespace osmscout {
       return phone;
     }
 
-    inline std::string GetLabel(size_t /*labelIndex*/) const override
+    inline std::string GetLabel(const Locale &/*locale*/, size_t /*labelIndex*/) const override
     {
       return phone;
     }
@@ -1514,10 +1559,18 @@ namespace osmscout {
   {
   private:
     TagId tagPhone;
+    TagId tagContactPhone;
+    TagId tagContactMobile;
 
   public:
     /** Name of this feature */
     static const char* const NAME;
+
+    /** Name of the "number" label */
+    static const char* const NUMBER_LABEL;
+
+    /** Index of the 'number' label */
+    static const size_t      NUMBER_LABEL_INDEX;
 
   public:
     PhoneFeature();
@@ -1542,10 +1595,7 @@ namespace osmscout {
     std::string isIn;
 
   public:
-    inline IsInFeatureValue()
-    {
-      // no code
-    }
+    IsInFeatureValue() = default;
 
     inline explicit IsInFeatureValue(const std::string& isIn)
       : isIn(isIn)
@@ -1598,14 +1648,11 @@ namespace osmscout {
   class OSMSCOUT_API ConstructionYearFeatureValue : public FeatureValue
   {
   private:
-    int startYear;
-    int endYear;
+    int startYear=0;
+    int endYear=0;
 
   public:
-    inline ConstructionYearFeatureValue()
-    {
-      // no code
-    }
+    ConstructionYearFeatureValue() = default;
 
     inline ConstructionYearFeatureValue(int startYear, int endYear)
       : startYear(startYear),
@@ -1634,14 +1681,13 @@ namespace osmscout {
       return endYear;
     }
 
-    inline std::string GetLabel(size_t /*labelIndex*/) const override
+    inline std::string GetLabel(const Locale &/*locale*/, size_t /*labelIndex*/) const override
     {
       if (startYear==endYear) {
         return std::to_string(startYear);
       }
-      else {
-        return std::to_string(startYear)+"-"+std::to_string(endYear);
-      }
+
+      return std::to_string(startYear)+"-"+std::to_string(endYear);
     }
 
     void Read(FileScanner& scanner) override;
@@ -1660,6 +1706,12 @@ namespace osmscout {
   public:
     /** Name of this feature */
     static const char* const NAME;
+
+    /** Name of the "year" label */
+    static const char* const YEAR_LABEL;
+
+    /** Index of the 'year' label */
+    static const size_t      YEAR_LABEL_INDEX;
 
   public:
     ConstructionYearFeature();
@@ -1691,12 +1743,10 @@ namespace osmscout {
     };
 
   private:
-    uint8_t featureSet;
+    uint8_t featureSet=0;
 
   public:
-    inline SidewayFeatureValue()
-    {
-    }
+    SidewayFeatureValue() = default;
 
     inline bool IsFlagSet(size_t flagIndex) const override
     {
@@ -1789,17 +1839,14 @@ namespace osmscout {
   {
   private:
 
-    uint8_t     lanes;              //< // First two bits reserved, 3 bit for number of lanes in each direction
+    uint8_t     lanes=0;              //!< First two bits reserved, 3 bit for number of lanes in each direction
     std::string turnForward;
     std::string turnBackward;
     std::string destinationForward;
     std::string destinationBackward;
 
   public:
-    inline LanesFeatureValue()
-      : lanes(0)
-    {
-    }
+    LanesFeatureValue() = default;
 
     inline explicit LanesFeatureValue(uint8_t lanes)
       : lanes(lanes)
@@ -1864,7 +1911,7 @@ namespace osmscout {
       this->destinationBackward=destinationBawckard;
     }
 
-    inline std::string GetLabel(size_t /*labelIndex*/) const override
+    inline std::string GetLabel(const Locale &/*locale*/, size_t /*labelIndex*/) const override
     {
       if (HasSingleLane()) {
         return "1";
@@ -1906,6 +1953,309 @@ namespace osmscout {
 
   public:
     LanesFeature();
+    void Initialize(TagRegistry& tagRegistry) override;
+
+    std::string GetName() const override;
+
+    size_t GetValueSize() const override;
+    FeatureValue* AllocateValue(void* buffer) override;
+
+    void Parse(TagErrorReporter& reporter,
+               const TagRegistry& tagRegistry,
+               const FeatureInstance& feature,
+               const ObjectOSMRef& object,
+               const TagMap& tags,
+               FeatureValueBuffer& buffer) const override;
+  };
+
+  class OSMSCOUT_API OperatorFeatureValue : public FeatureValue
+  {
+  private:
+    std::string op;
+
+  public:
+    OperatorFeatureValue() = default;
+    OperatorFeatureValue(const OperatorFeatureValue& featureValue) = default;
+
+    inline explicit OperatorFeatureValue(const std::string& op)
+      : op(op)
+    {
+      // no code
+    }
+
+    inline void SetOperator(const std::string& op)
+    {
+      this->op=op;
+    }
+
+    inline std::string GetOperator() const
+    {
+      return op;
+    }
+
+    inline std::string GetLabel(const Locale &/*locale*/, size_t /*labelIndex*/) const override
+    {
+      return op;
+    }
+
+    void Read(FileScanner& scanner) override;
+    void Write(FileWriter& writer) override;
+
+    OperatorFeatureValue& operator=(const FeatureValue& other) override;
+    bool operator==(const FeatureValue& other) const override;
+  };
+
+  class OSMSCOUT_API OperatorFeature : public Feature
+  {
+  private:
+    TagId tagOperator;
+
+  public:
+    /** Name of this feature */
+    static const char* const NAME;
+
+    /** Name of the "number" label */
+    static const char* const NUMBER_LABEL;
+
+    /** Index of the 'number' label */
+    static const size_t      NUMBER_LABEL_INDEX;
+
+  public:
+    OperatorFeature();
+    void Initialize(TagRegistry& tagRegistry) override;
+
+    std::string GetName() const override;
+
+    size_t GetValueSize() const override;
+    FeatureValue* AllocateValue(void* buffer) override;
+
+    void Parse(TagErrorReporter& reporter,
+               const TagRegistry& tagRegistry,
+               const FeatureInstance& feature,
+               const ObjectOSMRef& object,
+               const TagMap& tags,
+               FeatureValueBuffer& buffer) const override;
+  };
+
+  class OSMSCOUT_API NetworkFeatureValue : public FeatureValue
+  {
+  private:
+    std::string network;
+
+  public:
+    NetworkFeatureValue() = default;
+    NetworkFeatureValue(const NetworkFeatureValue& featureValue) = default;
+
+    inline explicit NetworkFeatureValue(const std::string& network)
+      : network(network)
+    {
+      // no code
+    }
+
+    inline void SetNetwork(const std::string& network)
+    {
+      this->network=network;
+    }
+
+    inline std::string GetNetwork() const
+    {
+      return network;
+    }
+
+    inline std::string GetLabel(const Locale &/*locale*/, size_t /*labelIndex*/) const override
+    {
+      return network;
+    }
+
+    void Read(FileScanner& scanner) override;
+    void Write(FileWriter& writer) override;
+
+    NetworkFeatureValue& operator=(const FeatureValue& other) override;
+    bool operator==(const FeatureValue& other) const override;
+  };
+
+  class OSMSCOUT_API NetworkFeature : public Feature
+  {
+  private:
+    TagId tagNetwork;
+
+  public:
+    /** Name of this feature */
+    static const char* const NAME;
+
+    /** Name of the "number" label */
+    static const char* const NUMBER_LABEL;
+
+    /** Index of the 'number' label */
+    static const size_t      NUMBER_LABEL_INDEX;
+
+  public:
+    NetworkFeature();
+    void Initialize(TagRegistry& tagRegistry) override;
+
+    std::string GetName() const override;
+
+    size_t GetValueSize() const override;
+    FeatureValue* AllocateValue(void* buffer) override;
+
+    void Parse(TagErrorReporter& reporter,
+               const TagRegistry& tagRegistry,
+               const FeatureInstance& feature,
+               const ObjectOSMRef& object,
+               const TagMap& tags,
+               FeatureValueBuffer& buffer) const override;
+  };
+
+  class OSMSCOUT_API FromToFeatureValue : public FeatureValue
+  {
+  private:
+    std::string from;
+    std::string to;
+
+  public:
+    FromToFeatureValue() = default;
+    FromToFeatureValue(const FromToFeatureValue& featureValue) = default;
+
+    inline explicit FromToFeatureValue(const std::string& from,
+                                       const std::string& to)
+      : from(from),
+        to(to)
+    {
+      // no code
+    }
+
+    const std::string& GetFrom() const
+    {
+      return from;
+    }
+
+    void SetFrom(const std::string& from)
+    {
+      FromToFeatureValue::from=from;
+    }
+
+    const std::string& GetTo() const
+    {
+      return to;
+    }
+
+    void SetTo(const std::string& to)
+    {
+      FromToFeatureValue::to=to;
+    }
+
+    inline std::string GetLabel(const Locale &/*locale*/, size_t /*labelIndex*/) const override
+    {
+      if (!from.empty() && ! to.empty()) {
+        return from + " => " + to;
+      }
+
+      if (!from.empty())  {
+        return from + "=>";
+      }
+
+      if (!to.empty())  {
+        return "=> " + to;
+      }
+
+      return "";
+    }
+
+    void Read(FileScanner& scanner) override;
+    void Write(FileWriter& writer) override;
+
+    FromToFeatureValue& operator=(const FeatureValue& other) override;
+    bool operator==(const FeatureValue& other) const override;
+  };
+
+  class OSMSCOUT_API FromToFeature : public Feature
+  {
+  private:
+    TagId tagFrom;
+    TagId tagTo;
+
+  public:
+    /** Name of this feature */
+    static const char* const NAME;
+
+    /** Name of the "number" label */
+    static const char* const NUMBER_LABEL;
+
+    /** Index of the 'number' label */
+    static const size_t      NUMBER_LABEL_INDEX;
+
+  public:
+    FromToFeature();
+    void Initialize(TagRegistry& tagRegistry) override;
+
+    std::string GetName() const override;
+
+    size_t GetValueSize() const override;
+    FeatureValue* AllocateValue(void* buffer) override;
+
+    void Parse(TagErrorReporter& reporter,
+               const TagRegistry& tagRegistry,
+               const FeatureInstance& feature,
+               const ObjectOSMRef& object,
+               const TagMap& tags,
+               FeatureValueBuffer& buffer) const override;
+  };
+
+  class OSMSCOUT_API ColorFeatureValue : public FeatureValue
+  {
+  private:
+    Color color;
+
+  public:
+    ColorFeatureValue() = default;
+    ColorFeatureValue(const ColorFeatureValue& featureValue) = default;
+
+    inline explicit ColorFeatureValue(const Color& color)
+      : color(color)
+    {
+      // no code
+    }
+
+    Color GetColor() const
+    {
+      return color;
+    }
+
+    void SetColor(const Color& color)
+    {
+      ColorFeatureValue::color=color;
+    }
+
+    inline std::string GetLabel(const Locale &/*locale*/, size_t /*labelIndex*/) const override
+    {
+      return color.ToHexString();
+    }
+
+    void Read(FileScanner& scanner) override;
+    void Write(FileWriter& writer) override;
+
+    ColorFeatureValue& operator=(const FeatureValue& other) override;
+    bool operator==(const FeatureValue& other) const override;
+  };
+
+  class OSMSCOUT_API ColorFeature : public Feature
+  {
+  private:
+    TagId tagColor;
+    TagId tagSymbol;
+
+  public:
+    /** Name of this feature */
+    static const char* const NAME;
+
+    /** Name of the "number" label */
+    static const char* const NUMBER_LABEL;
+
+    /** Index of the 'number' label */
+    static const size_t      NUMBER_LABEL_INDEX;
+
+  public:
+    ColorFeature();
     void Initialize(TagRegistry& tagRegistry) override;
 
     std::string GetName() const override;

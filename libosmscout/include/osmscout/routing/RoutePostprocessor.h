@@ -30,6 +30,8 @@
 #include <osmscout/TypeConfig.h>
 #include <osmscout/TypeFeatures.h>
 
+#include <osmscout/util/Time.h>
+
 // Database
 #include <osmscout/Database.h>
 
@@ -67,7 +69,7 @@ namespace osmscout {
                            RouteDescription& description) = 0;
     };
 
-    typedef std::shared_ptr<Postprocessor> PostprocessorRef;
+    using PostprocessorRef = std::shared_ptr<Postprocessor>;
 
     /**
      * \ingroup Routing
@@ -108,7 +110,7 @@ namespace osmscout {
     class OSMSCOUT_API DistanceAndTimePostprocessor : public Postprocessor
     {
     public:
-      DistanceAndTimePostprocessor();
+      DistanceAndTimePostprocessor() = default;
 
       bool Process(const RoutePostprocessor& postprocessor,
                    RouteDescription& description) override;
@@ -121,7 +123,7 @@ namespace osmscout {
     class OSMSCOUT_API WayNamePostprocessor : public Postprocessor
     {
     public:
-      WayNamePostprocessor();
+      WayNamePostprocessor() = default;
 
       bool Process(const RoutePostprocessor& postprocessor,
                    RouteDescription& description) override;
@@ -134,7 +136,7 @@ namespace osmscout {
     class OSMSCOUT_API WayTypePostprocessor : public Postprocessor
     {
     public:
-      WayTypePostprocessor();
+      WayTypePostprocessor() = default;
 
       bool Process(const RoutePostprocessor& postprocessor,
                    RouteDescription& description) override;
@@ -154,7 +156,7 @@ namespace osmscout {
                                        const ObjectFileRef& targetObject);
 
     public:
-      CrossingWaysPostprocessor();
+      CrossingWaysPostprocessor() = default;
 
       bool Process(const RoutePostprocessor& postprocessor,
                    RouteDescription& description) override;
@@ -174,7 +176,7 @@ namespace osmscout {
       static const double curveMinAngle;
 
     public:
-      DirectionPostprocessor();
+      DirectionPostprocessor() = default;
 
       bool Process(const RoutePostprocessor& postprocessor,
                    RouteDescription& description) override;
@@ -187,7 +189,7 @@ namespace osmscout {
     class OSMSCOUT_API MotorwayJunctionPostprocessor : public Postprocessor
     {
     public:
-      MotorwayJunctionPostprocessor();
+      MotorwayJunctionPostprocessor() = default;
 
       bool Process(const RoutePostprocessor& postprocessor,
                    RouteDescription& description) override;
@@ -200,7 +202,7 @@ namespace osmscout {
     class OSMSCOUT_API DestinationPostprocessor : public Postprocessor
     {
     public:
-      DestinationPostprocessor();
+      DestinationPostprocessor() = default;
 
       bool Process(const RoutePostprocessor& postprocessor,
                    RouteDescription& description) override;
@@ -213,7 +215,7 @@ namespace osmscout {
     class OSMSCOUT_API MaxSpeedPostprocessor : public RoutePostprocessor::Postprocessor
     {
     public:
-      MaxSpeedPostprocessor() : Postprocessor() {};
+      MaxSpeedPostprocessor() = default;
 
       bool Process(const RoutePostprocessor& postprocessor,
                    RouteDescription& description) override;
@@ -237,12 +239,13 @@ namespace osmscout {
 
       bool                     inRoundabout;
       size_t                   roundaboutCrossingCounter;
+      bool                     roundaboutClockwise{false};
 
     private:
       State GetInitialState(const RoutePostprocessor& postprocessor,
                             RouteDescription::Node& node);
 
-      void HandleRoundaboutEnter(RouteDescription::Node& node);
+      void HandleRoundaboutEnter(const RoutePostprocessor& postprocessor, RouteDescription::Node& node);
       void HandleRoundaboutNode(RouteDescription::Node& node);
       void HandleRoundaboutLeave(RouteDescription::Node& node);
       void HandleDirectMotorwayEnter(RouteDescription::Node& node,
@@ -261,7 +264,7 @@ namespace osmscout {
 
     };
 
-    typedef std::shared_ptr<InstructionPostprocessor> InstructionPostprocessorRef;
+    using InstructionPostprocessorRef = std::shared_ptr<InstructionPostprocessor>;
 
     /**
      * \ingroup Routing
@@ -300,13 +303,47 @@ namespace osmscout {
                                const std::map<ObjectFileRef,POIAtRoute>& pois);
 
     public:
-      POIsPostprocessor() : Postprocessor() {};
+      POIsPostprocessor() = default;
 
       bool Process(const RoutePostprocessor& postprocessor,
                    RouteDescription& description) override;
     };
 
-    typedef std::shared_ptr<POIsPostprocessor> POIsPostprocessorRef;
+    using POIsPostprocessorRef = std::shared_ptr<POIsPostprocessor>;
+
+    /**
+     * \ingroup Routing
+     * Evaluate route lanes
+     */
+    class OSMSCOUT_API LanesPostprocessor : public RoutePostprocessor::Postprocessor
+    {
+    public:
+      LanesPostprocessor() = default;
+
+      bool Process(const RoutePostprocessor& postprocessor,
+                   RouteDescription& description) override;
+    };
+
+    using LanesPostprocessorRef = std::shared_ptr<LanesPostprocessor>;
+
+    /**
+     * \ingroup Routing
+     * Evaluate suggested route lanes that may be used.
+     * Route lanes have to be evaluated already (using LanesPostprocessor)
+     */
+    class OSMSCOUT_API SuggestedLanesPostprocessor : public RoutePostprocessor::Postprocessor
+    {
+    public:
+      SuggestedLanesPostprocessor(const Distance &distanceBefore=Meters(500)) :
+        Postprocessor(), distanceBefore(distanceBefore) {};
+
+      bool Process(const RoutePostprocessor& postprocessor,
+                   RouteDescription& description) override;
+    private:
+      Distance distanceBefore;
+    };
+
+    using SuggestedLanesPostprocessorRef = std::shared_ptr<SuggestedLanesPostprocessor>;
 
   private:
     std::vector<RoutingProfileRef>                                profiles;
@@ -321,6 +358,8 @@ namespace osmscout {
     std::unordered_map<DatabaseId,RoundaboutFeatureReader*>       roundaboutReaders;
     std::unordered_map<DatabaseId,DestinationFeatureValueReader*> destinationReaders;
     std::unordered_map<DatabaseId,MaxSpeedFeatureValueReader*>    maxSpeedReaders;
+    std::unordered_map<DatabaseId,LanesFeatureValueReader*>       lanesReaders;
+    std::unordered_map<DatabaseId,AccessFeatureValueReader*>      accessReaders;
 
     std::unordered_map<DatabaseId,TypeInfoSet>                    motorwayTypes;
     std::unordered_map<DatabaseId,TypeInfoSet>                    motorwayLinkTypes;
@@ -336,8 +375,8 @@ namespace osmscout {
     AreaRef GetArea(const DBFileOffset &offset) const;
     WayRef GetWay(const DBFileOffset &offset) const;
 
-    double GetTime(DatabaseId dbId,const Area& area,const Distance &deltaDistance) const;
-    double GetTime(DatabaseId dbId,const Way& way,const Distance &deltaDistance) const;
+    Duration GetTime(DatabaseId dbId,const Area& area,const Distance &deltaDistance) const;
+    Duration GetTime(DatabaseId dbId,const Way& way,const Distance &deltaDistance) const;
 
     RouteDescription::NameDescriptionRef GetNameDescription(const RouteDescription::Node& node) const;
     RouteDescription::NameDescriptionRef GetNameDescription(DatabaseId dbId,
@@ -363,6 +402,8 @@ namespace osmscout {
     RouteDescription::DestinationDescriptionRef GetDestination(const RouteDescription::Node& node) const;
 
     uint8_t GetMaxSpeed(const RouteDescription::Node& node) const;
+
+    RouteDescription::LaneDescriptionRef GetLanes(const RouteDescription::Node& node) const;
 
     Id GetNodeId(const RouteDescription::Node& node) const;
 

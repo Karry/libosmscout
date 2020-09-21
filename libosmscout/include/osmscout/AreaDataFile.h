@@ -33,14 +33,14 @@ namespace osmscout {
   class OSMSCOUT_API AreaDataFile : public DataFile<Area>
   {
   public:
-    static const char* AREAS_DAT;
-    static const char* AREAS_IDMAP;
+    static const char* const AREAS_DAT;
+    static const char* const AREAS_IDMAP;
 
   public:
     explicit AreaDataFile(size_t cacheSize);
   };
 
-  typedef std::shared_ptr<AreaDataFile> AreaDataFileRef;
+  using AreaDataFileRef = std::shared_ptr<AreaDataFile>;
 }
 
 #endif

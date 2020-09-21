@@ -60,9 +60,9 @@ namespace osmscout {
       }
     };
 
-    typedef std::shared_ptr<Page>         PageRef;
-    typedef Cache<N,PageRef>              PageCache;
-    typedef std::unordered_map<N,PageRef> PageSimpleCache;
+    using PageRef         = std::shared_ptr<Page>;
+    using PageCache       = Cache<N, PageRef>;
+    using PageSimpleCache = std::unordered_map<N, PageRef>;
 
     /**
       Returns the size of a individual cache entry
@@ -105,7 +105,7 @@ namespace osmscout {
     virtual ~NumericIndex();
 
     bool Open(const std::string& path,
-              bool memoryMaped,
+              bool memoryMapped,
               uint32_t fileFormatVersion);
     bool Close();
 
@@ -129,7 +129,7 @@ namespace osmscout {
      cacheSize(cacheSize),
      pageSize(0),
      levels(0),
-     buffer(NULL)
+     buffer(nullptr)
   {
     // no code
   }
@@ -155,15 +155,16 @@ namespace osmscout {
     if (size>0) {
       size_t left=0;
       size_t right=size-1;
-      size_t mid;
 
       while (left<=right) {
-        mid=(left+right)/2;
+        size_t mid=(left+right)/2;
+
         if (page.entries[mid].startId<=id &&
             (mid+1>=size || page.entries[mid+1].startId>id)) {
           return mid;
         }
-        else if (page.entries[mid].startId<id) {
+
+        if (page.entries[mid].startId<id) {
           left=mid+1;
         }
         else {
@@ -271,7 +272,7 @@ namespace osmscout {
 
   template <class N>
   bool NumericIndex<N>::Open(const std::string& path,
-                             bool memoryMaped,
+                             bool memoryMapped,
                              uint32_t fileFormatVersion)
   {
     uint32_t    entries;
@@ -283,7 +284,7 @@ namespace osmscout {
     try {
        scanner.Open(filename,
                     FileScanner::FastRandom,
-                    memoryMaped,
+                    memoryMapped,
                     fileFormatVersion);
 
       scanner.ReadNumber(pageSize);                  // Size of one index page
@@ -382,7 +383,7 @@ namespace osmscout {
           auto cacheRef=simplePageCache[level].find(startId);
 
           if (cacheRef==simplePageCache[level].end()) {
-            pageRef=NULL; // Make sure, that we allocate a new page and not reuse an old one
+            pageRef=nullptr; // Make sure, that we allocate a new page and not reuse an old one
 
             ReadPage(offset,pageRef);
 

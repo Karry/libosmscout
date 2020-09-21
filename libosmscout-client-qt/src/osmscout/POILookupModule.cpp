@@ -34,7 +34,7 @@ POILookupModule::~POILookupModule()
   if (thread!=QThread::currentThread()){
     qWarning() << "Destroy" << this << "from non incorrect thread;" << thread << "!=" << QThread::currentThread();
   }
-  if (thread!=NULL){
+  if (thread!=nullptr){
     thread->quit();
   }
 }
@@ -51,8 +51,8 @@ LocationEntry buildLocationEntry(T obj,
   QString objectType = QString::fromUtf8(obj->GetType()->GetName().c_str());
   const osmscout::FeatureValueBuffer &features=obj->GetFeatureValueBuffer();
   const osmscout::NameFeatureValue *name=features.findValue<osmscout::NameFeatureValue>();
-  if (name!=NULL){
-    title=QString::fromStdString(name->GetLabel(0));
+  if (name!=nullptr){
+    title=QString::fromStdString(name->GetLabel(osmscout::Locale(), 0));
     //std::cout << " \"" << name->GetLabel() << "\"";
   }
 
@@ -62,10 +62,10 @@ LocationEntry buildLocationEntry(T obj,
   return location;
 }
 
-QList<LocationEntry> POILookupModule::lookupPOIRequest(DBInstanceRef db,
-                                                       osmscout::GeoBox searchBoundingBox,
-                                                       osmscout::BreakerRef /*breaker*/,
-                                                       QStringList types)
+QList<LocationEntry> POILookupModule::doPOIlookup(DBInstanceRef db,
+                                                  osmscout::GeoBox searchBoundingBox,
+                                                  osmscout::BreakerRef /*breaker*/,
+                                                  QStringList types)
 {
   QList<LocationEntry> result;
 
@@ -76,11 +76,12 @@ QList<LocationEntry> POILookupModule::lookupPOIRequest(DBInstanceRef db,
   osmscout::TypeInfoSet areaTypes;
   std::vector<osmscout::AreaRef> areas;
 
-  if (!db->database){
+  auto database=db->GetDatabase();
+  if (!database){
     osmscout::log.Error() << "No database available";
     return result;
   }
-  osmscout::TypeConfigRef typeConfig=db->database->GetTypeConfig();
+  osmscout::TypeConfigRef typeConfig=database->GetTypeConfig();
   if (!typeConfig){
     osmscout::log.Error() << "No typeConfig available";
     return result;
@@ -105,7 +106,7 @@ QList<LocationEntry> POILookupModule::lookupPOIRequest(DBInstanceRef db,
   }
 
   // lookup objects
-  osmscout::POIService poiService(db->database);
+  osmscout::POIService poiService(database);
   try {
     poiService.GetPOIsInArea(searchBoundingBox,
                              nodeTypes,
@@ -162,7 +163,7 @@ void POILookupModule::lookupPOIRequest(int requestId,
         break;
       }
       emit lookupResult(requestId,
-                        lookupPOIRequest(db, searchBoundingBox, breaker, types));
+                        doPOIlookup(db, searchBoundingBox, breaker, types));
     }
   });
 

@@ -133,7 +133,7 @@ bool DBInstance::LoadStyle(QString stylesheetFilename,
       errors.append(err);
     }
 
-    styleConfig=NULL;
+    styleConfig=nullptr;
 
     return false;
   }
@@ -145,12 +145,12 @@ osmscout::MapPainterQt* DBInstance::GetPainter()
 {
   QMutexLocker locker(&mutex);
   if (!styleConfig)
-    return NULL;
+    return nullptr;
 
   if (!painterHolder.contains(QThread::currentThread())){
     painterHolder[QThread::currentThread()]=new osmscout::MapPainterQt(styleConfig);
-    connect(QThread::currentThread(),SIGNAL(finished()),
-            this,SLOT(onThreadFinished()));
+    connect(QThread::currentThread(), &QThread::finished,
+            this, &DBInstance::onThreadFinished);
   }
   return painterHolder[QThread::currentThread()];
 }
@@ -171,8 +171,21 @@ void DBInstance::close()
   qDeleteAll(painterHolder);
   painterHolder.clear();
 
-  if (database->IsOpen()) {
+  // release map service, its threads may still use database
+  // threads are stopped and joined in MapService destructor
+  if (mapService && mapService.use_count() > 1){
+    // if DBInstance is not exclusive owner, threads may hit closed data file and trigger assert!
+    log.Warn() << "Map service for " << path.toStdString() << " is used on multiple places";
+  }
+  mapService.reset();
+
+  locationService.reset();
+  locationDescriptionService.reset();
+  styleConfig.reset();
+
+  if (database && database->IsOpen()) {
     database->Close();
   }
+  database.reset();
 }
 }

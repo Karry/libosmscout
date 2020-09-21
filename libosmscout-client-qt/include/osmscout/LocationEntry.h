@@ -42,11 +42,11 @@ namespace osmscout {
 class OSMSCOUT_CLIENT_QT_API LocationEntry : public QObject
 {
   Q_OBJECT
-  Q_PROPERTY(QString label      READ getLabel)
-  Q_PROPERTY(QString type       READ getTypeString)
-  Q_PROPERTY(QString objectType READ getObjectType)
-  Q_PROPERTY(double  lat        READ getLat)
-  Q_PROPERTY(double  lon        READ getLon)
+  Q_PROPERTY(QString label      READ getLabel      CONSTANT)
+  Q_PROPERTY(QString type       READ getTypeString CONSTANT)
+  Q_PROPERTY(QString objectType READ getObjectType CONSTANT)
+  Q_PROPERTY(double  lat        READ getLat        CONSTANT)
+  Q_PROPERTY(double  lon        READ getLon        CONSTANT)
 
 public:
   enum Type {
@@ -73,13 +73,13 @@ public:
                 const QString database,
                 const osmscout::GeoCoord coord,
                 const osmscout::GeoBox bbox,
-                QObject* parent = 0);
+                QObject* parent = nullptr);
 
   LocationEntry(const QString& label,
                 const osmscout::GeoCoord& coord,
-                QObject* parent = 0);
+                QObject* parent = nullptr);
 
-  LocationEntry(QObject* parent = 0);
+  LocationEntry(QObject* parent = nullptr);
   LocationEntry(const LocationEntry& other);
   virtual ~LocationEntry();
 
@@ -104,7 +104,7 @@ public:
   double getLon() const;
 };
 
-typedef std::shared_ptr<LocationEntry> LocationEntryRef;
+using LocationEntryRef = std::shared_ptr<LocationEntry>;
 
 }
 

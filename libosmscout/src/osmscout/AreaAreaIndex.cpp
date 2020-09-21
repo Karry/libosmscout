@@ -31,7 +31,7 @@
 
 namespace osmscout {
 
-  const char* AreaAreaIndex::AREA_AREA_IDX="areaarea.idx";
+  const char* const AreaAreaIndex::AREA_AREA_IDX="areaarea.idx";
 
   AreaAreaIndex::AreaAreaIndex(size_t cacheSize)
   : maxLevel(0),
@@ -48,6 +48,7 @@ namespace osmscout {
 
   void AreaAreaIndex::Close()
   {
+    indexCache.Flush();
     try {
       if (scanner.IsOpen()) {
         scanner.Close();
@@ -182,7 +183,7 @@ namespace osmscout {
             y>maxlat+cellDimension.height/2 ||
             x+cellDimension.width<minlon-cellDimension.width/2 ||
             y+cellDimension.height<minlat-cellDimension.height/2)) {
-        nextCellRefs.push_back(CellRef(cellIndexData.children[0],cx,cy+1));
+        nextCellRefs.emplace_back(cellIndexData.children[0],cx,cy+1);
       }
     }
 
@@ -195,7 +196,7 @@ namespace osmscout {
             y>maxlat+cellDimension.height/2 ||
             x+cellDimension.width<minlon-cellDimension.width/2 ||
             y+cellDimension.height<minlat-cellDimension.height/2)) {
-        nextCellRefs.push_back(CellRef(cellIndexData.children[1],cx+1,cy+1));
+        nextCellRefs.emplace_back(cellIndexData.children[1],cx+1,cy+1);
       }
     }
 
@@ -208,7 +209,7 @@ namespace osmscout {
             y>maxlat+cellDimension.height/2 ||
             x+cellDimension.width<minlon-cellDimension.width/2 ||
             y+cellDimension.height<minlat-cellDimension.height/2)) {
-        nextCellRefs.push_back(CellRef(cellIndexData.children[2],cx,cy));
+        nextCellRefs.emplace_back(cellIndexData.children[2],cx,cy);
       }
     }
 
@@ -221,7 +222,7 @@ namespace osmscout {
             y>maxlat+cellDimension.height/2 ||
             x+cellDimension.width<minlon-cellDimension.width/2 ||
             y+cellDimension.height<minlat-cellDimension.height/2)) {
-        nextCellRefs.push_back(CellRef(cellIndexData.children[3],cx+1,cy));
+        nextCellRefs.emplace_back(cellIndexData.children[3],cx+1,cy);
       }
     }
   }
@@ -292,7 +293,7 @@ namespace osmscout {
     cellRefs.reserve(2000);
     nextCellRefs.reserve(2000);
 
-    cellRefs.push_back(CellRef(topLevelOffset,0,0));
+    cellRefs.emplace_back(topLevelOffset,0,0);
 
     try {
       // For all levels:
@@ -375,6 +376,13 @@ namespace osmscout {
 
   void AreaAreaIndex::DumpStatistics()
   {
+    std::lock_guard<std::mutex> guard(lookupMutex);
     indexCache.DumpStatistics(AREA_AREA_IDX,IndexCacheValueSizer());
+  }
+
+  void AreaAreaIndex::FlushCache()
+  {
+    std::lock_guard<std::mutex> guard(lookupMutex);
+    indexCache.Flush();
   }
 }

@@ -44,7 +44,7 @@ namespace osmscout {
   class OSMSCOUT_API AreaNodeIndex
   {
   public:
-    static const char* AREA_NODE_IDX;
+    static const char* const AREA_NODE_IDX;
 
   private:
     uint32_t fileFormatVersion{0};
@@ -108,7 +108,8 @@ namespace osmscout {
     std::vector<TypeData18> nodeTypeData18;
 
     std::string           datafilename;   //!< Full path and name of the data file
-    mutable FileScanner   scanner;        //!< Scanner instance for reading this file
+    mutable FileScanner   scanner;        //!< Scanner instance for reading this file,
+                                          //!< guarded by lookupMutex (Open and Close method are not guarded!)
 
     MagnificationLevel    gridMag;
     std::vector<TypeData> nodeTypeData;
@@ -141,7 +142,7 @@ namespace osmscout {
                       const GeoBox& boundingBox,
                       std::vector<FileOffset>& offsets) const;
   public:
-    AreaNodeIndex();
+    AreaNodeIndex() = default;
 
     void Close();
     bool Open(const std::string& path,
@@ -155,7 +156,7 @@ namespace osmscout {
 
     inline std::string GetFilename() const
     {
-      return datafilename;
+      return scanner.GetFilename();
     }
 
     bool GetOffsets(const GeoBox& boundingBox,
@@ -164,7 +165,7 @@ namespace osmscout {
                     TypeInfoSet& loadedTypes) const;
   };
 
-  typedef std::shared_ptr<AreaNodeIndex> AreaNodeIndexRef;
+  using AreaNodeIndexRef = std::shared_ptr<AreaNodeIndex>;
 }
 
 #endif

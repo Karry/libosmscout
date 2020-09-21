@@ -45,7 +45,6 @@
 #endif
 
 #include <osmscout/system/Assert.h>
-#include <osmscout/system/Compiler.h>
 
 #include <osmscout/util/Exception.h>
 #include <osmscout/util/Logger.h>
@@ -241,7 +240,6 @@ namespace osmscout {
       }
     }
 #elif  defined(_WIN32)
-    unused(mode);
     if (useMmap && this->size>0) {
       FreeBuffer();
 
@@ -444,7 +442,7 @@ namespace osmscout {
     }
 
 #if defined(HAVE_MMAP) || defined(_WIN32)
-    if (this->buffer!=NULL) {
+    if (this->buffer!=nullptr) {
       if (offset+(FileOffset)bytes-1>=size) {
         hasError=true;
         throw IOException(filename,"Cannot read byte array","Cannot read beyond end of file");
@@ -555,6 +553,8 @@ namespace osmscout {
       throw IOException(filename,"Cannot read bool","File already in error state");
     }
 
+    char value;
+
 #if defined(HAVE_MMAP) || defined(_WIN32)
     if (buffer!=nullptr) {
       if (offset>=size) {
@@ -562,7 +562,8 @@ namespace osmscout {
         throw IOException(filename,"Cannot read bool","Cannot read beyond end of file");
       }
 
-      boolean=buffer[offset]!=0;
+      value=buffer[offset];
+      boolean=ConvertBool(value);
 
       offset++;
 
@@ -570,15 +571,13 @@ namespace osmscout {
     }
 #endif
 
-    char value;
-
     hasError=fread(&value,1,1,file)!=1;
 
     if (hasError) {
       throw IOException(filename,"Cannot read bool");
     }
 
-    boolean=value!=0;
+    boolean=ConvertBool(value);
   }
 
   void FileScanner::Read(int8_t& number)
@@ -1425,6 +1424,50 @@ namespace osmscout {
     ref.Set(fileOffset,(RefType)typeByte);
   }
 
+  void FileScanner::Read(Color& color)
+  {
+    if (HasError()) {
+      throw IOException(filename,"Cannot read file offset","File already in error state");
+    }
+
+#if defined(HAVE_MMAP) || defined(_WIN32)
+    if (buffer!=nullptr) {
+      if (offset+4-1>=size) {
+        hasError=true;
+        throw IOException(filename,
+                          "Cannot read color",
+                          "Cannot read beyond end of file");
+      }
+
+      double r=((unsigned char)buffer[offset+0])/255.0;
+      double g=((unsigned char)buffer[offset+1])/255.0;
+      double b=((unsigned char)buffer[offset+2])/255.0;
+      double a=((unsigned char)buffer[offset+3])/255.0;
+
+      color=Color(r,g,b,a);
+
+      offset+=4;
+
+      return;
+    }
+#endif
+
+    unsigned char buffer[4];
+
+    hasError=fread(&buffer,1,4,file)!=4;
+
+    if (hasError) {
+      throw IOException(filename,"Cannot read color");
+    }
+
+    double r=buffer[0]/255.0;
+    double g=buffer[1]/255.0;
+    double b=buffer[2]/255.0;
+    double a=buffer[3]/255.0;
+
+    color=Color(r,g,b,a);
+  }
+
   void FileScanner::ReadFileOffset(FileOffset& fileOffset)
   {
     if (HasError()) {
@@ -1721,7 +1764,7 @@ namespace osmscout {
 
     // negative form
     if ((buffer & 0x01)!=0) {
-      char val=(buffer & 0x7e) >> 1;
+      int16_t val=(buffer & 0x7e) >> 1;
 
       number=-1;
       nextShift=6;
@@ -1742,7 +1785,7 @@ namespace osmscout {
       number^=static_cast<num_t>(val) << shift;
     }
     else {
-      char val=(buffer & 0x7e) >> 1;
+      int16_t val=(buffer & 0x7e) >> 1;
 
       number=0;
       nextShift=6;
@@ -1802,7 +1845,7 @@ namespace osmscout {
 
     // negative form
     if ((buffer & 0x01)!=0) {
-      char val=(buffer & 0x7e) >> 1;
+      int32_t val=(buffer & 0x7e) >> 1;
 
       number=-1;
       nextShift=6;
@@ -1823,7 +1866,7 @@ namespace osmscout {
       number^=static_cast<num_t>(val) << shift;
     }
     else {
-      char val=(buffer & 0x7e) >> 1;
+      int32_t val=(buffer & 0x7e) >> 1;
 
       number=0;
       nextShift=6;
@@ -1882,7 +1925,7 @@ namespace osmscout {
 
     // negative form
     if ((buffer & 0x01)!=0) {
-      char val=(buffer & 0x7e) >> 1;
+      int64_t val=(buffer & 0x7e) >> 1;
 
       number=-1;
       nextShift=6;
@@ -1903,7 +1946,7 @@ namespace osmscout {
       number^=static_cast<num_t>(val) << shift;
     }
     else {
-      char val=(buffer & 0x7e) >> 1;
+      int64_t val=(buffer & 0x7e) >> 1;
 
       number=0;
       nextShift=6;
@@ -2115,9 +2158,7 @@ namespace osmscout {
 
       offset+=coordByteSize;
 
-      coord.Set(latDat/latConversionFactor-90.0,
-                lonDat/lonConversionFactor-180.0);
-
+      SetCoord(latDat, lonDat, coord);
       return;
     }
 #endif
@@ -2140,8 +2181,7 @@ namespace osmscout {
            | (buffer[5] << 16)
            | ((buffer[6] & 0xf0) << 20);
 
-    coord.Set(latDat/latConversionFactor-90.0,
-              lonDat/lonConversionFactor-180.0);
+    SetCoord(latDat, lonDat, coord);
   }
 
   void FileScanner::ReadConditionalCoord(GeoCoord& coord,
@@ -2181,8 +2221,7 @@ namespace osmscout {
         isSet=false;
       }
       else  {
-        coord.Set(latDat/latConversionFactor-90.0,
-                  lonDat/lonConversionFactor-180.0);
+        SetCoord(latDat, lonDat, coord);
         isSet=true;
       }
 
@@ -2213,8 +2252,7 @@ namespace osmscout {
       isSet=false;
     }
     else  {
-      coord.Set(latDat/latConversionFactor-90.0,
-                lonDat/lonConversionFactor-180.0);
+      SetCoord(latDat, lonDat, coord);
       isSet=true;
     }
   }
@@ -2337,8 +2375,7 @@ namespace osmscout {
         latValue+=latDelta;
         lonValue+=lonDelta;
 
-        nodes[currentCoordPos].SetCoord(GeoCoord(latValue/latConversionFactor-90.0,
-                                                 lonValue/lonConversionFactor-180.0));
+        SetCoord(latValue,lonValue,nodes[currentCoordPos]);
 
         currentCoordPos++;
       }
@@ -2370,8 +2407,7 @@ namespace osmscout {
 
         lonValue+=lonDelta;
 
-        nodes[currentCoordPos].SetCoord(GeoCoord(latValue/latConversionFactor-90.0,
-                                                 lonValue/lonConversionFactor-180.0));
+        SetCoord(latValue,lonValue,nodes[currentCoordPos]);
 
         currentCoordPos++;
       }
@@ -2403,10 +2439,7 @@ namespace osmscout {
 
         lonValue+=lonDelta;
 
-        //setCoord(currentCoordPos, latValue, lonValue);
-        nodes[currentCoordPos].SetCoord(GeoCoord(latValue/latConversionFactor-90.0,
-                                                 lonValue/lonConversionFactor-180.0));
-
+        SetCoord(latValue,lonValue,nodes[currentCoordPos]);
 
         currentCoordPos++;
       }

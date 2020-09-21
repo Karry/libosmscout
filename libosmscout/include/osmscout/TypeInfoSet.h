@@ -20,6 +20,7 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307  USA
 */
 
+#include <iterator>
 #include <vector>
 
 #include <osmscout/TypeConfig.h>
@@ -28,15 +29,22 @@
 
 namespace osmscout {
 
-  class OSMSCOUT_API TypeInfoSetConstIterator CLASS_FINAL : public std::iterator<std::input_iterator_tag, const TypeInfoRef>
+  class OSMSCOUT_API TypeInfoSetConstIterator CLASS_FINAL
   {
+  public:
+    using self_type         = TypeInfoSetConstIterator;
+    using value_type        = TypeInfoRef;
+    using reference         = const TypeInfoRef&;
+    using pointer           = TypeInfoRef;
+    using iterator_category = std::input_iterator_tag;
+
   private:
     std::vector<TypeInfoRef>::const_iterator iterCurrent;
     std::vector<TypeInfoRef>::const_iterator iterEnd;
 
   public:
-    TypeInfoSetConstIterator(const std::vector<TypeInfoRef>::const_iterator& iterCurrent,
-                             const std::vector<TypeInfoRef>::const_iterator& iterEnd)
+    TypeInfoSetConstIterator(const std::vector<value_type>::const_iterator& iterCurrent,
+                             const std::vector<value_type>::const_iterator& iterEnd)
     : iterCurrent(iterCurrent),
       iterEnd(iterEnd)
     {
@@ -46,12 +54,7 @@ namespace osmscout {
       }
     }
 
-    TypeInfoSetConstIterator(const TypeInfoSetConstIterator& other)
-    : iterCurrent(other.iterCurrent),
-      iterEnd(other.iterEnd)
-    {
-      // no code
-    }
+    TypeInfoSetConstIterator(const TypeInfoSetConstIterator& other) = default;
 
     TypeInfoSetConstIterator& operator++()
     {
@@ -65,7 +68,7 @@ namespace osmscout {
       return *this;
     }
 
-    const TypeInfoSetConstIterator operator++(int)
+    TypeInfoSetConstIterator operator++(int)
     {
       TypeInfoSetConstIterator tmp(*this);
 
@@ -88,6 +91,11 @@ namespace osmscout {
     {
       return *iterCurrent;
     }
+
+    TypeInfoRef operator->()
+    {
+      return *iterCurrent;
+    }
   };
 
   /**
@@ -102,15 +110,15 @@ namespace osmscout {
   {
   private:
     std::vector<TypeInfoRef> types;
-    size_t                   count;
+    size_t                   count = 0;
 
   public:
-    TypeInfoSet();
+    TypeInfoSet() = default;
 
     explicit TypeInfoSet(const TypeConfig& typeConfig);
     explicit TypeInfoSet(const std::vector<TypeInfoRef>& types);
 
-    TypeInfoSet(const TypeInfoSet& other);
+    TypeInfoSet(const TypeInfoSet& other) = default;
     TypeInfoSet(TypeInfoSet&& other) noexcept;
 
     void Adapt(const TypeConfig& typeConfig);

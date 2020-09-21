@@ -26,8 +26,16 @@
 #include <utility>
 #include <limits>
 #include <algorithm>
+#include <string>
+#include <ostream>
 
 namespace osmscout {
+
+  enum class Units
+  {
+    Metrics,
+    Imperial
+  };
 
   struct OSMSCOUT_API Meter
   {
@@ -55,10 +63,49 @@ namespace osmscout {
     }
   };
 
+  struct OSMSCOUT_API Feet
+  {
+    static inline double ToMeter(double feet)
+    {
+      return feet * 0.3048;
+    }
+
+    static inline double FromMeter(double m)
+    {
+      return m/0.3048;
+    }
+  };
+
+  struct OSMSCOUT_API Yard
+  {
+    static inline double ToMeter(double yard)
+    {
+      return yard / 0.9144;
+    }
+
+    static inline double FromMeter(double m)
+    {
+      return m * 0.9144;
+    }
+  };
+
+  struct OSMSCOUT_API Mile
+  {
+    static inline double ToMeter(double mile)
+    {
+      return mile * 1609.344;
+    }
+
+    static inline double FromMeter(double m)
+    {
+      return m / 1609.344;
+    }
+  };
+
   class OSMSCOUT_API Distance CLASS_FINAL
   {
   private:
-    double meters;
+    double meters=0.0;
 
   private:
     explicit inline Distance(double meters):
@@ -66,26 +113,18 @@ namespace osmscout {
     { }
 
   public:
-    inline Distance():
-      meters(0.0)
-    { }
+    Distance() = default;
 
-    inline Distance(const Distance &d):
-      meters(d.meters)
-    { }
+    inline Distance(const Distance &d) = default;
 
-    inline Distance& operator=(const Distance &d)
-    {
-      meters=d.meters;
-      return *this;
-    }
+    Distance& operator=(const Distance &d) = default;
 
-    inline Distance(Distance &&d)
+    inline Distance(Distance &&d) noexcept
     {
       std::swap(meters, d.meters);
     }
 
-    inline Distance &operator=(Distance &&d)
+    inline Distance &operator=(Distance &&d) noexcept
     {
       std::swap(meters, d.meters);
       return *this;
@@ -96,12 +135,27 @@ namespace osmscout {
       return meters;
     }
 
-    inline ~Distance()
-    { }
-
     inline Distance& operator+=(const Distance &d)
     {
       meters+=d.meters;
+      return *this;
+    }
+
+    inline Distance& operator-=(const Distance &d)
+    {
+      meters-=d.meters;
+      return *this;
+    }
+
+    inline Distance& operator*=(double d)
+    {
+      meters*=d;
+      return *this;
+    }
+
+    inline Distance& operator/=(double d)
+    {
+      meters/=d;
       return *this;
     }
 
@@ -123,6 +177,16 @@ namespace osmscout {
     inline Distance operator/(double factor) const
     {
       return Distance(meters / factor);
+    }
+
+    inline bool operator==(const Distance &d) const
+    {
+      return meters == d.meters;
+    }
+
+    inline bool operator!=(const Distance &d) const
+    {
+      return meters != d.meters;
     }
 
     inline bool operator>(const Distance &d) const
@@ -151,9 +215,23 @@ namespace osmscout {
       return Unit::FromMeter(meters);
     }
 
+    std::string AsString() const;
+
+    static Distance Zero();
+
     static Distance Max();
 
+    /**
+     * returns the smallest finite value of the given type
+     * @return
+     */
     static Distance Min();
+
+    /**
+     * returns the lowest finite value of the given type
+     * @return
+     */
+    static Distance Lowest();
 
     static Distance Max(const Distance &a, const Distance &b);
 
@@ -165,6 +243,22 @@ namespace osmscout {
       return Distance(Unit::ToMeter(value));
     }
   };
+
+  inline std::ostream& operator<<(std::ostream& os,
+                                  const Distance& distance)
+  {
+    os << distance.AsString();
+
+    return os;
+  }
+
+  inline Distance Meters(double m){
+    return Distance::Of<Meter>(m);
+  }
+
+  inline Distance Kilometers(double km){
+    return Distance::Of<Kilometer>(km);
+  }
 
 }
 

@@ -10,6 +10,7 @@ import QtPositioning 5.2
 import net.sf.libosmscout.map 1.0
 
 import "custom"
+import "custom/Utils.js" as Utils
 
 Window {
     id: mainWindow
@@ -22,7 +23,7 @@ Window {
     function reroute(){
         var startLoc = routingModel.locationEntryFromPosition(simulator.latitude, simulator.longitude);
         var destinationLoc = routingModel.locationEntryFromPosition(simulator.endLat, simulator.endLon);
-        console.log("We leave route, reroute from " + startLoc.label + " -> " + destinationLoc.label);
+        console.log("We leave route, reroute from " + Utils.locationStr(startLoc) + " -> " + Utils.locationStr(destinationLoc));
         routingModel.setStartAndTarget(startLoc, destinationLoc);
     }
 
@@ -32,9 +33,6 @@ Window {
         Component.onCompleted: {
             console.log("PositionSimulationTrack: "+PositionSimulationTrack)
         }
-        onStartChanged: {
-            map.showCoordinates(latitude, longitude);
-        }
         onEndChanged: {
             var startLoc = routingModel.locationEntryFromPosition(simulator.startLat, simulator.startLon);
             var destinationLoc = routingModel.locationEntryFromPosition(simulator.endLat, simulator.endLon);
@@ -42,9 +40,9 @@ Window {
         }
 
         onPositionChanged: {
-            if (!map.lockToPosition){ // don't set again when it is true already
-                map.lockToPosition = true;
-            }
+            // if (!map.lockToPosition){ // don't set again when it is true already
+            //     map.lockToPosition = true;
+            // }
             map.locationChanged(true, // valid
                                 latitude, longitude,
                                 horizontalAccuracyValid, horizontalAccuracy);
@@ -52,10 +50,6 @@ Window {
                                             latitude, longitude,
                                             horizontalAccuracyValid, horizontalAccuracy);
             // console.log("position: " + latitude + " " + longitude);
-
-            if ((!navigationModel.positionOnRoute) && routingModel.ready){
-                reroute();
-            }
         }
     }
 
@@ -63,10 +57,13 @@ Window {
         id: navigationModel
         route: routingModel.route
 
-        onPositionOnRouteChanged: {
-            if (!positionOnRoute){
+        onRerouteRequest: {
+            if (routingModel.ready){
                 reroute();
             }
+        }
+        onPositionEstimate: {
+            console.log("onPositionEstimate " + lat + " " + lon);
         }
     }
 
@@ -79,7 +76,6 @@ Window {
             }
 
             map.addOverlayObject(0,routeWay);
-            //navigationModel.
         }
     }
 
@@ -87,6 +83,82 @@ Window {
         id: map
         anchors.fill: parent
         showCurrentPosition: true
+        vehiclePosition: navigationModel.vehiclePosition
+        followVehicle: true
+
+        focus: true
+
+        Keys.onPressed: {
+            if (event.key === Qt.Key_Plus) {
+                map.zoomIn(2.0)
+                event.accepted = true
+            }
+            else if (event.key === Qt.Key_Minus) {
+                map.zoomOut(2.0)
+                event.accepted = true
+            }
+            else if (event.key === Qt.Key_Up) {
+                map.up()
+                event.accepted = true
+            }
+            else if (event.key === Qt.Key_Down) {
+                map.down()
+                event.accepted = true
+            }
+            else if (event.key === Qt.Key_Left) {
+                if (event.modifiers & Qt.ShiftModifier) {
+                    map.rotateLeft();
+                }
+                else {
+                    map.left();
+                }
+                event.accepted = true
+            }
+            else if (event.key === Qt.Key_Right) {
+                if (event.modifiers & Qt.ShiftModifier) {
+                    map.rotateRight();
+                }
+                else {
+                    map.right();
+                }
+                event.accepted = true
+            }
+            else if (event.modifiers===Qt.ControlModifier &&
+                     event.key === Qt.Key_F) {
+                searchDialog.focus = true
+                event.accepted = true
+            }
+            else if (event.modifiers===Qt.ControlModifier &&
+                     event.key === Qt.Key_D) {
+                map.toggleDaylight();
+            }
+            else if (event.modifiers===Qt.ControlModifier &&
+                     event.key === Qt.Key_R) {
+                map.reloadStyle();
+            }
+            else if (event.modifiers===(Qt.ControlModifier | Qt.ShiftModifier) &&
+                     event.key === Qt.Key_D) {
+                var debugState = map.toggleDebug();
+
+                if (debugState) {
+                  console.log("DEBUG is ON");
+                }
+                else {
+                  console.log("DEBUG is OFF");
+                }
+            }
+            else if (event.modifiers===(Qt.ControlModifier | Qt.ShiftModifier) &&
+                     event.key === Qt.Key_I) {
+                var infoState = map.toggleInfo();
+
+                if (infoState) {
+                  console.log("INFO is ON");
+                }
+                else {
+                  console.log("INFO is OFF");
+                }
+            }
+        }
     }
     RowLayout {
         id: simulatorControl
@@ -150,8 +222,8 @@ Window {
         id: topContainer
         anchors.left: parent.left
         anchors.top: parent.top
-        width: Math.min(400, parent.width - rightContainer.width)
-        height: 120
+        width: Math.min(420, parent.width - rightContainer.width)
+        height: 130
         color: "transparent"
 
         Rectangle {
@@ -168,11 +240,37 @@ Window {
             RouteStepIcon{
                 id: nextStepIcon
                 stepType: navigationModel.nextRouteStep.type
+                roundaboutClockwise: navigationModel.nextRouteStep.roundaboutClockwise
                 height: parent.height
                 width: height
                 anchors{
                     top: parent.top
                     left: parent.left
+                }
+                Text{
+                    id: roundaboutExit
+                    text: navigationModel.nextRouteStep.type == "leave-roundabout" ? navigationModel.nextRouteStep.roundaboutExit : ""
+                    anchors.centerIn: parent
+                    font.pixelSize: Theme.textFontSize*2
+                }
+            }
+            Rectangle {
+                anchors{
+                    top: parent.top
+                    right: parent.right
+                }
+                width: currentSpeedText.width+(2*Theme.horizSpace)
+                height: currentSpeedText.height+(2*Theme.vertSpace)
+                color: (navigationModel.currentSpeed > 0 &&
+                        navigationModel.maxAllowedSpeed > 0 &&
+                        navigationModel.currentSpeed > navigationModel.maxAllowedSpeed) ?
+                           "red":"transparent"
+
+                Text{
+                    id: currentSpeedText
+                    anchors.centerIn: parent
+                    text: navigationModel.currentSpeed < 0 ? "--" : (Math.round(navigationModel.currentSpeed)+" km/h")
+                    font.pixelSize: Theme.textFontSize
                 }
             }
             Text{
@@ -195,17 +293,53 @@ Window {
                 }
             }
             Text{
-                id: nextStepDescription
-                text: navigationModel.nextRouteStep.description
+                id: nextStepStreets
+                text: "via " + navigationModel.nextRouteStep.streetNames.join(", ")
                 font.pixelSize: Theme.textFontSize
-                wrapMode: Text.Wrap
+                opacity: 0.7
+                visible: navigationModel.nextRouteStep.streetNames.length > 0
+                wrapMode: Text.NoWrap
+                clip: true
                 anchors{
                     top: distanceToNextStep.bottom
                     left: nextStepIcon.right
                     right: parent.right
                 }
             }
+            Text{
+                id: nextStepDescription
+                text: navigationModel.nextRouteStep.description
+                font.pixelSize: Theme.textFontSize
+                wrapMode: Text.Wrap
+                anchors{
+                    top: nextStepStreets.bottom
+                    left: nextStepIcon.right
+                    right: parent.right
+                }
+            }
         }
+
+        LaneTurns {
+            id: laneTurnsComponent
+
+            laneTurns: navigationModel.laneTurns
+            visible: navigationModel.laneSuggested
+            suggestedLaneFrom: navigationModel.suggestedLaneFrom
+            suggestedLaneTo: navigationModel.suggestedLaneTo
+
+            color: "white"
+            border.color: "lightgrey"
+            border.width: 1
+            height: Math.max(60, nextStepBox.height * 0.5)
+
+            anchors{
+                top: nextStepBox.top
+                left: nextStepBox.right
+                margins: Theme.horizSpace
+            }
+            //maxWidth: parent.width - (speedIndicator.width + menuBtn.width + 4*Theme.paddingMedium)
+        }
+
     }
 
     Rectangle {
@@ -230,7 +364,7 @@ Window {
             ListView {
                 id: routingView
 
-                model: routingModel
+                model: navigationModel
 
                 anchors.fill: parent
                 anchors.margins: 1

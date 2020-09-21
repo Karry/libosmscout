@@ -18,19 +18,16 @@
 */
 
 
-#include <QApplication>
+#include <QGuiApplication>
 #include <QDesktopWidget>
 #include <QPixmap>
 #include <QScreen>
 #include <QDebug>
 
 #include <chrono>
-#include <cmath>
 #include <cstring>
 #include <iostream>
-#include <iomanip>
 #include <list>
-#include <sstream>
 
 #include <osmscout/Database.h>
 #include <osmscout/MapService.h>
@@ -312,40 +309,30 @@ static void GetCarSpeedTable(std::map<std::string,double>& map)
 
 struct Arguments
 {
-  bool                    help;
+  bool                    help{false};
+  bool                    debug{false};
   std::string             databaseDirectory;
-  std::string             routerFilenamebase;
+  std::string             routerFilenamebase{osmscout::RoutingService::DEFAULT_FILENAME_BASE};
 
-  osmscout::Vehicle       vehicle;
+  osmscout::Vehicle       vehicle{osmscout::vehicleCar};
 
   osmscout::GeoCoord      start;
   osmscout::GeoCoord      target;
 
-  std::string             style;
-  std::string             output;
-  size_t                  width;
-  size_t                  height;
-  osmscout::GeoCoord      center;
+  std::string             style{"stylesheets/standard.oss"};
+  std::string             output{"./animation"};
+  size_t                  width{1920};
+  size_t                  height{1080};
+  osmscout::GeoCoord      center{-1000, -1000};
   osmscout::Magnification zoom;
+  double                  dpi{96};
 
-  size_t                  frameStep;
-  size_t                  startStep;
-  int64_t                 endStep;
-  size_t                  startFrame;
+  size_t                  frameStep{1};
+  size_t                  startStep{0};
+  int64_t                 endStep{-1};
+  size_t                  startFrame{0};
 
-  Arguments():
-    help(false),
-    routerFilenamebase(osmscout::RoutingService::DEFAULT_FILENAME_BASE),
-    vehicle(osmscout::vehicleCar),
-    style("stylesheets/standard.oss"),
-    output("./animation"),
-    width(1920),
-    height(1080),
-    center(-1000,-1000),
-    frameStep(1),
-    startStep(0),
-    endStep(-1),
-    startFrame(0)
+  Arguments()
   {
     zoom.SetLevel(osmscout::Magnification::magVeryClose);
   }
@@ -353,11 +340,18 @@ struct Arguments
 
 int main(int argc, char* argv[])
 {
+  int tmpArgc = 1;
+  assert(argc >= tmpArgc);
+  // QGuiApplication modifies arguments and "eats" --style for example. We have to lie to avoid it.
+  QGuiApplication application(tmpArgc,argv);
 
   osmscout::CmdLineParser   argParser("RoutingAnimation",
                                       argc,argv);
   std::vector<std::string>  helpArgs{"h","help"};
   Arguments                 args;
+
+  assert(QGuiApplication::primaryScreen());
+  args.dpi=QGuiApplication::primaryScreen()->physicalDotsPerInch();
 
   argParser.AddOption(osmscout::CmdLineFlag([&args](const bool& value) {
                         args.help=value;
@@ -365,6 +359,13 @@ int main(int argc, char* argv[])
                       helpArgs,
                       "Return argument help",
                       true);
+
+  argParser.AddOption(osmscout::CmdLineFlag([&args](const bool& value) {
+                        args.debug=value;
+                      }),
+                      "debug",
+                      "Enable debug output",
+                      false);
 
   argParser.AddOption(osmscout::CmdLineStringOption([&args](const std::string& value) {
                         args.routerFilenamebase=value;
@@ -420,6 +421,13 @@ int main(int argc, char* argv[])
                       }),
                       "height",
                       "height of animation frames (default 1080)",
+                      false);
+
+  argParser.AddOption(osmscout::CmdLineDoubleOption([&args](const double& value) {
+                        args.dpi=value;
+                      }),
+                      "dpi",
+                      "dpi of animation frames (default " + std::to_string(args.dpi) + ")",
                       false);
 
   argParser.AddOption(osmscout::CmdLineUIntOption([&args](const unsigned int& value) {
@@ -495,6 +503,8 @@ int main(int argc, char* argv[])
     return 0;
   }
 
+  osmscout::log.Debug(args.debug);
+
   if (args.center.GetLat()==-1000 && args.center.GetLon()==-1000){
     args.center=args.start;
   }
@@ -509,9 +519,6 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-
-  QApplication application(argc,argv,true);
-
   osmscout::StyleConfigRef styleConfig(new osmscout::StyleConfig(database->GetTypeConfig()));
 
   if (!styleConfig->Load(args.style)) {
@@ -522,21 +529,20 @@ int main(int argc, char* argv[])
   osmscout::MercatorProjection  projection;
   QPixmap *pixmap=new QPixmap(args.width,args.height);
 
-  if (pixmap!=NULL) {
+  if (pixmap!=nullptr) {
     QPainter* painter=new QPainter(pixmap);
 
-    if (painter!=NULL) {
+    if (painter!=nullptr) {
       osmscout::MapParameter        drawParameter;
       osmscout::AreaSearchParameter searchParameter;
       osmscout::MapData             data;
       osmscout::MapPainterQt        mapPainter(styleConfig);
-      double                        dpi=application.screens().at(application.desktop()->primaryScreen())->physicalDotsPerInch();
 
       drawParameter.SetFontSize(3.0);
 
       projection.Set(args.center,
                      args.zoom,
-                     dpi,
+                     args.dpi,
                      args.width,
                      args.height);
 
@@ -624,28 +630,30 @@ int main(int argc, char* argv[])
     break;
   }
 
-  osmscout::RoutePosition start=router->GetClosestRoutableNode(args.start,
-                                                               routingProfile,
-                                                               osmscout::Distance::Of<osmscout::Kilometer>(1));
+  auto startResult=router->GetClosestRoutableNode(args.start,
+                                                  routingProfile,
+                                                  osmscout::Distance::Of<osmscout::Kilometer>(1));
 
-  if (!start.IsValid()) {
+  if (!startResult.IsValid()) {
     std::cerr << "Error while searching for routing node near start location!" << std::endl;
     return 1;
   }
 
+  osmscout::RoutePosition start=startResult.GetRoutePosition();
   if (start.GetObjectFileRef().GetType()==osmscout::refNode) {
     std::cerr << "Cannot find start node for start location!" << std::endl;
   }
 
-  osmscout::RoutePosition target=router->GetClosestRoutableNode(args.target,
-                                                                routingProfile,
-                                                                osmscout::Distance::Of<osmscout::Kilometer>(1));
+  auto targetResult=router->GetClosestRoutableNode(args.target,
+                                                   routingProfile,
+                                                   osmscout::Distance::Of<osmscout::Kilometer>(1));
 
-  if (!target.IsValid()) {
+  if (!targetResult.IsValid()) {
     std::cerr << "Error while searching for routing node near target location!" << std::endl;
     return 1;
   }
 
+  osmscout::RoutePosition target=targetResult.GetRoutePosition();
   if (target.GetObjectFileRef().GetType()==osmscout::refNode) {
     std::cerr << "Cannot find start node for target location!" << std::endl;
   }

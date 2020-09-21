@@ -6,23 +6,18 @@
 
 namespace osmscout
 {
-  const char* TextSearchIndex::TEXT_POI_DAT="textpoi.dat";
-  const char* TextSearchIndex::TEXT_LOC_DAT="textloc.dat";
-  const char* TextSearchIndex::TEXT_REGION_DAT="textregion.dat";
-  const char* TextSearchIndex::TEXT_OTHER_DAT="textother.dat";
-
-  TextSearchIndex::TextSearchIndex()
-  {
-    // no code
-  }
+  const char* const TextSearchIndex::TEXT_POI_DAT="textpoi.dat";
+  const char* const TextSearchIndex::TEXT_LOC_DAT="textloc.dat";
+  const char* const TextSearchIndex::TEXT_REGION_DAT="textregion.dat";
+  const char* const TextSearchIndex::TEXT_OTHER_DAT="textother.dat";
 
   TextSearchIndex::~TextSearchIndex()
   {
-    for (size_t i=0; i<tries.size(); i++) {
-      tries[i].isAvail=false;
-      if (tries[i].trie) {
-        delete tries[i].trie;
-        tries[i].trie=nullptr;
+    for (auto & trie : tries) {
+      trie.isAvail=false;
+      if (trie.trie) {
+        delete trie.trie;
+        trie.trie=nullptr;
       }
     }
   }
@@ -48,22 +43,22 @@ namespace osmscout
     tries.push_back(trie);
 
     uint8_t triesAvail=0;
-    for (size_t i=0; i<tries.size(); i++) {
+    for (auto & trie : tries) {
       // open/load the data file
       try {
         triesAvail++;
-        tries[i].isAvail=true;
-        tries[i].trie=new marisa::Trie;
-        tries[i].trie->load(tries[i].file.c_str());
+        trie.isAvail=true;
+        trie.trie=new marisa::Trie;
+        trie.trie->load(trie.file.c_str());
       }
       catch (const marisa::Exception &ex) {
         // We don't return false on a failed load attempt
         // since its possible that the user does not want
         // to include a specific trie (ie. textother)
-        log.Error() << "Warn, could not open " << tries[i].file << ":"  << ex.what();
-        delete tries[i].trie;
-        tries[i].trie=nullptr;
-        tries[i].isAvail=false;
+        log.Error() << "Warn, could not open " << trie.file << ":"  << ex.what();
+        delete trie.trie;
+        trie.trie=nullptr;
+        trie.isAvail=false;
         triesAvail--;
       }
     }
@@ -144,7 +139,7 @@ namespace osmscout
 
             splitSearchResult(result,text,ref);
 
-            ResultsMap::iterator it=results.find(text);
+            auto it=results.find(text);
             if (it==results.end()) {
               // If the text has not been added to the
               // search results yet, insert a new entry
@@ -182,7 +177,7 @@ namespace osmscout
     // the offset is in MSB left to right
 
     FileOffset offset=0;
-    FileOffset add=0;
+    FileOffset add;
     size_t     idx=result.size()-1;
 
     for (size_t i=0; i<offsetSizeBytes; i++) {
@@ -194,7 +189,7 @@ namespace osmscout
 
     // Immediately preceding the FileOffset is
     // a single byte that denotes offset type
-    RefType reftype=static_cast<RefType>((unsigned char)(result[idx]));
+    auto reftype=static_cast<RefType>((unsigned char)(result[idx]));
 
     ref.Set(offset,reftype);
     text=result.substr(0,idx);
