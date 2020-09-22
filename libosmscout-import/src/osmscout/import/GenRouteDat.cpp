@@ -888,7 +888,7 @@ namespace osmscout {
     std::set<FileOffset> wayOffsets;
 
     for (auto nodeEntry=startNode; nodeEntry!=endNode; nodeEntry++) {
-      auto& node=*nodeEntry;
+      const auto& node=*nodeEntry;
 
       for (const auto& ref : node.objects) {
         if (ref.GetType()==refWay) {
@@ -929,7 +929,7 @@ namespace osmscout {
     std::set<FileOffset> areaOffsets;
 
     for (auto nodeEntry=startNode; nodeEntry!=endNode; nodeEntry++) {
-      auto& node=*nodeEntry;
+      const auto& node=*nodeEntry;
 
       for (const auto& ref : node.objects) {
         if (ref.GetType()==refArea) {
@@ -989,7 +989,8 @@ namespace osmscout {
 
         return true;
       }
-      else if (ref.GetType()==refArea) {
+
+      if (ref.GetType()==refArea) {
         const AreaRef& area=areasMap[ref.GetFileOffset()];
 
         if (!area) {
@@ -1519,7 +1520,7 @@ namespace osmscout {
         progress.Info("Storing route nodes");
 
         for (auto nodeEntry=startOfBlock; nodeEntry!=endOfBlock; nodeEntry++) {
-          auto& node=*nodeEntry;
+          const auto& node=*nodeEntry;
 
           if (node.cell!=currentCell) {
             if (currentIndex.count>0) {
