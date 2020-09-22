@@ -46,7 +46,7 @@ namespace osmscout {
   {
     fileFormatVersion=typeConfig->GetFileFormatVersion();
     if (fileFormatVersion>=21){
-      return AreaRouteIndex::Open(typeConfig,path,memoryMappedData);
+      return AreaIndex::Open(typeConfig,path,memoryMappedData);
     }
     return true;
   }
@@ -57,7 +57,7 @@ namespace osmscout {
                                   TypeInfoSet& loadedTypes) const
   {
     if (fileFormatVersion>=21){
-      return AreaRouteIndex::GetOffsets(boundingBox,types,offsets,loadedTypes);
+      return AreaIndex::GetOffsets(boundingBox,types,offsets,loadedTypes);
     }
     return true;
   }
