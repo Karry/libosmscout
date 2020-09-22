@@ -120,7 +120,8 @@ namespace osmscout {
       routeMasterScanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                               Preprocess::RAWROUTEMASTER_DAT),
                               FileScanner::Sequential,
-                              true);
+                              true,
+                              typeConfig->GetFileFormatVersion());
 
       routeMasterScanner.Read(routeMasterCount);
 
@@ -164,7 +165,8 @@ namespace osmscout {
       routeScanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                         Preprocess::RAWROUTE_DAT),
                         FileScanner::Sequential,
-                        true);
+                        true,
+                        typeConfig->GetFileFormatVersion());
 
       routeScanner.Read(routeCount);
 
@@ -188,7 +190,8 @@ namespace osmscout {
       nodeIdScanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                          NodeDataFile::NODES_IDMAP),
                          FileScanner::Sequential,
-                         true);
+                         true,
+                         typeConfig->GetFileFormatVersion());
 
       nodeIdScanner.Read(nodeIdCount);
 
@@ -220,7 +223,8 @@ namespace osmscout {
       wayIdScanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                          WayDataFile::WAYS_IDMAP),
                          FileScanner::Sequential,
-                         true);
+                         true,
+                         typeConfig->GetFileFormatVersion());
 
       wayIdScanner.Read(wayIdCount);
 

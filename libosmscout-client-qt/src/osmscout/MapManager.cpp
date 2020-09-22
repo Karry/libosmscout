@@ -113,6 +113,8 @@ void MapDownloadJob::start()
             << "water.idx"
             << "intersections.dat" 
             << "intersections.idx"
+            << "route.dat"
+            << "arearoute.idx"
             << "router.dat"
             << "router2.dat"
             << "textloc.dat"
@@ -155,6 +157,8 @@ MapDirectory::MapDirectory(QDir dir):
   // coverage.idx is optional, introduced after database version 16
 
   // router.idx is optional, it was removed with database version 17
+
+  // route.dat, arearoute.idx are optional, introduced with database version 21
 
   // text*.dat files are optional, these files are missing
   // when database is build without Marisa support
@@ -207,6 +211,8 @@ bool MapDirectory::deleteDatabase()
             << "water.idx"
             << "intersections.dat"
             << "intersections.idx"
+            << "route.dat"
+            << "arearoute.idx"
             << "router.dat"
             << "router2.dat"
             << "router.idx"

@@ -132,7 +132,7 @@ bool LoadPTRoutes(const Arguments& arguments,
     auto filename=osmscout::AppendFileToDir(arguments.databaseDirectory,
                                             osmscout::PTRouteDataFile::PTROUTES_DAT);
 
-    scanner.Open(filename,osmscout::FileScanner::Sequential,true);
+    scanner.Open(filename,osmscout::FileScanner::Sequential,true,typeConfig.GetFileFormatVersion());
 
     uint32_t routesCount;
 
