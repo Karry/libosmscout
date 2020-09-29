@@ -56,7 +56,13 @@ namespace osmscout {
 
   public:
     AreaRouteIndex();
-    virtual ~AreaRouteIndex() = default;
+    // disable copy and move
+    AreaRouteIndex(const AreaRouteIndex&) = delete;
+    AreaRouteIndex(AreaRouteIndex&&) = delete;
+    AreaRouteIndex& operator=(const AreaRouteIndex&) = delete;
+    AreaRouteIndex& operator=(AreaRouteIndex&&) = delete;
+
+    ~AreaRouteIndex() override = default;
 
     bool Open(const TypeConfigRef& typeConfig,
               const std::string& path,
