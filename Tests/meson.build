@@ -77,7 +77,7 @@ endif
 
 EncodeNumber = executable('EncodeNumber',
              'src/EncodeNumber.cpp',
-             include_directories: [osmscoutIncDir],
+             include_directories: [testIncDir, osmscoutIncDir],
              dependencies: [mathDep, openmpDep],
              link_with: [osmscout],
              install: false)
@@ -91,7 +91,7 @@ FeatureLabelTest = executable('FeatureLabelTest',
 
 FileScannerWriter = executable('FileScannerWriter',
              'src/FileScannerWriter.cpp',
-             include_directories: [osmscoutIncDir],
+             include_directories: [testIncDir, osmscoutIncDir],
              dependencies: [mathDep, openmpDep],
              link_with: [osmscout],
              install: false)
@@ -105,7 +105,7 @@ GeoBox = executable('GeoBox',
 
 GeoCoordParse = executable('GeoCoordParse',
              'src/GeoCoordParse.cpp',
-             include_directories: [osmscoutIncDir],
+             include_directories: [testIncDir, osmscoutIncDir],
              dependencies: [mathDep, openmpDep],
              link_with: [osmscout],
              install: false)
@@ -133,7 +133,7 @@ endif
 
 MapRotate = executable('MapRotate',
              'src/MapRotate.cpp',
-             include_directories: [osmscoutmapIncDir, osmscoutIncDir],
+             include_directories: [testIncDir, osmscoutmapIncDir, osmscoutIncDir],
              dependencies: [mathDep, openmpDep],
              link_with: [osmscoutmap, osmscout],
              install: false)
@@ -147,7 +147,7 @@ MultiDBRouting = executable('MultiDBRouting',
 
 NumberSet = executable('NumberSet',
              'src/NumberSet.cpp',
-             include_directories: [osmscoutIncDir],
+             include_directories: [testIncDir, osmscoutIncDir],
              dependencies: [mathDep, openmpDep],
              link_with: [osmscout],
              install: false)
@@ -218,7 +218,7 @@ WorkQueue = executable('WorkQueue',
 
 WStringStringConversion = executable('WStringStringConversion',
              'src/WStringStringConversion.cpp',
-             include_directories: [osmscoutIncDir],
+             include_directories: [testIncDir, osmscoutIncDir],
              dependencies: [mathDep, openmpDep],
              link_with: [osmscout],
              install: false)
@@ -253,8 +253,11 @@ test('Check parsing of time string', TimeParse)
 test('Check calculation of bearing', Bearing)
 test('Check encoding of numbers', BitsAndBytesNeeded)
 test('Check cache functionality with CachePerformance', CachePerformance, args : ['--size', '1000'])
+test('Check position accuracy with coordinate bits', CalculateResolution)
 test('Check parsing of command line args', CmdLineParsing)
 test('Check parsing of colors', ColorParse)
+test('Check number set performance', NumberSetPerformance, timeout: 180)
+test('Check reader scanner performance', ReaderScannerPerformance, workdir : meson.current_source_dir() + '/data/testregion')
 test('Check parsing of ways.dat', CoordinateEncoding, args : [meson.current_source_dir() + '/data/testregion'])
 test('Check routing', MultiDBRouting, args : ['50.412', '14.534', '50.424', '14.6013', meson.current_source_dir() + '/data/testregion'])
 test('Check threaded database', ThreadedDatabase, args : [
@@ -269,14 +272,32 @@ test('Check File access implementation', FileScannerWriter)
 test('Check parsing of geo box intersection', GeoBox)
 test('Check parsing of geo coordinates', GeoCoordParse)
 test('Check impl. of geometric functions', Geometry)
-test('Check rotation of maps', MapRotate)
+test('Check coordinate buffer conversions', CoordBufferTest)
+
+if (compiler.get_id()=='gcc' and target_machine.system()=='windows')
+  warning('Test "Check rotation of maps" does not run under MSYS because of missing locale support')
+else
+  test('Check rotation of maps', MapRotate)
+endif
+
 test('Check correctness of NumberSet class', NumberSet)
 test('Check scan conversion code', ScanConversion)
-test('Check string utils', StringUtils)
+
+if (compiler.get_id()=='gcc' and target_machine.system()=='windows')
+  warning('Test "Check string utils" does not run under MSYS because of missing locale support')
+else
+  test('Check string utils', StringUtils)
+endif
+
 test('Check tiling calculation code', TilingTest)
 test('Check polygon transformation code', TransPolygon)
 test('Check implementation of work queue', WorkQueue)
-test('Check WString<=>String conversion code', WStringStringConversion)
+
+if (compiler.get_id()=='gcc' and target_machine.system()=='windows')
+  warning('Test "Check WString<=>String conversion code" does not run under MSYS because of missing locale support')
+else
+  test('Check WString<=>String conversion code', WStringStringConversion)
+endif  
 test('Check LabelPath code', LabelPathTest)
 test('Check Base64 code', Base64Test)
 
