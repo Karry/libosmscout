@@ -62,6 +62,7 @@ void SearchModule::SearchLocations(DBInstanceRef &db,
 
   searchParameter.SetLimit(limit);
   searchParameter.SetBreaker(breaker);
+  searchParameter.SetFullTraversal(true);
 
   osmscout::LocationSearchResult result;
 

@@ -168,6 +168,8 @@ namespace osmscout {
 
     bool                    partialMatch=false;          //!< Add matches to the result, event if they do not match the complete search string
 
+    bool                    fullTraversal=false;         //!< When Admin region is not found, walk whole location tree. it may be expensive
+
     std::string             searchString;                //!< The search string itself, must bot be empty
     StringMatcherFactoryRef stringMatcherFactory;        //!< String matcher factory to use
 
@@ -190,6 +192,8 @@ namespace osmscout {
 
     bool GetPartialMatch() const;
 
+    bool GetFullTraversal() const;
+
     std::string GetSearchString() const;
 
     StringMatcherFactoryRef GetStringMatcherFactory() const;
@@ -207,6 +211,8 @@ namespace osmscout {
     void SetAddressOnlyMatch(bool addressOnlyMatch);
 
     void SetPartialMatch(bool partialMatch);
+
+    void SetFullTraversal(bool fullTraversal);
 
     void SetStringMatcherFactory(const StringMatcherFactoryRef& stringMatcherFactory);
 

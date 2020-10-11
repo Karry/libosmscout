@@ -42,6 +42,8 @@ namespace osmscout {
     bool                    locationOnlyMatch;
     bool                    addressOnlyMatch;
 
+    bool                    fullTraversal;
+
     bool                    partialMatch;
 
     StringMatcherFactoryRef stringMatcherFactory;
@@ -380,6 +382,11 @@ namespace osmscout {
     this->addressOnlyMatch=addressOnlyMatch;
   }
 
+  void LocationStringSearchParameter::SetFullTraversal(bool fullTraversal)
+  {
+    this->fullTraversal=fullTraversal;
+  }
+
   void LocationStringSearchParameter::SetPartialMatch(bool partialMatch)
   {
     this->partialMatch=partialMatch;
@@ -408,6 +415,11 @@ namespace osmscout {
   bool LocationStringSearchParameter::GetPartialMatch() const
   {
     return partialMatch;
+  }
+
+  bool LocationStringSearchParameter::GetFullTraversal() const
+  {
+    return fullTraversal;
   }
 
   bool LocationSearchResult::Entry::operator<(const Entry& other) const
@@ -694,6 +706,21 @@ namespace osmscout {
     }
   };
 
+  class RootAdminRegionVisitor : public AdminRegionVisitor
+  {
+  public:
+    std::list<AdminRegionRef> regions;
+
+  public:
+    RootAdminRegionVisitor() = default;
+    ~RootAdminRegionVisitor() override = default;
+
+    Action Visit(const AdminRegion &region) override
+    {
+      regions.push_back(std::make_shared<AdminRegion>(region));
+      return Action::skipChildren;
+    }
+  };
 
   class AdminRegionSearchVisitor : public AdminRegionVisitor
   {
@@ -1859,6 +1886,7 @@ namespace osmscout {
     parameter.partialMatch=searchParameter.GetPartialMatch();
     parameter.stringMatcherFactory=searchParameter.GetStringMatcherFactory();
     parameter.limit=searchParameter.GetLimit();
+    parameter.fullTraversal=searchParameter.GetFullTraversal();
 
     result.limitReached=false;
     result.results.clear();
@@ -2060,6 +2088,27 @@ namespace osmscout {
                             result);
           }
         }
+      }
+    }
+
+    if (adminRegionVisitor.matches.empty() &&
+        adminRegionVisitor.partialMatches.empty() &&
+        parameter.searchForLocation &&
+        parameter.fullTraversal){
+
+      RootAdminRegionVisitor rootAdminRegionVisitor;
+      locationIndex->VisitAdminRegions(rootAdminRegionVisitor);
+
+      for (const auto& rootRegion : rootAdminRegionVisitor.regions) {
+        AdminRegionSearchVisitor::Result rootRegionResult(nullptr, rootRegion, rootRegion->name);
+
+        SearchForLocationForRegion(locationIndex,
+                                   parameter,
+                                   tokens,
+                                   rootRegionResult,
+                                   LocationSearchResult::candidate,
+                                   result,
+                                   breaker);
       }
     }
 
