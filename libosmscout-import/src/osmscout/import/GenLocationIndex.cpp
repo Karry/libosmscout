@@ -936,6 +936,7 @@ namespace osmscout {
   {
     FileScanner                  scanner;
     NameFeatureValueReader       nameReader(*typeConfig);
+    NameAltFeatureValueReader    nameAltReader(*typeConfig);
     AdminLevelFeatureValueReader adminLevelReader(*typeConfig);
 
     try {
@@ -968,6 +969,8 @@ namespace osmscout {
           continue;
         }
 
+        NameAltFeatureValue *nameAltValue=nameAltReader.GetValue(area.rings.front().GetFeatureValueBuffer());
+
         AdminLevelFeatureValue *adminLevelValue=adminLevelReader.GetValue(area.rings.front().GetFeatureValueBuffer());
 
         if (adminLevelValue==nullptr) {
@@ -985,6 +988,9 @@ namespace osmscout {
 
         region->reference=area.GetObjectFileRef();
         region->name=nameValue->GetName();
+        if (nameAltValue){
+          region->altName=nameAltValue->GetNameAlt();
+        }
         region->level=(int8_t)level;
 
         if (!adminLevelValue->GetIsIn().empty()) {
@@ -1266,9 +1272,10 @@ namespace osmscout {
     FileScanner scanner;
 
     try {
-      uint32_t               nodeCount;
-      size_t                 citiesFound=0;
-      NameFeatureValueReader nameReader(*typeConfig);
+      uint32_t                  nodeCount;
+      size_t                    citiesFound=0;
+      NameFeatureValueReader    nameReader(*typeConfig);
+      NameAltFeatureValueReader nameAltReader(*typeConfig);
 
       scanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                    NodeDataFile::NODES_DAT),
@@ -1294,10 +1301,15 @@ namespace osmscout {
             continue;
           }
 
+          NameAltFeatureValue *nameAltValue=nameAltReader.GetValue(node.GetFeatureValueBuffer());
+
           RegionAlias alias;
 
           alias.reference=node.GetFileOffset();
           alias.name=nameValue->GetName();
+          if (nameAltValue){
+            alias.altName=nameAltValue->GetNameAlt();
+          }
 
           RegionRef region=regionIndex.GetRegionForNode(rootRegion,
                                                         node.GetCoords());
@@ -2436,6 +2448,7 @@ namespace osmscout {
     writer.WriteFileOffset(parentRegion.indexOffset);
 
     writer.Write(region.name);
+    writer.Write(region.altName);
 
     Write(writer,
           region.reference);
@@ -2443,6 +2456,7 @@ namespace osmscout {
     writer.WriteNumber((uint32_t)region.aliases.size());
     for (const auto& alias : region.aliases) {
       writer.Write(alias.name);
+      writer.Write(alias.altName);
       writer.WriteFileOffset(alias.reference,
                              bytesForNodeFileOffset);
     }
