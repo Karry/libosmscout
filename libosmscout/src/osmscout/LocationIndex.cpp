@@ -217,7 +217,9 @@ namespace osmscout {
     scanner.ReadFileOffset(region.dataOffset);
     scanner.ReadFileOffset(region.parentRegionOffset);
     scanner.Read(region.name);
-    scanner.Read(region.altName);
+    if (fileFormatVersion>=22){
+      scanner.Read(region.altName);
+    }
 
     Read(scanner,
          region.object);
@@ -231,7 +233,9 @@ namespace osmscout {
 
       for (size_t i=0; i<aliasCount; i++) {
         scanner.Read(region.aliases[i].name);
-        scanner.Read(region.aliases[i].altName);
+        if (fileFormatVersion>=22){
+          scanner.Read(region.aliases[i].altName);
+        }
         scanner.ReadFileOffset(region.aliases[i].objectOffset,
                                bytesForNodeFileOffset);
       }
