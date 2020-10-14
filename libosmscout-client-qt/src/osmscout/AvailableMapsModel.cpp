@@ -78,7 +78,10 @@ void AvailableMapsModel::reload()
 
   QLocale locale;
   for (auto &provider: mapProviders){
-    QUrl url = provider.getListUri(osmscout::TypeConfig::MAX_FORMAT_VERSION,
+    QUrl url = provider.getListUri(21 ,
+                                   /* 21: routes was added in that version
+                                    * 22: alternative language was added location.idx
+                                    */
                                    osmscout::TypeConfig::MAX_FORMAT_VERSION,
                                    locale.name());
     QNetworkRequest request(url);
