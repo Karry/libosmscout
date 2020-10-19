@@ -103,15 +103,15 @@ void MapDownloadJob::start()
   fileNames << "bounding.dat"
             << "nodes.dat"
             << "areas.dat"
-            << "ways.dat" 
+            << "ways.dat"
             << "areanode.idx"
             << "areaarea.idx"
-            << "areaway.idx" 
+            << "areaway.idx"
             << "areasopt.dat"
-            << "waysopt.dat" 
+            << "waysopt.dat"
             << "location.idx"
             << "water.idx"
-            << "intersections.dat" 
+            << "intersections.dat"
             << "intersections.idx"
             << "route.dat"
             << "arearoute.idx"
@@ -279,7 +279,7 @@ void MapManager::lookupDatabases()
 }
 
 MapManager::~MapManager(){
-  for (auto job:downloadJobs){
+  for (auto& job:downloadJobs){
     delete job;
   }
   downloadJobs.clear();
@@ -287,7 +287,7 @@ MapManager::~MapManager(){
 
 void MapManager::downloadMap(AvailableMapsModelMap map, QDir dir, bool replaceExisting)
 {
-  auto job=new MapDownloadJob(&webCtrl, map, dir, replaceExisting);
+  auto* job=new MapDownloadJob(&webCtrl, map, dir, replaceExisting);
   connect(job, &MapDownloadJob::finished, this, &MapManager::onJobFinished);
   connect(job, &MapDownloadJob::canceled, this, &MapManager::onJobFinished);
   connect(job, &MapDownloadJob::failed, this, &MapManager::onJobFailed);
@@ -298,15 +298,15 @@ void MapManager::downloadMap(AvailableMapsModelMap map, QDir dir, bool replaceEx
 
 void MapManager::downloadNext()
 {
-  for (auto job:downloadJobs){
+  for (const auto* job:downloadJobs){
     if (job->isDownloading()){
       return;
     }
-  }  
-  for (auto job:downloadJobs){
+  }
+  for (const auto& job:downloadJobs){
     job->start();
     break;
-  }  
+  }
 }
 
 void MapManager::onJobFailed(QString errorMessage)
@@ -318,7 +318,7 @@ void MapManager::onJobFailed(QString errorMessage)
 void MapManager::onJobFinished()
 {
   QList<MapDownloadJob*> finished;
-  for (auto job:downloadJobs){
+  for (auto *job:downloadJobs){
     if (job->isDone()){
       finished << job;
 
@@ -340,7 +340,7 @@ void MapManager::onJobFinished()
   if (!finished.isEmpty()){
     lookupDatabases();
   }
-  for (auto job:finished){
+  for (auto *job:finished){
     downloadJobs.removeOne(job);
     emit downloadJobsChanged();
     job->deleteLater();

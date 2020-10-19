@@ -165,7 +165,9 @@ endif()
 #---- DrawMapDirectX
 if(${OSMSCOUT_BUILD_MAP_DIRECTX})
     osmscout_demo_project(NAME DrawMapDirectX SOURCES src/DrawMapDirectX.cpp TARGET OSMScout::OSMScout OSMScout::Map OSMScout::MapDirectX ${Direct2D_LIBRARIES} "Shell32.lib")
-	set_target_properties(DrawMapDirectX PROPERTIES LINK_FLAGS /SUBSYSTEM:WINDOWS)
+	if(MSVC)
+		set_target_properties(DrawMapDirectX PROPERTIES LINK_FLAGS /SUBSYSTEM:WINDOWS)
+	endif()
 else()
 	message("Skip DrawMapDirectX demo, libosmscout-map-directx is missing.")
 endif()
@@ -182,6 +184,8 @@ endif()
 if(APPLE)
 	if(${OSMSCOUT_BUILD_MAP_IOSX} AND NOT DEFINED IOS_PLATFORM)
 		osmscout_demo_project(NAME DrawMapOSX SOURCES src/DrawMapOSX.mm TARGET OSMScout::OSMScout OSMScout::Map OSMScoutMapIOSX INCLUDES ${CMAKE_SOURCE_DIR}/libosmscout-map-iOSX/include ${CMAKE_BINARY_DIR}/libosmscout-map-iOSX/include)
+		set_target_properties(DrawMapOSX PROPERTIES
+				UNITY_BUILD OFF)
 	else()
 		message("Skip DrawMapOSX demo, libosmscout-map-iosx is missing.")
 	endif()
@@ -204,3 +208,13 @@ osmscout_demo_project(NAME Navigation SOURCES src/Navigation.cpp TARGET OSMScout
 #---- NavigationSimulator
 osmscout_demo_project(NAME NavigationSimulator SOURCES src/NavigationSimulator.cpp TARGET OSMScout::OSMScout OSMScout::Map)
 
+#---- DrawMapGDI
+if(${OSMSCOUT_BUILD_MAP_GDI})
+    osmscout_demo_project(NAME DrawMapGDI SOURCES src/DrawMapGDI.cpp TARGET OSMScout::OSMScout OSMScout::Map OSMScout::MapGDI)
+    target_compile_definitions(DrawMapGDI PRIVATE _UNICODE UNICODE)
+	if(MSVC)
+		set_target_properties(DrawMapGDI PROPERTIES LINK_FLAGS /SUBSYSTEM:WINDOWS)
+	endif()
+else()
+	message("Skip DrawMapGDI demo, libosmscout-map-gdi is missing.")
+endif()

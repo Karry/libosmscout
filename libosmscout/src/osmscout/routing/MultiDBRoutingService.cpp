@@ -110,7 +110,7 @@ namespace osmscout {
       return;
     }
 
-    for (auto handle : handles) {
+    for (auto& handle : handles) {
       handle.routingDatabase->Close();
       handle.routingDatabase.reset();
       handle.router->Close();

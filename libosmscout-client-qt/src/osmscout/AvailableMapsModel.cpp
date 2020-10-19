@@ -77,7 +77,7 @@ void AvailableMapsModel::reload()
   fetchError=""; // reset errors
 
   QLocale locale;
-  for (auto &provider: mapProviders){
+  for (const auto &provider: mapProviders){
     QUrl url = provider.getListUri(21 ,
                                    /* 21: routes was added in that version
                                     * 22: alternative language was added location.idx
@@ -101,7 +101,7 @@ void AvailableMapsModel::reload()
 
 AvailableMapsModel::~AvailableMapsModel()
 {
-  for (auto item:items){
+  for (auto *item:items){
     delete item;
   }
   items.clear();
@@ -112,7 +112,7 @@ void AvailableMapsModel::append(AvailableMapsModelItem *item)
     items.append(item);
   }else{
     // avoid duplicate directories
-    for (auto e:items){
+    for (auto *e:items){
       if (e->isDirectory() && e->getPath() == item->getPath()){
         return;
       }
@@ -123,10 +123,13 @@ void AvailableMapsModel::append(AvailableMapsModelItem *item)
 
 bool availableMapsModelItemLessThan(const AvailableMapsModelItem *i1, const AvailableMapsModelItem *i2)
 {
-  if (i1->isDirectory() && !i2->isDirectory())
+  if (i1->isDirectory() && !i2->isDirectory()) {
     return true;
-  if (i2->isDirectory() && !i1->isDirectory())
+  }
+
+  if (i2->isDirectory() && !i1->isDirectory()) {
     return false;
+  }
 
   return i1->getName().localeAwareCompare(i2->getName()) < 0;
 }
@@ -193,7 +196,7 @@ void AvailableMapsModel::listDownloaded(const MapProvider &provider, QNetworkRep
 QList<AvailableMapsModelItem*> AvailableMapsModel::findChildrenByPath(QStringList dir) const
 {
   QList<AvailableMapsModelItem*> result;
-  for (auto item:items){
+  for (auto *item:items){
     auto path=item->getPath();
     if (path.size() == dir.size()+1){
       bool match=true;
@@ -244,7 +247,7 @@ QModelIndex AvailableMapsModel::parent(const QModelIndex &index) const
 
   QList<AvailableMapsModelItem*> parentSiblings=findChildrenByPath(parentDir);
   for (int row=0;row<parentSiblings.size();row++){
-    auto parentCandidate=parentSiblings[row];
+    auto *parentCandidate=parentSiblings[row];
     if (parentCandidate->getPath()==parentPath)
       return createIndex(row, 0, parentCandidate);
   }

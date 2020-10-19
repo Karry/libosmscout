@@ -28,7 +28,7 @@ if [ "$TARGET" = "build" ]; then
       echo "Installing meson..."
       pip3 install --user meson
     elif [ "$BUILDTOOL" = "cmake" ]; then
-      sudo apt-get install -y cmake
+      sudo apt-get install -y cmake ninja-build
     fi
 
     sudo apt-get install -y \
@@ -47,27 +47,26 @@ if [ "$TARGET" = "build" ]; then
       libglfw3 libglfw3-dev
 
   elif  [ "$TRAVIS_OS_NAME" = "osx" ]; then
-    brew update
-
-      # Current images have preinstalled
-      # - cmake
-      # - libxml2
-
-    if [ "$BUILDTOOL" = "meson" ]; then
-      brew install meson || true
-    fi
-
+    brew pin postgis postgresql libpq poppler numpy mercurial ansible gnupg krb5 gdal geos libdap git gnutls
     if  [ "$TRAVIS_OS_NAME" = "osx" ] && [ "$PLATFORM" = "osx" ]; then
       brew unlink python
-      # skip cairo, already installed
-      brew install gettext
-      brew upgrade protobuf
-      brew install pango
-      brew upgrade qt5
-      brew install  glfw3 glew glm
+      brew upgrade openjdk protobuf protobuf-c qt5 cairo cmake
+      brew install libxml2 gettext pango glfw3 glew glm pkgconfig
       brew link --force gettext
       brew link --force qt5
       brew link --force --overwrite python
+    elif  [ "$TRAVIS_OS_NAME" = "osx" ] && [ "$PLATFORM" = "ios" ]; then
+      brew pin cairo
+    fi
+
+    if [ "$BUILDTOOL" = "meson" ]; then
+      echo "brew install meson..."
+      brew install meson || true
+    elif [ "$BUILDTOOL" = "cmake" ]; then
+      echo "brew upgrade cmake..."
+      brew upgrade cmake
+      echo "brew install ninja..."
+      brew install ninja
     fi
   fi
 elif [ "$TARGET" = "importer" ]; then
