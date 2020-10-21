@@ -115,7 +115,7 @@ namespace osmscout {
   void FileScanner::Open(const std::string& filename,
                          [[maybe_unused]] Mode mode,
                          bool useMmap,
-                         uint32_t fileFormatVersion)
+                         [[maybe_unused]] uint32_t fileFormatVersion)
   {
     if (file!=nullptr) {
       throw IOException(filename,"Error opening file for reading","File already opened");
