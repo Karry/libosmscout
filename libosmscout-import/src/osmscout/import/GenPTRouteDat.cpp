@@ -102,8 +102,6 @@ namespace osmscout {
     try {
       progress.SetAction("Scanning route masters");
 
-      uint32_t                   routeMasterCount   =0;
-      uint32_t                   routeCount         =0;
       NameFeatureValueReader     nameReader(*typeConfig);
       RefFeatureValueReader      refReader(*typeConfig);
       OperatorFeatureValueReader operatorReader(*typeConfig);
@@ -123,7 +121,7 @@ namespace osmscout {
                               true,
                               typeConfig->GetFileFormatVersion());
 
-      routeMasterScanner.Read(routeMasterCount);
+      uint32_t routeMasterCount=routeMasterScanner.ReadUInt32();
 
       for (uint32_t m=1; m<=routeMasterCount; m++) {
         progress.SetProgress(m,routeMasterCount);
@@ -168,7 +166,7 @@ namespace osmscout {
                         true,
                         typeConfig->GetFileFormatVersion());
 
-      routeScanner.Read(routeCount);
+      uint32_t routeCount=routeScanner.ReadUInt32();
 
       for (uint32_t r=1; r<=routeCount; r++) {
         progress.SetProgress(r,routeCount);
@@ -185,7 +183,6 @@ namespace osmscout {
 
       progress.SetAction("Resolving node ids");
 
-      uint32_t nodeIdCount;
 
       nodeIdScanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                          NodeDataFile::NODES_IDMAP),
@@ -193,18 +190,14 @@ namespace osmscout {
                          true,
                          typeConfig->GetFileFormatVersion());
 
-      nodeIdScanner.Read(nodeIdCount);
+      uint32_t nodeIdCount=nodeIdScanner.ReadUInt32();
 
       for (uint32_t n=1; n<nodeIdCount; n++) {
         progress.SetProgress(n,nodeIdCount);
 
-        Id         id;
-        uint8_t    typeByte;
-        FileOffset fileOffset;
-
-        nodeIdScanner.Read(id);
-        nodeIdScanner.Read(typeByte);
-        nodeIdScanner.ReadFileOffset(fileOffset);
+        Id         id=nodeIdScanner.ReadUInt64();
+        uint8_t    typeByte=nodeIdScanner.ReadUInt8();
+        FileOffset fileOffset=nodeIdScanner.ReadFileOffset();
 
         ObjectOSMRef  osmRef(id,(OSMRefType)typeByte);
         ObjectFileRef fileRef(fileOffset,refNode);
@@ -218,7 +211,6 @@ namespace osmscout {
 
       progress.SetAction("Resolving way ids");
 
-      uint32_t wayIdCount;
 
       wayIdScanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                          WayDataFile::WAYS_IDMAP),
@@ -226,18 +218,14 @@ namespace osmscout {
                          true,
                          typeConfig->GetFileFormatVersion());
 
-      wayIdScanner.Read(wayIdCount);
+      uint32_t wayIdCount=wayIdScanner.ReadUInt32();
 
       for (uint32_t w=1; w<wayIdCount; w++) {
         progress.SetProgress(w,wayIdCount);
 
-        Id         id;
-        uint8_t    typeByte;
-        FileOffset fileOffset;
-
-        wayIdScanner.Read(id);
-        wayIdScanner.Read(typeByte);
-        wayIdScanner.ReadFileOffset(fileOffset);
+        Id         id=wayIdScanner.ReadUInt64();
+        uint8_t    typeByte=wayIdScanner.ReadUInt8();
+        FileOffset fileOffset=wayIdScanner.ReadFileOffset();
 
         ObjectOSMRef  osmRef(id,(OSMRefType)typeByte);
         ObjectFileRef fileRef(fileOffset,refWay);
@@ -253,7 +241,7 @@ namespace osmscout {
 
       routeScanner.GotoBegin();
 
-      routeScanner.Read(routeCount);
+      routeCount=routeScanner.ReadUInt32();
 
       for (uint32_t r=1; r<=routeCount; r++) {
         progress.SetProgress(r,routeCount);

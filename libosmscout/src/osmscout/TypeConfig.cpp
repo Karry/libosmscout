@@ -31,7 +31,6 @@
 #include <osmscout/util/File.h>
 #include <osmscout/util/Logger.h>
 #include <osmscout/util/Number.h>
-#include <osmscout/util/String.h>
 
 namespace osmscout {
 
@@ -97,19 +96,19 @@ namespace osmscout {
   {
     TypeCondition typeCondition;
 
-    if (types & typeNode) {
+    if ((types & typeNode)!=0) {
       canBeNode=true;
     }
 
-    if (types & typeWay) {
+    if ((types & typeWay)!=0) {
       canBeWay=true;
     }
 
-    if (types & typeArea) {
+    if ((types & typeArea)!=0) {
       canBeArea=true;
     }
 
-    if (types & typeRelation) {
+    if ((types & typeRelation)!=0) {
       canBeRelation=true;
     }
 
@@ -204,9 +203,8 @@ namespace osmscout {
 
       return true;
     }
-    else {
-      return false;
-    }
+
+    return false;
   }
 
   uint8_t TypeInfo::GetDefaultAccess() const
@@ -244,16 +242,13 @@ namespace osmscout {
     if (entry!=descriptions.end()) {
       return entry->second;
     }
-    else {
-      return "";
-    }
+
+    return "";
   }
 
-  TypeInfoRef TypeInfo::Read(FileScanner& scanner, uint32_t fileFormatVersion)
+  TypeInfoRef TypeInfo::Read(FileScanner& scanner, [[maybe_unused]] uint32_t fileFormatVersion)
   {
-    std::string name;
-
-    scanner.Read(name);
+    std::string name=scanner.ReadString();
 
     TypeInfoRef typeInfo=std::make_shared<TypeInfo>(name);
 
@@ -275,31 +270,29 @@ namespace osmscout {
     bool        mergeAreas;
     bool        ignore;
     bool        ignoreSeaLand;
-    uint8_t     lanes{1};
-    uint8_t     onewayLanes{1};
+    uint8_t     lanes;
+    uint8_t     onewayLanes;
 
-    scanner.Read(canBeNode);
-    scanner.Read(canBeWay);
-    scanner.Read(canBeArea);
-    scanner.Read(canBeRelation);
-    scanner.Read(isPath);
-    scanner.Read(canRouteFoot);
-    scanner.Read(canRouteBicycle);
-    scanner.Read(canRouteCar);
-    scanner.Read(indexAsAddress);
-    scanner.Read(indexAsLocation);
-    scanner.Read(indexAsRegion);
-    scanner.Read(indexAsPOI);
-    scanner.Read(optimizeLowZoom);
-    scanner.Read(specialType);
-    scanner.Read(pinWay);
-    scanner.Read(mergeAreas);
-    scanner.Read(ignoreSeaLand);
-    scanner.Read(ignore);
-    if (fileFormatVersion >= 18) {
-      scanner.Read(lanes);
-      scanner.Read(onewayLanes);
-    }
+    canBeNode=scanner.ReadBool();
+    canBeWay=scanner.ReadBool();
+    canBeArea=scanner.ReadBool();
+    canBeRelation=scanner.ReadBool();
+    isPath=scanner.ReadBool();
+    canRouteFoot=scanner.ReadBool();
+    canRouteBicycle=scanner.ReadBool();
+    canRouteCar=scanner.ReadBool();
+    indexAsAddress=scanner.ReadBool();
+    indexAsLocation=scanner.ReadBool();
+    indexAsRegion=scanner.ReadBool();
+    indexAsPOI=scanner.ReadBool();
+    optimizeLowZoom=scanner.ReadBool();
+    specialType=scanner.ReadUInt8();
+    pinWay=scanner.ReadBool();
+    mergeAreas=scanner.ReadBool();
+    ignoreSeaLand=scanner.ReadBool();
+    ignore=scanner.ReadBool();
+    lanes=scanner.ReadUInt8();
+    onewayLanes=scanner.ReadUInt8();
 
     typeInfo->CanBeNode(canBeNode);
     typeInfo->CanBeWay(canBeWay);
@@ -438,9 +431,8 @@ namespace osmscout {
 
       return type->GetFeature(idx).GetFeature()->AllocateValue(value);
     }
-    else {
-      return nullptr;
-    }
+
+    return nullptr;
   }
 
   void FeatureValueBuffer::FreeValue(size_t idx)
@@ -481,7 +473,7 @@ namespace osmscout {
   void FeatureValueBuffer::Read(FileScanner& scanner)
   {
     for (size_t i=0; i<type->GetFeatureMaskBytes(); i++) {
-      scanner.Read(featureBits[i]);
+      featureBits[i]=scanner.ReadUInt8();
     }
     for (const auto &feature : type->GetFeatures()) {
       size_t idx=feature.GetIndex();
@@ -505,16 +497,14 @@ namespace osmscout {
                                 bool& specialFlag)
   {
     for (size_t i=0; i<type->GetFeatureMaskBytes(); i++) {
-      scanner.Read(featureBits[i]);
+      featureBits[i]=scanner.ReadUInt8();
     }
 
     if (BitsToBytes(type->GetFeatureCount())==BitsToBytes(type->GetFeatureCount()+1)) {
       specialFlag=(featureBits[type->GetFeatureMaskBytes()-1] & 0x80)!=0;
     }
     else {
-      uint8_t addByte;
-
-      scanner.Read(addByte);
+      uint8_t addByte=scanner.ReadUInt8();
 
       specialFlag=(addByte & 0x80)!=0;
     }
@@ -542,7 +532,7 @@ namespace osmscout {
                                 bool& specialFlag2)
   {
     for (size_t i=0; i<type->GetFeatureMaskBytes(); i++) {
-      scanner.Read(featureBits[i]);
+      featureBits[i]=scanner.ReadUInt8();
     }
 
     if (BitsToBytes(type->GetFeatureCount())==BitsToBytes(type->GetFeatureCount()+2)) {
@@ -550,9 +540,7 @@ namespace osmscout {
       specialFlag2=(featureBits[type->GetFeatureMaskBytes()-1] & 0x40)!=0;
     }
     else {
-      uint8_t addByte;
-
-      scanner.Read(addByte);
+      uint8_t addByte=scanner.ReadUInt8();
 
       specialFlag1=(addByte & 0x80)!=0;
       specialFlag2=(addByte & 0x40)!=0;
@@ -782,17 +770,9 @@ namespace osmscout {
   }
 
   TypeConfig::TypeConfig()
-   : fileFormatVersion(FILE_FORMAT_VERSION),
-     nodeTypeIdBytes(1),
-     wayTypeIdBytes(1),
-     areaTypeIdBits(1),
-     areaTypeIdBytes(1)     
   {
     log.Debug() << "TypeConfig::TypeConfig()";
-  }
 
-  void TypeConfig::RegisterInternalTags()
-  {
     featureName=std::make_shared<NameFeature>();
     RegisterFeature(featureName);
 
@@ -830,16 +810,14 @@ namespace osmscout {
 
     RegisterFeature(std::make_shared<AdminLevelFeature>());
 
-    if (fileFormatVersion>=8){
-      featurePostalCode = std::make_shared<PostalCodeFeature>();
-      RegisterFeature(featurePostalCode);
-      
-      featureWebsite = std::make_shared<WebsiteFeature>();
-      RegisterFeature(featureWebsite);
+    featurePostalCode = std::make_shared<PostalCodeFeature>();
+    RegisterFeature(featurePostalCode);
 
-      featurePhone = std::make_shared<PhoneFeature>();
-      RegisterFeature(featurePhone);
-    }
+    featureWebsite = std::make_shared<WebsiteFeature>();
+    RegisterFeature(featureWebsite);
+
+    featurePhone = std::make_shared<PhoneFeature>();
+    RegisterFeature(featurePhone);
 
     featureBridge=std::make_shared<BridgeFeature>();
     RegisterFeature(featureBridge);
@@ -847,11 +825,9 @@ namespace osmscout {
     featureTunnel=std::make_shared<TunnelFeature>();
     RegisterFeature(featureTunnel);
 
-    if (fileFormatVersion>=12){
-      featureEmbankment=std::make_shared<EmbankmentFeature>();
-      RegisterFeature(featureEmbankment);
-    }
-      
+    featureEmbankment=std::make_shared<EmbankmentFeature>();
+    RegisterFeature(featureEmbankment);
+
     featureRoundabout=std::make_shared<RoundaboutFeature>();
     RegisterFeature(featureRoundabout);
 
@@ -865,7 +841,7 @@ namespace osmscout {
 
     RegisterFeature(std::make_shared<SidewayFeature>());
 
-    featureLanes = std::make_shared<LanesFeature>();
+    featureLanes=std::make_shared<LanesFeature>();
     RegisterFeature(featureLanes);
 
     RegisterFeature(std::make_shared<OperatorFeature>());
@@ -966,17 +942,13 @@ namespace osmscout {
     if (feature!=nameToFeatureMap.end()) {
       return feature->second;
     }
-    else {
-      return nullptr;
-    }
+
+    return nullptr;
   }
 
   TypeInfoRef TypeConfig::RegisterType(const TypeInfoRef& typeInfo)
   {
     assert(typeInfo);
-    if (fileFormatVersion<=13){
-      return RegisterType13(typeInfo);
-    }
 
     auto existingType=nameToTypeMap.find(typeInfo->GetName());
 
@@ -1013,10 +985,8 @@ namespace osmscout {
       if (!typeInfo->HasFeature(RoundaboutFeature::NAME)) {
         typeInfo->AddFeature(featureRoundabout);
       }
-      if (fileFormatVersion >= 18) {
-        if (!typeInfo->HasFeature(LanesFeature::NAME)) {
-          typeInfo->AddFeature(featureLanes);
-        }
+      if (!typeInfo->HasFeature(LanesFeature::NAME)) {
+        typeInfo->AddFeature(featureLanes);
       }
     }
 
@@ -1125,143 +1095,13 @@ namespace osmscout {
     return typeInfo;
   }
 
-  TypeInfoRef TypeConfig::RegisterType13(const TypeInfoRef& typeInfo)
-  {
-    assert(typeInfo);
-
-    auto existingType=nameToTypeMap.find(typeInfo->GetName());
-
-    if (existingType!=nameToTypeMap.end()) {
-      return existingType->second;
-    }
-
-    if ((typeInfo->CanBeArea() ||
-         typeInfo->CanBeNode()) &&
-         typeInfo->GetIndexAsAddress()) {
-      if (!typeInfo->HasFeature(LocationFeature::NAME)) {
-        typeInfo->AddFeature(featureLocation);
-      }
-      if (!typeInfo->HasFeature(AddressFeature::NAME)) {
-        typeInfo->AddFeature(featureAddress);
-      }
-      if (fileFormatVersion>=8){
-        if (!typeInfo->HasFeature(PostalCodeFeature::NAME)) {
-          typeInfo->AddFeature(featurePostalCode);
-        }
-      }
-    }
-
-    // All ways have a layer
-    if (typeInfo->CanBeWay()) {
-      if (!typeInfo->HasFeature(LayerFeature::NAME)) {
-        typeInfo->AddFeature(featureLayer);
-      }
-    }
-
-    // All that is PATH-like automatically has a number of features,
-    // even if it is not routable
-    if (typeInfo->IsPath()) {
-      if (!typeInfo->HasFeature(WidthFeature::NAME)) {
-        typeInfo->AddFeature(featureWidth);
-      }
-      if (!typeInfo->HasFeature(GradeFeature::NAME)) {
-        typeInfo->AddFeature(featureGrade);
-      }
-      if (!typeInfo->HasFeature(BridgeFeature::NAME)) {
-        typeInfo->AddFeature(featureBridge);
-      }
-      if (!typeInfo->HasFeature(TunnelFeature::NAME)) {
-        typeInfo->AddFeature(featureTunnel);
-      }
-      if (fileFormatVersion>=12){
-        if (!typeInfo->HasFeature(EmbankmentFeature::NAME)) {
-          typeInfo->AddFeature(featureEmbankment);
-        }
-      }
-      if (!typeInfo->HasFeature(RoundaboutFeature::NAME)) {
-        typeInfo->AddFeature(featureRoundabout);
-      }
-    }
-
-    // Everything routable should have access information and max speed information
-    if (typeInfo->CanRoute()) {
-      if (!typeInfo->HasFeature(AccessFeature::NAME)) {
-        typeInfo->AddFeature(featureAccess);
-      }
-      if (!typeInfo->HasFeature(AccessRestrictedFeature::NAME)) {
-        typeInfo->AddFeature(featureAccessRestricted);
-      }
-      if (!typeInfo->HasFeature(MaxSpeedFeature::NAME)) {
-        typeInfo->AddFeature(featureMaxSpeed);
-      }
-    }
-
-    // Something that has a name and is a POI automatically get the
-    // location, address website and phone features, too.
-    if (typeInfo->HasFeature(NameFeature::NAME) &&
-        typeInfo->GetIndexAsPOI()) {
-      if (!typeInfo->HasFeature(LocationFeature::NAME)) {
-        typeInfo->AddFeature(featureLocation);
-      }
-      if (!typeInfo->HasFeature(AddressFeature::NAME)) {
-        typeInfo->AddFeature(featureAddress);
-      }
-      if (fileFormatVersion>=8){
-        if (!typeInfo->HasFeature(WebsiteFeature::NAME)) {
-          typeInfo->AddFeature(featureWebsite);
-        }
-        if (!typeInfo->HasFeature(PhoneFeature::NAME)) {
-          typeInfo->AddFeature(featurePhone);
-        }
-      }
-    }
-
-    typeInfo->SetIndex(types.size());
-
-    types.push_back(typeInfo);
-
-    if (!typeInfo->GetIgnore() &&
-        !typeInfo->IsInternal() &&
-        (typeInfo->CanBeNode() ||
-         typeInfo->CanBeWay() ||
-         typeInfo->CanBeArea())) {
-      if (typeInfo->CanBeNode()) {
-        typeInfo->SetNodeId((TypeId)(nodeTypes.size()+1));
-        nodeTypes.push_back(typeInfo);
-
-        nodeTypeIdBytes=BytesNeededToEncodeNumber(typeInfo->GetNodeId());
-      }
-
-      if (typeInfo->CanBeWay()) {
-        typeInfo->SetWayId((TypeId)(wayTypes.size()+1));
-        wayTypes.push_back(typeInfo);
-
-        wayTypeIdBytes=BytesNeededToEncodeNumber(typeInfo->GetWayId());
-      }
-
-      if (typeInfo->CanBeArea()) {
-        typeInfo->SetAreaId((TypeId)(areaTypes.size()+1));
-        areaTypes.push_back(typeInfo);
-
-        areaTypeIdBytes=BytesNeededToEncodeNumber(typeInfo->GetAreaId());
-        areaTypeIdBits=BitsNeededToEncodeNumber(typeInfo->GetAreaId());
-      }
-    }
-
-    nameToTypeMap[typeInfo->GetName()]=typeInfo;
-
-    return typeInfo;
-  }
-
-
   TypeId TypeConfig::GetMaxTypeId() const
   {
     if (types.empty()) {
       return 0;
     }
-    else {
-      return (TypeId)types.size();
-    }
+
+    return (TypeId)types.size();
   }
 
   const TypeInfoRef TypeConfig::GetTypeInfo(const std::string& name) const
@@ -1288,7 +1128,7 @@ namespace osmscout {
       }
 
       for (const auto &cond : type->GetConditions()) {
-        if (!(cond.types & TypeInfo::typeNode)) {
+        if ((cond.types & TypeInfo::typeNode)==0) {
           continue;
         }
 
@@ -1320,19 +1160,19 @@ namespace osmscout {
       }
 
       for (const auto& cond : type->GetConditions()) {
-        if (!((cond.types & TypeInfo::typeWay) ||
-              (cond.types & TypeInfo::typeArea))) {
+        if (!((cond.types & TypeInfo::typeWay)!=0 ||
+              (cond.types & TypeInfo::typeArea)!=0)) {
           continue;
         }
 
         if (cond.condition->Evaluate(tagMap)) {
           if (wayType==typeInfoIgnore &&
-              (cond.types & TypeInfo::typeWay)) {
+              (cond.types & TypeInfo::typeWay)!=0) {
             wayType=type;
           }
 
           if (areaType==typeInfoIgnore &&
-              (cond.types & TypeInfo::typeArea)) {
+              (cond.types & TypeInfo::typeArea)!=0) {
             areaType=type;
           }
 
@@ -1364,7 +1204,7 @@ namespace osmscout {
         }
 
         for (const auto &cond : type->GetConditions()) {
-          if (!(cond.types & TypeInfo::typeArea)) {
+          if ((cond.types & TypeInfo::typeArea)==0) {
             continue;
           }
 
@@ -1382,7 +1222,7 @@ namespace osmscout {
         }
 
         for (const auto &cond : type->GetConditions()) {
-          if (!(cond.types & TypeInfo::typeRelation)) {
+          if ((cond.types & TypeInfo::typeRelation)==0) {
             continue;
           }
 
@@ -1476,141 +1316,48 @@ namespace osmscout {
                                    "types.dat"),
                    FileScanner::Sequential,
                    true,
-                   0);
+                   FILE_FORMAT_MIN_VERSION);
 
-      scanner.Read(fileFormatVersion);
+      fileFormatVersion=scanner.ReadUInt32();
 
       if (fileFormatVersion < FILE_FORMAT_MIN_VERSION || fileFormatVersion > FILE_FORMAT_VERSION) {
-        log.Error() << "File '" << scanner.GetFilename() << "' does not have the expected format version! Actual " << 
-                fileFormatVersion << ", expected: <" << FILE_FORMAT_MIN_VERSION << ", " << FILE_FORMAT_VERSION << ">";
+        log.Error() << "File '" << scanner.GetFilename() << "' does not have the expected format version! Actual " <<
+                    fileFormatVersion << ", expected: <" << FILE_FORMAT_MIN_VERSION << ", " << FILE_FORMAT_VERSION << ">";
         return false;
       }
 
-      // Tags
-      RegisterInternalTags();
+      // Features
+      uint32_t featureCount=scanner.ReadUInt32Number();
 
-      if (fileFormatVersion < 9){
-        // skip tags for old database formats
+      for (uint32_t f=1; f<=featureCount; f++) {
+        std::string featureName=scanner.ReadString();
+        uint32_t    descriptionCount=scanner.ReadUInt32Number();
+        FeatureRef  feature=GetFeature(featureName);
 
-        uint32_t tagCount;
+        for (uint32_t d=1; d<=descriptionCount; d++) {
+          std::string languageCode=scanner.ReadString();
+          std::string description=scanner.ReadString();
 
-        scanner.ReadNumber(tagCount);
-
-        for (size_t i=1; i<=tagCount; i++) {
-          TagId       requestedId;
-          TagId       actualId;
-          std::string name;
-
-          scanner.ReadNumber(requestedId);
-          scanner.Read(name);
-
-          actualId=GetTagRegistry().RegisterTag(name);
-
-          if (actualId!=requestedId) {
-            log.Warn() << "Requested and actual tag id do not match";
-            //return false;
-          }
-        }
-
-        // Name Tags
-
-        uint32_t nameTagCount;
-
-        scanner.ReadNumber(nameTagCount);
-
-        for (size_t i=1; i<=nameTagCount; i++) {
-          TagId       requestedId;
-          TagId       actualId;
-          std::string name;
-          uint32_t    priority = 0;
-
-          scanner.ReadNumber(requestedId);
-          scanner.Read(name);
-          scanner.ReadNumber(priority);
-
-          actualId=GetTagRegistry().RegisterNameTag(name,priority);
-
-          if (actualId!=requestedId) {
-            log.Warn() << "Requested and actual name tag id do not match";
-            //return false;
-          }
-        }
-
-        // Alternative Name Tags
-
-        uint32_t nameAltTagCount;
-
-        scanner.ReadNumber(nameAltTagCount);
-
-        for (size_t i=1; i<=nameAltTagCount; i++) {
-          TagId       requestedId;
-          TagId       actualId;
-          std::string name;
-          uint32_t    priority = 0;
-
-          scanner.ReadNumber(requestedId);
-          scanner.Read(name);
-          scanner.ReadNumber(priority);
-
-          actualId=GetTagRegistry().RegisterNameAltTag(name,priority);
-
-          if (actualId!=requestedId) {
-            log.Warn() << "Requested and actual name alt tag id do not match";
-            //return false;
-          }
-        }
-      }
-
-      if (fileFormatVersion >= 13){
-        // Features
-        uint32_t featureCount;
-
-        scanner.ReadNumber(featureCount);
-
-        for (uint32_t f=1; f<=featureCount; f++) {
-          std::string featureName;
-          uint32_t    descriptionCount;
-          FeatureRef  feature;
-
-          scanner.Read(featureName);
-          scanner.ReadNumber(descriptionCount);
-
-          feature=GetFeature(featureName);
-
-          for (uint32_t d=1; d<=descriptionCount; d++) {
-            std::string languageCode;
-            std::string description;
-
-            scanner.Read(languageCode);
-            scanner.Read(description);
-
-            if (feature) {
-              feature->AddDescription(languageCode,
-                                     description);
-            }
+          if (feature) {
+            feature->AddDescription(languageCode,
+                                    description);
           }
         }
       }
 
       // Types
 
-      uint32_t typeCount;
-
-      scanner.ReadNumber(typeCount);
+      uint32_t typeCount=scanner.ReadUInt32Number();
 
       for (uint32_t i=1; i<=typeCount; i++) {
-        TypeInfoRef typeInfo=TypeInfo::Read(scanner, fileFormatVersion);
+        TypeInfoRef typeInfo=TypeInfo::Read(scanner,fileFormatVersion);
 
         // Type Features
 
-        uint32_t featureCount;
+        uint32_t typeFeatureCount=scanner.ReadUInt32Number();
 
-        scanner.ReadNumber(featureCount);
-
-        for (uint32_t f=0; f<featureCount; f++) {
-          std::string featureName;
-
-          scanner.Read(featureName);
+        for (uint32_t f=0; f<typeFeatureCount; f++) {
+          std::string featureName=scanner.ReadString();
 
           FeatureRef feature=GetFeature(featureName);
 
@@ -1624,34 +1371,24 @@ namespace osmscout {
 
         // Groups
 
-        uint32_t groupCount;
-
-        scanner.ReadNumber(groupCount);
+        uint32_t groupCount=scanner.ReadUInt32Number();
 
         for (uint32_t g=0; g<groupCount; g++) {
-          std::string groupName;
-
-          scanner.Read(groupName);
+          std::string groupName=scanner.ReadString();
 
           typeInfo->AddGroup(groupName);
         }
 
         // Descriptions
-        if (fileFormatVersion >= 13){
-          uint32_t descriptionCount;
 
-          scanner.ReadNumber(descriptionCount);
+        uint32_t descriptionCount=scanner.ReadUInt32Number();
 
-          for (uint32_t d=1; d<=descriptionCount; d++) {
-            std::string languageCode;
-            std::string description;
+        for (uint32_t d=1; d<=descriptionCount; d++) {
+          std::string languageCode=scanner.ReadString();
+          std::string description=scanner.ReadString();
 
-            scanner.Read(languageCode);
-            scanner.Read(description);
-
-            typeInfo->AddDescription(languageCode,
-                                     description);
-          }
+          typeInfo->AddDescription(languageCode,
+                                   description);
         }
 
         RegisterType(typeInfo);
@@ -1690,12 +1427,6 @@ namespace osmscout {
       writer.Open(AppendFileToDir(directory,"types.dat"));
 
       writer.Write(FILE_FORMAT_VERSION);
-
-      if (fileFormatVersion < 9){
-        writer.CloseFailsafe();
-        log.Error() << "StoreToDataFile is not supported for database format " << fileFormatVersion;
-        return false;
-      }
 
       uint32_t typeCount=0;
       uint32_t featureCount=0;

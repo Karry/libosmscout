@@ -411,7 +411,6 @@ int main(int argc, char* argv[])
 
   osmscout::TypeConfig  typeConfig;
   osmscout::FileScanner scanner;
-  uint32_t              dataCount;
 
   std::cout << "Reading type config from map directory '" << mapDirectory << "'..." << std::endl;
 
@@ -459,7 +458,7 @@ int main(int argc, char* argv[])
     scanner.Open(wayDatFilename,osmscout::FileScanner::Sequential,true,
                        osmscout::FILE_FORMAT_VERSION);
 
-    scanner.Read(dataCount);
+    uint32_t dataCount=scanner.ReadUInt32();
 
     std::cout << dataCount << " entries..." << std::endl;
 

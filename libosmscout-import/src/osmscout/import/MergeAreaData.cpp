@@ -49,8 +49,6 @@ namespace osmscout {
     FileWriter  writer;
 
     try {
-      uint32_t wayDataCount=0;
-      uint32_t relDataCount=0;
       uint32_t dataWritten=0;
 
       writer.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
@@ -66,17 +64,16 @@ namespace osmscout {
                    parameter.GetAreaDataMemoryMaped(),
                        osmscout::FILE_FORMAT_VERSION);
 
-      scanner.Read(wayDataCount);
+      uint32_t wayDataCount=scanner.ReadUInt32();
 
       for (uint32_t current=1; current<=wayDataCount; current++) {
-        uint8_t type;
-        OSMId   id;
         Area    data;
 
         progress.SetProgress(current,wayDataCount);
 
-        scanner.Read(type);
-        scanner.Read(id);
+        uint8_t type=scanner.ReadUInt8();
+        OSMId   id=scanner.ReadInt64();
+
         data.ReadImport(typeConfig,
                         scanner);
 
@@ -98,17 +95,16 @@ namespace osmscout {
                    parameter.GetAreaDataMemoryMaped(),
                        osmscout::FILE_FORMAT_VERSION);
 
-      scanner.Read(relDataCount);
+      uint32_t relDataCount=scanner.ReadUInt32();
 
       for (uint32_t current=1; current<=relDataCount; current++) {
-        uint8_t type;
-        OSMId   id;
         Area    data;
 
         progress.SetProgress(current,relDataCount);
 
-        scanner.Read(type);
-        scanner.Read(id);
+        uint8_t type=scanner.ReadUInt8();
+        OSMId   id=scanner.ReadInt64();
+
         data.ReadImport(typeConfig,
                         scanner);
 

@@ -39,7 +39,6 @@ namespace osmscout {
 
     std::set<Pixel> cells;
     FileScanner     nodeScanner;
-    uint32_t        nodeCount;
 
     nodeScanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                      NodeDataFile::NODES_DAT),
@@ -47,7 +46,7 @@ namespace osmscout {
                      true,
                      typeConfig->GetFileFormatVersion());
 
-    nodeScanner.Read(nodeCount);
+    uint32_t nodeCount=nodeScanner.ReadUInt32();
 
     for (uint32_t idx=1; idx<=nodeCount; idx++) {
       progress.SetProgress(idx,
@@ -74,7 +73,6 @@ namespace osmscout {
 
     std::set<Pixel> cells;
     FileScanner     wayScanner;
-    uint32_t        wayCount;
 
     wayScanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                     WayDataFile::WAYS_DAT),
@@ -82,7 +80,7 @@ namespace osmscout {
                     true,
                     typeConfig->GetFileFormatVersion());
 
-    wayScanner.Read(wayCount);
+    uint32_t        wayCount=wayScanner.ReadUInt32();
 
     for (uint32_t idx=1; idx<=wayCount; idx++) {
       progress.SetProgress(idx,
@@ -121,7 +119,6 @@ namespace osmscout {
 
     std::set<Pixel> cells;
     FileScanner     areaScanner;
-    uint32_t        areaCount;
 
     areaScanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                      AreaDataFile::AREAS_DAT),
@@ -129,7 +126,7 @@ namespace osmscout {
                      true,
                      typeConfig->GetFileFormatVersion());
 
-    areaScanner.Read(areaCount);
+    uint32_t areaCount=areaScanner.ReadUInt32();
 
     for (uint32_t idx=1; idx<=areaCount; idx++) {
       progress.SetProgress(idx,

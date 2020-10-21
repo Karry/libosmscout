@@ -104,7 +104,6 @@ set(HEADER_FILES
     include/osmscout/Intersection.h
     include/osmscout/Location.h
     include/osmscout/LocationIndex.h
-    include/osmscout/LocationIndex13.h
     include/osmscout/LocationService.h
     include/osmscout/LocationDescriptionService.h
     include/osmscout/Node.h
@@ -131,8 +130,6 @@ set(HEADER_FILES
     include/osmscout/FeatureReader.h
     include/osmscout/OSMScoutTypes.h
     include/osmscout/WaterIndex.h
-    include/osmscout/WaterIndex6.h
-    include/osmscout/WaterIndex9.h
     include/osmscout/Way.h
     include/osmscout/WayDataFile.h)
 
@@ -199,7 +196,6 @@ set(SOURCE_FILES
     src/osmscout/AreaDataFile.cpp
     src/osmscout/AreaAreaIndex.cpp
     src/osmscout/AreaNodeIndex.cpp
-    src/osmscout/AreaNodeIndex18.cpp
 	src/osmscout/AreaIndex.cpp
     src/osmscout/AreaRouteIndex.cpp
     src/osmscout/AreaWayIndex.cpp
@@ -215,7 +211,6 @@ set(SOURCE_FILES
     src/osmscout/Intersection.cpp
     src/osmscout/Location.cpp
     src/osmscout/LocationIndex.cpp
-    src/osmscout/LocationIndex13.cpp
     src/osmscout/LocationService.cpp
     src/osmscout/LocationDescriptionService.cpp
     src/osmscout/Node.cpp
@@ -242,8 +237,6 @@ set(SOURCE_FILES
     src/osmscout/FeatureReader.cpp
 	src/osmscout/OSMScoutTypes.cpp
     src/osmscout/WaterIndex.cpp
-    src/osmscout/WaterIndex6.cpp
-    src/osmscout/WaterIndex9.cpp
     src/osmscout/Way.cpp
     src/osmscout/WayDataFile.cpp
     src/osmscout/util/CmdLineParsing.cpp)

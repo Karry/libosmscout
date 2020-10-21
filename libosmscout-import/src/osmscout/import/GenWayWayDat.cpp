@@ -65,7 +65,6 @@ namespace osmscout {
                                                 RouteMemberData& routeMembers)
   {
     FileScanner scanner;
-    uint32_t    routeCount=0;
 
     try {
       assert(typeConfig.GetFileFormatVersion()==TypeConfig::MAX_FORMAT_VERSION);
@@ -75,7 +74,7 @@ namespace osmscout {
                    true,
                    TypeConfig::MAX_FORMAT_VERSION);
 
-      scanner.Read(routeCount);
+      uint32_t routeCount=scanner.ReadUInt32();
 
       for (uint32_t r=1; r <= routeCount; r++) {
         progress.SetProgress(r, routeCount);
@@ -107,7 +106,6 @@ namespace osmscout {
                                                  RestrictionData& restrictions)
   {
     FileScanner scanner;
-    uint32_t    restrictionCount=0;
 
     try {
       scanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
@@ -116,7 +114,7 @@ namespace osmscout {
                    true,
                        osmscout::FILE_FORMAT_VERSION);
 
-      scanner.Read(restrictionCount);
+      uint32_t restrictionCount=scanner.ReadUInt32();
 
       for (uint32_t r=1; r<=restrictionCount; r++) {
         progress.SetProgress(r,restrictionCount);
@@ -185,15 +183,14 @@ namespace osmscout {
                                      FileScanner& scanner,
                                      std::vector<std::list<RawWayRef> >& ways)
   {
-    uint32_t    wayCount=0;
-    size_t      collectedWaysCount=0;
-    size_t      collectedWayNodesCount=0;
+    uint32_t    collectedWaysCount=0;
+    uint32_t    collectedWayNodesCount=0;
     size_t      typesWithWays=0;
     TypeInfoSet currentTypes(types);
 
     scanner.GotoBegin();
 
-    scanner.Read(wayCount);
+    uint32_t wayCount=scanner.ReadUInt32();
 
     for (uint32_t w=1; w<=wayCount; w++) {
       RawWayRef way=std::make_shared<RawWay>();
@@ -686,12 +683,11 @@ namespace osmscout {
                                                     uint32_t& writtenWayCount,
                                                     const CoordDataFile& coordDataFile)
   {
-    uint32_t areaCount=0;
-    size_t   collectedAreasCount=0;
+    uint32_t collectedAreasCount=0;
 
     scanner.GotoBegin();
 
-    scanner.Read(areaCount);
+    uint32_t areaCount=scanner.ReadUInt32();
 
     for (uint32_t w=1; w<=areaCount; w++) {
       RawWayRef way=std::make_shared<RawWay>();
@@ -764,13 +760,8 @@ namespace osmscout {
 
     FileScanner                             scanner;
     FileWriter                              wayWriter;
-    uint32_t                                rawWayCount=0;
-
-    uint32_t                                writtenWayCount=0;
-    size_t                                  mergeCount=0;
 
     progress.SetAction("Reading type distribution");
-
 
     if (!typeDistributionDataFile.Load(*typeConfig,
                                        parameter.GetDestinationDirectory())) {
@@ -818,18 +809,21 @@ namespace osmscout {
     }
 
     try {
+      uint32_t writtenWayCount=0;
+      size_t   mergeCount=0;
+
       scanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                    Preprocess::RAWWAYS_DAT),
                    FileScanner::Sequential,
                    parameter.GetRawWayDataMemoryMaped(),
                        osmscout::FILE_FORMAT_VERSION);
 
-      scanner.Read(rawWayCount);
+      uint32_t rawWayCount=scanner.ReadUInt32();
 
       wayWriter.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                      WAYWAY_TMP));
 
-      wayWriter.Write(writtenWayCount);
+      wayWriter.Write(uint32_t(0));
 
       /* ------ */
 
@@ -956,6 +950,10 @@ namespace osmscout {
       wayWriter.SetPos(0);
       wayWriter.Write(writtenWayCount);
       wayWriter.Close();
+
+      progress.Info(std::to_string(rawWayCount) + " raw way(s) read, "+
+                    std::to_string(writtenWayCount) + " way(s) written, "+
+                    std::to_string(mergeCount) + " merges");
     }
     catch (IOException& e) {
       progress.Error(e.GetDescription());
@@ -974,10 +972,6 @@ namespace osmscout {
     WriteTurnRestrictions(parameter,
                           progress,
                           restrictions);
-
-    progress.Info(std::to_string(rawWayCount) + " raw way(s) read, "+
-                  std::to_string(writtenWayCount) + " way(s) written, "+
-                  std::to_string(mergeCount) + " merges");
 
     return true;
   }

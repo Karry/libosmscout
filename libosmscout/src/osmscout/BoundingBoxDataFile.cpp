@@ -57,7 +57,7 @@ namespace osmscout {
                    true,
                    fileFormatVersion);
 
-      scanner.ReadBox(boundingBox);
+      boundingBox=scanner.ReadBox();
 
       log.Debug() << "BoundingBox: " << boundingBox.GetDisplayText();
 

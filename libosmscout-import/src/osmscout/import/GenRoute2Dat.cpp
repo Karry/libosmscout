@@ -64,20 +64,17 @@ namespace osmscout {
                         true,
                         typeConfig->GetFileFormatVersion());
 
-      uint32_t wayIdCount;
-      wayIdScanner.Read(wayIdCount);
+      uint32_t wayIdCount=wayIdScanner.ReadUInt32();
 
       for (uint32_t w=1; w<wayIdCount; w++) {
         progress.SetProgress(w,wayIdCount);
 
-        OSMId      id;
-        uint8_t    typeByte;
-        FileOffset fileOffset;
+        OSMId   id=wayIdScanner.ReadInt64();
+        uint8_t typeByte=wayIdScanner.ReadUInt8();
 
-        wayIdScanner.Read(id);
-        wayIdScanner.Read(typeByte);
         assert((OSMRefType)typeByte==osmRefWay);
-        wayIdScanner.ReadFileOffset(fileOffset);
+
+        FileOffset fileOffset=wayIdScanner.ReadFileOffset();
 
         wayIdMap.insert(std::make_pair(id, fileOffset));
       }
@@ -90,12 +87,12 @@ namespace osmscout {
                            true,
                            typeConfig->GetFileFormatVersion());
 
-      uint32_t rawRouteCount=0;
-      uint32_t routeCount=0;
-      rawRouteScanner.Read(rawRouteCount);
+      uint32_t rawRouteCount=rawRouteScanner.ReadUInt32();
 
       routeWriter.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                        RouteDataFile::ROUTE_DAT));
+
+      uint32_t routeCount=0;
 
       routeWriter.Write(routeCount);
 
@@ -132,7 +129,7 @@ namespace osmscout {
         while (!wayPointMap.empty()){
           // find some point where is just one way
           Id segmentFrontId=0;
-          for (auto it:wayPointMap){
+          for (const auto& it:wayPointMap){
             segmentFrontId=it.first;
             if (wayPointMap.count(segmentFrontId) == 1) {
               break;

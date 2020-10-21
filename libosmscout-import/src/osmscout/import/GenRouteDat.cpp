@@ -292,15 +292,13 @@ namespace osmscout {
     progress.Info("Reading turn restriction way ids");
 
     try {
-      uint32_t    restrictionCount=0;
-
       scanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                    WayWayDataGenerator::TURNRESTR_DAT),
                    FileScanner::Sequential,
                    true,
                        osmscout::FILE_FORMAT_VERSION);
 
-      scanner.Read(restrictionCount);
+      uint32_t restrictionCount=scanner.ReadUInt32();
 
       for (uint32_t r=1; r<=restrictionCount; r++) {
         progress.SetProgress(r,restrictionCount);
@@ -334,7 +332,6 @@ namespace osmscout {
     progress.Info("Resolving turn restriction way ids to way file offsets");
 
     try {
-      uint32_t wayCount=0;
       uint32_t resolveCount=0;
 
       scanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
@@ -343,22 +340,15 @@ namespace osmscout {
                    parameter.GetWayDataMemoryMaped(),
                        osmscout::FILE_FORMAT_VERSION);
 
-      scanner.Read(wayCount);
+      uint32_t wayCount=scanner.ReadUInt32();
 
       for (uint32_t w=1; w<=wayCount; w++) {
         progress.SetProgress(w,wayCount);
 
-        OSMId      wayId;
-        uint8_t    typeByte;
-        OSMRefType type;
-        FileOffset wayOffset;
-
-        scanner.Read(wayId);
-        scanner.Read(typeByte);
-
-        scanner.ReadFileOffset(wayOffset);
-
-        type=(OSMRefType)typeByte;
+        OSMId      wayId=scanner.ReadInt64();
+        uint8_t   typeByte=scanner.ReadUInt8();
+        FileOffset wayOffset=scanner.ReadFileOffset();
+        OSMRefType type=(OSMRefType)typeByte;
 
         if (type!=osmRefWay) {
           continue;
@@ -445,7 +435,6 @@ namespace osmscout {
     progress.Info("Creating turn restriction data structures");
 
     try {
-      uint32_t restrictionCount=0;
 
       scanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                    WayWayDataGenerator::TURNRESTR_DAT),
@@ -453,7 +442,7 @@ namespace osmscout {
                    true,
                        osmscout::FILE_FORMAT_VERSION);
 
-      scanner.Read(restrictionCount);
+      uint32_t restrictionCount=scanner.ReadUInt32();
 
       for (uint32_t r=1; r<=restrictionCount; r++) {
         progress.SetProgress(r,restrictionCount);
@@ -615,15 +604,13 @@ namespace osmscout {
     progress.Info("Scanning ways");
 
     try {
-      uint32_t dataCount=0;
-
       scanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                    WayDataFile::WAYS_DAT),
                    FileScanner::Sequential,
                    parameter.GetWayDataMemoryMaped(),
                        osmscout::FILE_FORMAT_VERSION);
 
-      scanner.Read(dataCount);
+      uint32_t dataCount=scanner.ReadUInt32();
 
       for (uint32_t d=1; d<=dataCount; d++) {
         progress.SetProgress(d,dataCount);
@@ -667,7 +654,7 @@ namespace osmscout {
                    parameter.GetAreaDataMemoryMaped(),
                        osmscout::FILE_FORMAT_VERSION);
 
-      scanner.Read(dataCount);
+      dataCount=scanner.ReadUInt32();
 
       for (uint32_t d=1; d<=dataCount; d++) {
         progress.SetProgress(d,dataCount);
@@ -731,7 +718,6 @@ namespace osmscout {
     progress.Info("Scanning ways");
 
     try {
-      uint32_t dataCount=0;
       uint32_t junctionWayCount=0;
       uint32_t junctionAreaCount=0;
 
@@ -741,7 +727,7 @@ namespace osmscout {
                    parameter.GetWayDataMemoryMaped(),
                        osmscout::FILE_FORMAT_VERSION);
 
-      scanner.Read(dataCount);
+      uint32_t dataCount=scanner.ReadUInt32();
 
       for (uint32_t d=1; d<=dataCount; d++) {
         progress.SetProgress(d,dataCount);
@@ -789,7 +775,7 @@ namespace osmscout {
                    parameter.GetAreaDataMemoryMaped(),
                        osmscout::FILE_FORMAT_VERSION);
 
-      scanner.Read(dataCount);
+      dataCount=scanner.ReadUInt32();
 
       for (uint32_t d=1; d<=dataCount; d++) {
         progress.SetProgress(d,dataCount);

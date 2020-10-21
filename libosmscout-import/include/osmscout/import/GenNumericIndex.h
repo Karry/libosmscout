@@ -122,7 +122,7 @@ namespace osmscout {
                    true,
                    osmscout::FILE_FORMAT_VERSION);
 
-      scanner.Read(dataCount);
+      dataCount=scanner.ReadUInt32();
 
       writer.WriteNumber(pageSize);       // Size of one index page in bytes
       writer.WriteNumber(dataCount);      // Number of entries in data file

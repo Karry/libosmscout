@@ -54,10 +54,11 @@ namespace osmscout {
     description.AddProvidedTemporaryFile(WAYAREA_TMP);
   }
 
-  bool WayAreaDataGenerator::ReadWayBlacklist(const ImportParameter& parameter,
-                                              Progress& progress,
-                                              BlacklistSet& wayBlacklist) const
+  std::tuple<WayAreaDataGenerator::BlacklistSet,bool>
+  WayAreaDataGenerator::ReadWayBlacklist(const ImportParameter& parameter,
+                                         Progress& progress) const
   {
+    BlacklistSet wayBlacklist;
     FileScanner scanner;
 
     try {
@@ -68,13 +69,7 @@ namespace osmscout {
                        osmscout::FILE_FORMAT_VERSION);
 
       while (!scanner.IsEOF()) {
-        OSMId id;
-
-        scanner.ReadNumber(id);
-
-        if (scanner.HasError()) {
-          return false;
-        }
+        OSMId id=scanner.ReadInt64Number();
 
         wayBlacklist.insert(id);
       }
@@ -83,10 +78,12 @@ namespace osmscout {
     }
     catch (IOException& e) {
       progress.Error(e.GetDescription());
-      return false;
+
+      wayBlacklist.clear();
+      return {wayBlacklist,false};
     }
 
-    return true;
+    return {wayBlacklist,true};
   }
 
   void WayAreaDataGenerator::WriteArea(const ImportParameter& parameter,
@@ -151,17 +148,13 @@ namespace osmscout {
   {
     progress.SetAction("Generate wayarea.tmp");
 
-    BlacklistSet              wayBlacklist; //! Set of ways that should not be handled
-
     CoordDataFile             coordDataFile;
 
     FileScanner               scanner;
-    uint32_t                  rawWayCount=0;
     std::vector<RawWayRef>    rawWays;
     std::set<OSMId>           nodeIds;
 
     FileWriter                areaWriter;
-    uint32_t                  writtenWayCount=0;
 
     rawWays.reserve(parameter.GetRawWayBlockSize());
 
@@ -171,9 +164,9 @@ namespace osmscout {
 
     progress.SetAction("Reading way area blacklist");
 
-    if (!ReadWayBlacklist(parameter,
-                          progress,
-                          wayBlacklist)) {
+    auto [wayBlacklist, success]=ReadWayBlacklist(parameter,
+                                                  progress);
+    if (!success) {
       return false;
     }
 
@@ -187,13 +180,15 @@ namespace osmscout {
     progress.SetAction("Processing raw ways as areas");
 
     try {
+      uint32_t writtenWayCount=0;
+
       scanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                    Preprocess::RAWWAYS_DAT),
                    FileScanner::Sequential,
                    parameter.GetRawWayDataMemoryMaped(),
                    osmscout::FILE_FORMAT_VERSION);
 
-      scanner.Read(rawWayCount);
+      uint32_t rawWayCount=scanner.ReadUInt32();
 
       areaWriter.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                       WAYAREA_TMP));
@@ -204,7 +199,8 @@ namespace osmscout {
         RawWayRef way=std::make_shared<RawWay>();
 
         progress.SetProgress(w,
-                             rawWayCount);
+                             rawWayCount,
+                             Preprocess::RAWWAYS_DAT);
 
         way->Read(*typeConfig,
                   scanner);
@@ -225,9 +221,7 @@ namespace osmscout {
           continue;
         }
 
-        for (size_t n=0; n<way->GetNodeCount(); n++) {
-          nodeIds.insert(way->GetNodeId(n));
-        }
+        nodeIds.insert(way->GetNodes().begin(),way->GetNodes().end());
 
         rawWays.push_back(way);
 
@@ -277,9 +271,6 @@ namespace osmscout {
         }
       }
 
-      progress.Info(std::to_string(rawWayCount) + " raw way(s) read, "+
-                    std::to_string(writtenWayCount) + " areas(s) written");
-
       /* -------*/
 
       scanner.Close();
@@ -287,6 +278,9 @@ namespace osmscout {
       areaWriter.SetPos(0);
       areaWriter.Write(writtenWayCount);
       areaWriter.Close();
+
+      progress.Info(std::to_string(rawWayCount) + " raw way(s) read, "+
+                    std::to_string(writtenWayCount) + " areas(s) written");
     }
     catch (IOException& e) {
       progress.Error(e.GetDescription());
@@ -301,14 +295,7 @@ namespace osmscout {
 
     wayBlacklist.clear();
 
-    if (!coordDataFile.Close()) {
-      return false;
-    }
-
-    progress.Info(std::to_string(rawWayCount) + " raw way(s) read, "+
-                  std::to_string(writtenWayCount) + " areas(s) written");
-
-    return true;
+    return coordDataFile.Close();
   }
 }
 

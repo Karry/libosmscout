@@ -28,7 +28,6 @@
 
 #include <osmscout/Location.h>
 #include <osmscout/TypeConfig.h>
-#include <osmscout/LocationIndex13.h>
 
 #include <osmscout/util/FileScanner.h>
 
@@ -72,8 +71,6 @@ namespace osmscout {
     uint32_t                        maxLocationWords;
     uint32_t                        maxAddressWords;
     FileOffset                      indexOffset;
-
-    LocationIndex13                 index13;
 
   private:
     void Read(FileScanner& scanner,
@@ -119,8 +116,8 @@ namespace osmscout {
                        bool& stopped) const;
 
   public:
-    LocationIndex();
-    virtual ~LocationIndex();
+    LocationIndex() = default;
+    virtual ~LocationIndex() = default;
 
     bool Load(const std::string& path,
               bool memoryMappedData,

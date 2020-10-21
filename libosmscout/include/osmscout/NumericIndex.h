@@ -275,10 +275,6 @@ namespace osmscout {
                              bool memoryMapped,
                              uint32_t fileFormatVersion)
   {
-    uint32_t    entries;
-    FileOffset  lastLevelPageStart;
-    FileOffset  indexPageCountsOffset;
-
     filename=AppendFileToDir(path,filepart);
 
     try {
@@ -287,23 +283,18 @@ namespace osmscout {
                     memoryMapped,
                     fileFormatVersion);
 
-      scanner.ReadNumber(pageSize);                  // Size of one index page
-      scanner.ReadNumber(entries);                   // Number of entries in data file
+      pageSize=scanner.ReadUInt32Number();                  // Size of one index page
+      /*uint32_t entries=*/scanner.ReadUInt32Number();                   // Number of entries in data file
 
-      scanner.Read(levels);                          // Number of levels
-      scanner.ReadFileOffset(lastLevelPageStart);    // Start of top level index page
-      scanner.ReadFileOffset(indexPageCountsOffset); // Start of list of sizes of index levels
-
-      if (scanner.HasError()) {
-        log.Error() << "Error while loading header data of index file '" << filename << "'";
-        return false;
-      }
-
+      levels=scanner.ReadUInt32();                    // Number of levels
       pageCounts.resize(levels);
+
+      FileOffset lastLevelPageStart=scanner.ReadFileOffset();    // Start of top level index page
+      FileOffset indexPageCountsOffset=scanner.ReadFileOffset(); // Start of list of sizes of index levels
 
       scanner.SetPos(indexPageCountsOffset);
       for (size_t level=0; level<levels; level++) {
-        scanner.ReadNumber(pageCounts[level]);
+        pageCounts[level]=scanner.ReadUInt32Number();
       }
 
       delete [] buffer;

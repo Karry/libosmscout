@@ -1218,7 +1218,6 @@ namespace osmscout {
     std::vector<size_t> areaNodeTypeCount(typeConfig->GetTypeCount(),0);
 
     try {
-      uint32_t rawRelationCount=0;
       uint32_t writtenRelationCount=0;
 
       scanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
@@ -1227,7 +1226,7 @@ namespace osmscout {
                    true,
                        osmscout::FILE_FORMAT_VERSION);
 
-      scanner.Read(rawRelationCount);
+      uint32_t rawRelationCount=scanner.ReadUInt32();
 
       writer.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                   RELAREA_TMP));

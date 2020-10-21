@@ -54,16 +54,16 @@ namespace osmscout {
                    /*useMmap*/ true,
                    TypeConfig::MAX_FORMAT_VERSION);
 
-      scanner.Read(cellLevel);
+      cellLevel=scanner.ReadUInt32();
 
       double cellMagnification=std::pow(2.0,cellLevel);
 
       cellWidth=360.0/cellMagnification;
       cellHeight=180.0/cellMagnification;
-      scanner.Read(minCell.x);
-      scanner.Read(minCell.y);
-      scanner.Read(maxCell.x);
-      scanner.Read(maxCell.y);
+      minCell.x=scanner.ReadUInt32();
+      minCell.y=scanner.ReadUInt32();
+      maxCell.x=scanner.ReadUInt32();
+      maxCell.y=scanner.ReadUInt32();
 
       width=maxCell.x-minCell.x+1;
       height=maxCell.y-minCell.y+1;
@@ -71,7 +71,7 @@ namespace osmscout {
       bitmap.resize((width*height)/8,0);
 
       for (auto& b : bitmap) {
-        scanner.Read(b);
+        b=scanner.ReadUInt8();
       }
 
       return !scanner.HasError();
