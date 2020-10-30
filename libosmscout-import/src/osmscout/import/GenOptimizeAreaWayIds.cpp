@@ -282,7 +282,7 @@ namespace osmscout {
             nodeIds.insert(node.GetId());
           }
 
-          idCount+=nodeIds.size();
+          idCount+=static_cast<uint32_t>(nodeIds.size());
 
           for (auto nodeId : nodeIds) {
             if (usedIdSet.find(nodeId)!=usedIdSet.end()) {
@@ -350,7 +350,7 @@ namespace osmscout {
           nodeIds.insert(node.GetId());
         }
 
-        idCount+=nodeIds.size();
+        idCount+=static_cast<uint32_t>(nodeIds.size());
 
         for (auto id : nodeIds) {
           if (usedIdSet.find(id)!=usedIdSet.end()) {
