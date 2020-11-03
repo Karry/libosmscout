@@ -945,6 +945,13 @@ namespace osmscout {
       }
     }
 
+    {
+      std::lock_guard<std::mutex> guard(locationIndexMutex);
+      if (locationIndex){
+        locationIndex->FlushCache();
+      }
+    }
+
   }
 
   NodeRegionSearchResult Database::LoadNodesInRadius(const GeoCoord& location,

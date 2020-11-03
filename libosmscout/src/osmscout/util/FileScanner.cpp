@@ -375,9 +375,10 @@ namespace osmscout {
 
 #if defined(HAVE_FSEEKO)
     hasError=fseeko(file,(off_t)pos,SEEK_SET)!=0;
-#elif defined(HAVE__FSEEKi64)
+#elif defined(HAVE__FSEEKI64)
     hasError=_fseeki64(file,(__int64)pos,SEEK_SET)!=0;
 #else
+    assert(pos <= (FileOffset)std::numeric_limits<long>::max());
     hasError=fseek(file,(long)pos,SEEK_SET)!=0;
 #endif
 

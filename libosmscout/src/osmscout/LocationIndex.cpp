@@ -135,7 +135,7 @@ namespace osmscout {
     }
   }
 
-  void LocationIndex::FileScannerPool::Close(FileScanner* o) noexcept
+  void LocationIndex::FileScannerPool::Destroy(FileScanner* o) noexcept
   {
     try{
       o->Close();
@@ -143,6 +143,7 @@ namespace osmscout {
       log.Error() << e.GetDescription();
       o->CloseFailsafe();
     }
+    delete o;
   }
 
   bool LocationIndex::FileScannerPool::IsValid(FileScanner* o) noexcept
