@@ -156,6 +156,14 @@ else()
 	message("Skip ClientQtThreading test, libosmscout-client-qt is missing.")
 endif()
 
+#---- LocationSort
+if(${OSMSCOUT_BUILD_CLIENT_QT} AND TARGET OSMScout::MapQt AND TARGET OSMScout::ClientQt)
+	set(src_files src/LocationSort.cpp)
+	osmscout_test_project(NAME LocationSort SOURCES ${src_files} TARGET OSMScout::Map OSMScout::MapQt OSMScout::ClientQt Qt5::Widgets SKIPTEST)
+else()
+	message("Skip LocationSort test, libosmscout-client-qt is missing.")
+endif()
+
 #---- QtFileDownloader
 if(${OSMSCOUT_BUILD_CLIENT_QT} AND TARGET OSMScout::MapQt AND TARGET OSMScout::ClientQt)
 	set(src_files src/QtFileDownloader.cpp)
