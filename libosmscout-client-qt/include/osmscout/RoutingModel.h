@@ -30,6 +30,7 @@
 #include <osmscout/DBThread.h>
 #include <osmscout/Router.h>
 #include <osmscout/OverlayObject.h>
+#include <osmscout/QmlRoutingProfile.h>
 
 #include <QObject>
 #include <QAbstractListModel>
@@ -54,7 +55,7 @@ class OSMSCOUT_CLIENT_QT_API RoutingListModel : public QAbstractListModel
 signals:
   void routeRequest(LocationEntryRef start,
                     LocationEntryRef target,
-                    osmscout::Vehicle vehicle,
+                    QmlRoutingProfileRef profile,
                     int requestId,
                     osmscout::BreakerRef breaker);
 
@@ -68,6 +69,10 @@ public slots:
   void setStartAndTarget(LocationEntry* start,
                          LocationEntry* target,
                          QString vehicleStr="car");
+
+  void setStartAndTarget(LocationEntry* start,
+                         LocationEntry* target,
+                         QmlRoutingProfile *routingProfile);
 
   void clear();
 
@@ -93,8 +98,13 @@ public:
   using Roles = RouteStep::Roles;
 
 public:
-  RoutingListModel(QObject* parent = 0);
+  explicit RoutingListModel(QObject* parent = nullptr);
+  RoutingListModel(const RoutingListModel&) = delete;
+  RoutingListModel(RoutingListModel&&) = delete;
   virtual ~RoutingListModel();
+
+  RoutingListModel& operator=(const RoutingListModel&) = delete;
+  RoutingListModel& operator=(RoutingListModel&&) = delete;
 
   QVariant data(const QModelIndex &index, int role) const;
 
@@ -143,6 +153,7 @@ public:
 
   inline QObject *getRoute() const
   {
+    assert(route.parent()==nullptr); // Ownership is copied. To transfer ownership to QML, parent have to be null.
     return new QtRouteData(route);
   }
 

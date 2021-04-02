@@ -24,6 +24,8 @@
 
 #include <osmscout/gpx/GPXImportExport.h>
 
+#include <osmscout/util/Color.h>
+
 #include <string>
 #include <vector>
 #include <optional>
@@ -36,6 +38,8 @@ public:
   std::optional<std::string> name;
   std::optional<std::string> desc;
   std::vector<TrackSegment> segments;
+
+  std::optional<osmscout::Color> displayColor;
 
   /**
    * Compute track length in meters

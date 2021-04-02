@@ -144,7 +144,7 @@ public slots:
 private:
   QString pattern;
   QString lastRequestPattern;
-  QList<LocationEntry*> locations;
+  QList<LocationEntryRef> locations;
   bool searching;
   SearchModule* searchModule;
   LookupModule* lookupModule;
@@ -169,8 +169,13 @@ public:
   };
 
 public:
-  LocationListModel(QObject* parent = nullptr);
+  explicit LocationListModel(QObject* parent = nullptr);
+  LocationListModel(const LocationListModel&) = delete;
+  LocationListModel(LocationListModel&&) = delete;
   ~LocationListModel() override;
+
+  LocationListModel& operator=(const LocationListModel&) = delete;
+  LocationListModel& operator=(LocationListModel&&) = delete;
 
   QJSValue getCompare() const {
     return compareFn;

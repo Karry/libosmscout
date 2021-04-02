@@ -434,7 +434,7 @@ namespace osmscout {
       return false;
     }
 
-    for (const auto entry : data) {
+    for (const auto& entry : data) {
       dataMap.insert(std::make_pair(entry->GetFileOffset(),entry));
     }
 

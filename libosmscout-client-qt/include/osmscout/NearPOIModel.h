@@ -67,7 +67,7 @@ Q_OBJECT
   Q_PROPERTY(double   maxDistance READ GetMaxDistance WRITE SetMaxDistance)
 
   /**
-   * Limit of results for each database.
+   * Limit of lookup results.
    */
   Q_PROPERTY(int      resultLimit READ GetResultLimit WRITE SetResultLimit)
 
@@ -107,7 +107,7 @@ public slots:
 private:
   bool searching{false};
   int currentRequest{0};
-  QList<LocationEntry*> locations;
+  QList<LocationEntryRef> locations;
   osmscout::GeoCoord searchCenter{INVALID_COORD,INVALID_COORD};
   int resultLimit{100};
   osmscout::BreakerRef breaker;
