@@ -222,7 +222,7 @@ void QmlRoutingProfile::setDefaults()
     maxSpeed=20;
     applyJunctionPenalty=true;
     maxPenalty=std::chrono::seconds(10);
-    penaltySameType=Meters(160);
+    penaltySameType=Meters(40);
     penaltyDifferentType=Meters(250);
     costLimitDistance=Kilometers(20);
     costLimitFactor=7.5;
@@ -256,11 +256,13 @@ void QmlRoutingProfile::setDefaults()
     speedTable["highway_cycleway"][SolidGrade]=maxSpeed;
     speedTable["highway_roundabout"][SolidGrade]=10;
 
+    speedTable["highway_footway"][SolidGrade]=5;
+
   } else { // vehicle==CarVehicle
     maxSpeed=160;
     applyJunctionPenalty=true;
     maxPenalty=std::chrono::seconds(10);
-    penaltySameType=Meters(160);
+    penaltySameType=Meters(40);
     penaltyDifferentType=Meters(250);
     costLimitDistance=Kilometers(20);
     costLimitFactor=7.5;
@@ -280,7 +282,7 @@ void QmlRoutingProfile::setDefaults()
     speedTable["highway_tertiary_link"][SolidGrade]=55.0;
     speedTable["highway_unclassified"][SolidGrade]=50.0;
     speedTable["highway_road"][SolidGrade]=50.0;
-    speedTable["highway_residential"][SolidGrade]=40.0;
+    speedTable["highway_residential"][SolidGrade]=20.0;
     speedTable["highway_roundabout"][SolidGrade]=40.0;
     speedTable["highway_living_street"][SolidGrade]=10.0;
     speedTable["highway_service"][SolidGrade]=30.0;
