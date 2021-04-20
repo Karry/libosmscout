@@ -328,8 +328,9 @@ namespace osmscout
 
       double average=entryCount*1.0/cellFillCount.size();
 
-      if (!(max>parameter.GetOptimizationCellSizeMax() ||
-           average>parameter.GetOptimizationCellSizeAverage())) {
+      if ((max < parameter.GetOptimizationCellSizeMax() &&
+           average < parameter.GetOptimizationCellSizeAverage()) ||
+           level >= parameter.GetOptimizationMaxMag()) {
         typeData.indexLevel=level;
         typeData.indexCells=cellFillCount.size();
         typeData.indexEntries=0;
