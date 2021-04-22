@@ -113,7 +113,7 @@ namespace osmscout {
                           FileScanner& scanner,
                           FileWriter& writer,
                           const TypeInfoSet& loadedTypes,
-                          std::vector<AreaMergeResult>& mergeJob,
+                          const std::vector<AreaMergeResult>& mergeJob,
                           uint32_t& areasWritten);
 
   public:

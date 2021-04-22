@@ -103,7 +103,7 @@ namespace osmscout {
   static size_t GetFirstOuterRingWithId(const Area& area,
                                         Id id)
   {
-    for (size_t r = 0; r<area.rings.size(); r++) {
+    for (size_t r=0; r<area.rings.size(); r++) {
       if (area.rings[r].IsTopOuter()) {
         for (const auto& node : area.rings[r].nodes) {
           if (node.GetId()==id) {
@@ -143,7 +143,7 @@ namespace osmscout {
       for (const auto& node : ring.nodes) {
         Id id=node.GetId();
 
-        if(finishedIds.find(id)!=finishedIds.end()) {
+        if (finishedIds.find(id)!=finishedIds.end()) {
           continue;
         }
 
@@ -200,7 +200,8 @@ namespace osmscout {
           size_t secondOuterRing=GetFirstOuterRingWithId(*candidateArea,
                                                          id);
 
-          if (area.rings[firstOuterRing].nodes.size()+candidateArea->rings[secondOuterRing].nodes.size()>FileWriter::MAX_NODES) {
+          if (area.rings[firstOuterRing].nodes.size()+candidateArea->rings[secondOuterRing].nodes.size()>
+              FileWriter::MAX_NODES) {
             // We could merge, but we could not store the resulting area anymore
             ++candidate;
             continue;
@@ -212,7 +213,8 @@ namespace osmscout {
           visitedAreas.insert(candidateArea);
 
           // Areas do not have the same feature value buffer values, skip
-          if (area.rings[firstOuterRing].GetFeatureValueBuffer()!=candidateArea->rings[secondOuterRing].GetFeatureValueBuffer()) {
+          if (area.rings[firstOuterRing].GetFeatureValueBuffer()!=
+              candidateArea->rings[secondOuterRing].GetFeatureValueBuffer()) {
             //std::cout << "CANNOT merge areas " << area.GetFileOffset() << " and " << candidateArea->GetFileOffset() << " because of different feature values" << std::endl;
             ++candidate;
             continue;
@@ -279,7 +281,9 @@ namespace osmscout {
     while (!job.areas.empty()) {
       AreaRef area;
 
-      progress.SetProgress(overallCount-job.areas.size(),overallCount,job.type->GetName());
+      progress.SetProgress(overallCount-job.areas.size(),
+                           overallCount,
+                           job.type->GetName());
 
       // Pop a area from the list of "to be processed" areas
       area=job.areas.front();
@@ -321,7 +325,7 @@ namespace osmscout {
   class MergeWorker CLASS_FINAL : public Pipe<AreaMergeJob,AreaMergeResult>
   {
   private:
-    Progress                          &progress;
+    Progress& progress;
 
   private:
     AreaMergeResult ProcessJob(AreaMergeJob& job)
@@ -366,7 +370,8 @@ namespace osmscout {
     MergeWorker(Progress& progress,
                 osmscout::ProcessingQueue<AreaMergeJob>& inQueue,
                 osmscout::ProcessingQueue<AreaMergeResult>& outQueue)
-      : Pipe(inQueue,outQueue),
+      : Pipe(inQueue,
+             outQueue),
         progress(progress)
     {
       Start();
@@ -452,12 +457,12 @@ namespace osmscout {
           }
         }
 
-        for (auto id : nodeIds) {
-          if (usedOnceSet.find(id)!=usedOnceSet.end()) {
-            mergeJobs[area.GetType()->GetIndex()].nodeUseSet.insert(id);
+        for (auto nodeId : nodeIds) {
+          if (usedOnceSet.find(nodeId) != usedOnceSet.end()) {
+            mergeJobs[area.GetType()->GetIndex()].nodeUseSet.insert(nodeId);
           }
           else {
-            usedOnceSet.insert(id);
+            usedOnceSet.insert(nodeId);
           }
         }
       }
@@ -605,15 +610,29 @@ namespace osmscout {
 
     stopClock.Stop();
 
-    progress.SetAction("Collected "+std::to_string(collectedAreasCount)+" areas for "+std::to_string(loadedTypes.Size())+" types in "+stopClock.ResultString()+" second(s)");
+    progress.SetAction(
+        "Collected "+std::to_string(collectedAreasCount)+" areas for "+std::to_string(loadedTypes.Size())+" types in "+
+        stopClock.ResultString()+" second(s)");
   }
 
+  /**
+   * Walk through the inout file and for every area type with merge=true store the
+   * original area or the merge area while dropping the merged-away areas.
+   *
+   * @param progress
+   * @param typeConfig
+   * @param scanner
+   * @param writer
+   * @param loadedTypes
+   * @param mergeJob
+   * @param areasWritten
+   */
   void MergeAreasGenerator::WriteMergeResult(Progress& progress,
                                              const TypeConfig& typeConfig,
                                              FileScanner& scanner,
                                              FileWriter& writer,
                                              const TypeInfoSet& loadedTypes,
-                                             std::vector<AreaMergeResult>& mergeJob,
+                                             const std::vector<AreaMergeResult>& mergeJob,
                                              uint32_t& areasWritten)
   {
     std::unordered_map<FileOffset,AreaRef> merges;
@@ -635,7 +654,8 @@ namespace osmscout {
     for (uint32_t a=1; a<=areaCount; a++) {
       AreaRef area=std::make_shared<Area>();
 
-      progress.SetProgress(a,areaCount);
+      progress.SetProgress(a,
+                           areaCount);
 
       uint8_t type=scanner.ReadUInt8();
       Id      id=scanner.ReadUInt64();
