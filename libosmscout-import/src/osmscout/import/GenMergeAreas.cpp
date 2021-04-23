@@ -28,8 +28,10 @@
 #include <osmscout/util/Worker.h>
 
 #include <osmscout/import/MergeAreaData.h>
+#include <iostream>
 
 namespace osmscout {
+  constexpr bool wrong = true;
 
   const char* const MergeAreasGenerator::AREAS2_TMP="areas2.tmp";
 
@@ -401,13 +403,20 @@ namespace osmscout {
    *   TypeConfiguration
    * @param scanner
    *    FileScanner for area data
+   * @param writer
+   *    FileWriter for merged area data
    * @param mergeTypes
    *   Set of types for which we do area merging
+   * @param areasWritten
+   *    Number of areas that have already been written to the writer,
+   *    because the have a area type that is not merged
    */
   static std::vector<AreaMergeJob> ScanAreaNodeIds(Progress& progress,
                                                    const TypeConfig& typeConfig,
                                                    FileScanner& scanner,
-                                                   const TypeInfoSet& mergeTypes)
+                                                   FileWriter& writer,
+                                                   const TypeInfoSet& mergeTypes,
+                                                   uint32_t& areasWritten)
   {
     progress.SetAction("Scanning for nodes joining areas from '"+scanner.GetFilename()+"'");
 
@@ -423,20 +432,37 @@ namespace osmscout {
 
     uint32_t areaCount=scanner.ReadUInt32();
 
-    Area area;
-
     std::unordered_set<Id> usedOnceSet;
 
     for (uint32_t current=1; current<=areaCount; current++) {
-      progress.SetProgress(current,areaCount);
+      Area area;
 
-      /*uint8_t type=*/scanner.ReadUInt8();
-      /*Id      id=*/scanner.ReadUInt64();
+      progress.SetProgress(current,
+                           areaCount);
+
+      uint8_t type=scanner.ReadUInt8();
+      Id      id=scanner.ReadUInt64();
 
       area.ReadImport(typeConfig,
                       scanner);
 
+      if (area.GetFileOffset()==152995547l){
+        std::cout << "here " << area.GetFileOffset() << " size "
+                  << (area.GetNextFileOffset() - area.GetFileOffset()) << std::endl;
+      }
+
       if (!mergeTypes.IsSet(area.GetType())) {
+        if (wrong) {
+          std::cout << "at " << writer.GetPos();
+          std::cout << " write " << area.GetFileOffset() << std::endl;
+          writer.Write(type);
+          writer.Write(id);
+
+          area.WriteImport(typeConfig,
+                           writer);
+
+          areasWritten++;
+        }
         continue;
       }
 
@@ -495,9 +521,9 @@ namespace osmscout {
                                      FileScanner& scanner,
                                      FileWriter& writer,
                                      std::vector<AreaMergeJob>& mergeJobs,
-                                     uint32_t& areasWritten)
+                                     uint32_t& areasWritten,
+                                     bool firstCall)
   {
-    bool        firstCall=areasWritten==0; // We are called for the first time
     size_t      collectedAreasCount=0;
     size_t      typesWithAreas=0;
 
@@ -518,7 +544,8 @@ namespace osmscout {
     for (uint32_t a=1; a<=areaCount; a++) {
       AreaRef area=std::make_shared<Area>();
 
-      progress.SetProgress(a,areaCount);
+      progress.SetProgress(a,
+                           areaCount);
 
       uint8_t type=scanner.ReadUInt8();
       Id      id=scanner.ReadUInt64();
@@ -528,17 +555,27 @@ namespace osmscout {
 
       mergeJobs[area->GetType()->GetIndex()].areaCount++;
 
+      if (area->GetFileOffset()==152995547l){
+        std::cout << "here " << area->GetFileOffset() << " size "
+                  << (area->GetNextFileOffset() - area->GetFileOffset()) << std::endl;
+      }
+
       // This is an area of a type that does not get merged,
       // we directly store it in the target file.
       if (!loadedTypes.IsSet(area->GetType())) {
         if (firstCall) {
-          writer.Write(type);
-          writer.Write(id);
+          if (!wrong) {
+            std::cout << "at " << writer.GetPos();
+            std::cout << " write " << area->GetFileOffset() << std::endl;
 
-          area->WriteImport(typeConfig,
-                            writer);
+            writer.Write(type);
+            writer.Write(id);
 
-          areasWritten++;
+            area->WriteImport(typeConfig,
+                              writer);
+
+            areasWritten++;
+          }
         }
 
         continue;
@@ -668,13 +705,17 @@ namespace osmscout {
           continue;
         }
 
+        std::cout << "at " << writer.GetPos();
         writer.Write(type);
         writer.Write(id);
 
         const auto& merge=merges.find(area->GetFileOffset()) ;
 
         if (merge!=merges.end()) {
+          std::cout << " write merged " << area->GetFileOffset() << std::endl;
           area=merge->second;
+        } else {
+          std::cout << " write original " << area->GetFileOffset() << std::endl;
         }
 
         area->WriteImport(typeConfig,
@@ -700,10 +741,14 @@ namespace osmscout {
    * * Write result of merges (merged on non-merged-candidates) to file
    * * Write number of file entries to file
    *
-   * @param typeConfig Type configuration
-   * @param parameter An import parameter
-   * @param progress Progress reporting object
+   * @param typeConfig
+   *    Type configuration
+   * @param parameter
+   *    An import parameter
+   * @param progress
+   *    Progress reporting object
    * @return
+   *    true on success, else false
    */
   bool MergeAreasGenerator::Import(const TypeConfigRef& typeConfig,
                                    const ImportParameter& parameter,
@@ -720,19 +765,24 @@ namespace osmscout {
       }
     }
 
-
     try {
+      uint32_t areasWritten=0;
       scanner.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
                                    MergeAreaDataGenerator::AREAS_TMP),
                    FileScanner::Sequential,
                    parameter.GetRawWayDataMemoryMaped());
 
+      writer.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
+                                  AREAS2_TMP));
+
+      writer.Write(areasWritten);
+
       std::vector<AreaMergeJob> mergeJobs=ScanAreaNodeIds(progress,
                                                           *typeConfig,
                                                           scanner,
-                                                          mergeTypes);
-
-      uint32_t areasWritten=0;
+                                                          writer,
+                                                          mergeTypes,
+                                                          areasWritten);
 
       size_t nodeCount=std::accumulate(mergeJobs.begin(),
                                        mergeJobs.end(),
@@ -746,11 +796,7 @@ namespace osmscout {
 
       /* ------ */
 
-      writer.Open(AppendFileToDir(parameter.GetDestinationDirectory(),
-                                  AREAS2_TMP));
-
-      writer.Write(areasWritten);
-
+      bool first=true;
       while (true) {
         TypeInfoSet loadedTypes;
 
@@ -766,7 +812,9 @@ namespace osmscout {
                  scanner,
                  writer,
                  mergeJobs,
-                 areasWritten);
+                 areasWritten,
+                 first);
+        first = false;
 
         if (!loadedTypes.Empty()) {
           // Merge
@@ -779,7 +827,8 @@ namespace osmscout {
           std::vector<std::shared_ptr<MergeWorker>> mergeWorkerPool;
 
 
-          for (size_t t=1; t<=std::thread::hardware_concurrency(); t++) {
+          //for (size_t t=1; t<=std::thread::hardware_concurrency(); t++) {
+          for (size_t t=1; t<=1; t++) {
             mergeWorkerPool.push_back(std::make_shared<MergeWorker>(progress,
                                                                     queue1,
                                                                     queue2));

@@ -106,7 +106,8 @@ namespace osmscout {
                   FileScanner& scanner,
                   FileWriter& writer,
                   std::vector<AreaMergeJob>& mergeJobs,
-                  uint32_t& areasWritten);
+                  uint32_t& areasWritten,
+                  bool firstCall);
 
     void WriteMergeResult(Progress& progress,
                           const TypeConfig& typeConfig,
