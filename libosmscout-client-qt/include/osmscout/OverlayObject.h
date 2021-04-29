@@ -32,6 +32,8 @@
 #include <osmscout/ClientQtImportExport.h>
 #include <osmscout/LocationEntry.h>
 
+#include <optional>
+
 namespace osmscout {
 
 /**
@@ -48,6 +50,7 @@ class OSMSCOUT_CLIENT_QT_API OverlayObject : public QObject
   Q_PROPERTY(QString objectType READ getObjectTypeStr)
   Q_PROPERTY(qint8 layer READ getLayer WRITE setLayer)
   Q_PROPERTY(QString name READ getName WRITE setName)
+  Q_PROPERTY(QString color READ getColor WRITE setColor)
   Q_PROPERTY(LocationEntry *boundingBox READ getBBoxAsLocation NOTIFY bboxChanged)
 
 protected:
@@ -57,7 +60,9 @@ protected:
   mutable osmscout::GeoBox            box;
   int8_t                              layer{std::numeric_limits<int8_t>::max()};
   QString                             name;
+  QString                             color;
   mutable QMutex                      lock;
+  std::optional<osmscout::Color>      colorValue;
 
 public slots:
   void clear();
@@ -133,6 +138,14 @@ public:
     QMutexLocker locker(&lock);
     name = n;
   }
+
+  inline QString getColor() const
+  {
+    QMutexLocker locker(&lock);
+    return color;
+  }
+
+  void setColor(const QString &c);
 
   LocationEntry* getBBoxAsLocation() const;
   osmscout::GeoBox boundingBox() const;

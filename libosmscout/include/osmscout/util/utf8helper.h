@@ -1,9 +1,6 @@
-#ifndef OSMSCOUT_GPX_GPXFILE_H
-#define OSMSCOUT_GPX_GPXFILE_H
-
 /*
-  This source is part of the libosmscout-gpx library
-  Copyright (C) 2017 Lukas Karas
+  This source is part of the libosmscout library
+  Copyright (C) 2021  Jean-Luc Barriere
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,29 +17,24 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307  USA
 */
 
-#include <osmscout/gpx/Track.h>
-#include <osmscout/gpx/Route.h>
-#include <osmscout/gpx/Waypoint.h>
-#include <osmscout/gpx/Extensions.h>
+#ifndef UTF8HELPER_H
+#define UTF8HELPER_H
 
-#include <osmscout/gpx/GPXImportExport.h>
+#include <string>
 
-#include <vector>
-#include <optional>
+namespace utf8helper
+{
 
-namespace osmscout {
-namespace gpx {
+extern std::string UTF8ToUpper(const std::string& text);
 
-class OSMSCOUT_GPX_API GpxFile {
-public:
-  std::optional<std::string> name;
-  std::optional<std::string> desc;
-  std::optional<Timestamp> time;
+extern std::string UTF8ToLower(const std::string& text);
 
-  std::vector<Track>    tracks;
-  std::vector<Route>    routes;
-  std::vector<Waypoint> waypoints;
-};
+extern std::string UTF8Normalize(const std::string& text);
+
+extern std::string UTF8Capitalize(const std::string& text);
+
+extern std::string UTF8Transliterate(const std::string& text);
+
 }
-}
-#endif //OSMSCOUT_GPX_GPXFILE_H
+
+#endif // UTF8HELPER_H
