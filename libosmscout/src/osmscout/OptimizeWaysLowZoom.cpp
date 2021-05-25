@@ -112,7 +112,7 @@ namespace osmscout
 
       return !scanner.HasError();
     }
-    catch (IOException& e) {
+    catch (const IOException& e) {
       log.Error() << e.GetDescription();
       return false;
     }
@@ -127,7 +127,7 @@ namespace osmscout
         scanner.Close();
       }
     }
-    catch (IOException& e) {
+    catch (const IOException& e) {
       log.Error() << e.GetDescription();
       scanner.CloseFailsafe();
       return false;
@@ -307,7 +307,7 @@ namespace osmscout
       LoadData(offsets,
                ways);
     }
-    catch (IOException& e) {
+    catch (const IOException& e) {
       log.Error() << e.GetDescription();
       return false;
     }

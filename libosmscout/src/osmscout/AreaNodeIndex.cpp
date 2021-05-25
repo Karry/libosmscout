@@ -40,7 +40,7 @@ namespace osmscout {
         scanner.Close();
       }
     }
-    catch (IOException& e) {
+    catch (const IOException& e) {
       log.Error() << e.GetDescription();
       scanner.CloseFailsafe();
     }
@@ -135,7 +135,7 @@ namespace osmscout {
 
       return !scanner.HasError();
     }
-    catch (IOException& e) {
+    catch (const IOException& e) {
       log.Error() << e.GetDescription();
 
       return false;
@@ -146,7 +146,7 @@ namespace osmscout {
                                      const GeoBox& boundingBox,
                                      std::vector<FileOffset>& offsets) const
   {
-    std::lock_guard<std::mutex> guard(lookupMutex);
+    std::scoped_lock<std::mutex> guard(lookupMutex);
 
     scanner.SetPos(typeData.indexOffset);
 
@@ -175,7 +175,7 @@ namespace osmscout {
                                          const GeoBox& boundingBox,
                                          std::vector<FileOffset>& offsets) const
   {
-    std::lock_guard<std::mutex> guard(lookupMutex);
+    std::scoped_lock<std::mutex> guard(lookupMutex);
 
     TileIdBox tileBox(TileId::GetTile(gridMag,boundingBox.GetMinCoord()),
                       TileId::GetTile(gridMag,boundingBox.GetMaxCoord()));
@@ -259,7 +259,7 @@ namespace osmscout {
 
         // For each row
         for (auto y=minyc; y<=maxyc; y++) {
-          std::lock_guard<std::mutex> guard(lookupMutex);
+          std::scoped_lock<std::mutex> guard(lookupMutex);
           FileOffset                  initialCellDataOffset=0;
           size_t                      cellDataOffsetCount=0;
           FileOffset                  cellIndexOffset=tileBitmap->second.fileOffset+
@@ -365,7 +365,7 @@ namespace osmscout {
         loadedTypes.Set(type);
       }
     }
-    catch (IOException& e) {
+    catch (const IOException& e) {
       log.Error() << e.GetDescription();
 
       return false;

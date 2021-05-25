@@ -96,7 +96,7 @@ namespace osmscout {
 
       return true;
     }
-    catch (IOException& e) {
+    catch (const IOException& e) {
       log.Error() << e.GetDescription();
       return false;
     }
@@ -110,7 +110,7 @@ namespace osmscout {
         scanner.Close();
       }
     }
-    catch (IOException& e) {
+    catch (const IOException& e) {
       log.Error() << e.GetDescription();
       scanner.CloseFailsafe();
     }
@@ -196,7 +196,7 @@ namespace osmscout {
           tiles.push_back(tile);
         }
         else {
-          std::lock_guard<std::mutex> guard(lookupMutex);
+          std::scoped_lock<std::mutex> guard(lookupMutex);
           uint32_t                    cellId=(y-level.cellYStart)*level.cellXCount+x-level.cellXStart;
           uint32_t                    index=cellId*level.dataOffsetBytes;
           FileOffset                  cell;
@@ -294,7 +294,7 @@ namespace osmscout {
                                tiles);
       }
     }
-    catch (IOException& e) {
+    catch (const IOException& e) {
       log.Error() << e.GetDescription();
       return false;
     }

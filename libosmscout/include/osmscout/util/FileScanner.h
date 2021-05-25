@@ -120,7 +120,7 @@ namespace osmscout {
      * @param lonDat raw longitude data
      * @return coord output
      */
-    inline GeoCoord CreateCoord(const uint32_t &latDat,
+    GeoCoord CreateCoord(const uint32_t &latDat,
                                 const uint32_t &lonDat)
     {
 #ifndef NDEBUG
@@ -152,7 +152,7 @@ namespace osmscout {
      * @param lonDat raw longitude data
      * @param coord output
      */
-    inline void SetCoord(const uint32_t &latDat,
+    void SetCoord(const uint32_t &latDat,
                          const uint32_t &lonDat,
                          Point &point)
     {
@@ -184,7 +184,7 @@ namespace osmscout {
      * @param value
      * @return boolean value
      */
-    inline bool ConvertBool(const char &value)
+    bool ConvertBool(const char &value)
     {
 #ifndef NDEBUG
       if (value != 0 && value != 1){
@@ -197,7 +197,7 @@ namespace osmscout {
 
   public:
     FileScanner();
-    virtual ~FileScanner();
+    ~FileScanner();
 
     void Open(const std::string& filename,
               Mode mode,
@@ -206,14 +206,14 @@ namespace osmscout {
     void Close();
     void CloseFailsafe();
 
-    inline bool IsOpen() const
+    bool IsOpen() const
     {
       return file!=nullptr;
     }
 
     bool IsEOF() const;
 
-    inline  bool HasError() const
+     bool HasError() const
     {
       return file==nullptr || hasError;
     }

@@ -73,7 +73,7 @@ namespace osmscout {
 
       isOpen=true;
     }
-    catch (IOException& e) {
+    catch (const IOException& e) {
       log.Error() << e.GetDescription();
       scanner.CloseFailsafe();
 
@@ -92,7 +92,7 @@ namespace osmscout {
         scanner.Close();
       }
     }
-    catch (IOException& e) {
+    catch (const IOException& e) {
       log.Error() << e.GetDescription();
       isOpen=false;
 
@@ -136,7 +136,7 @@ namespace osmscout {
                                                  coord)));
       }
     }
-    catch (IOException& e) {
+    catch (const IOException& e) {
       log.Error() << e.GetDescription();
 
       return false;

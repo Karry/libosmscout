@@ -89,7 +89,7 @@ namespace osmscout {
       indexOffset=scanner->GetPos();
 
     }
-    catch (IOException& e) {
+    catch (const IOException& e) {
       log.Error() << e.GetDescription();
       fileScannerPool.Clear();
       return false;
@@ -127,7 +127,7 @@ namespace osmscout {
                     memoryMappedData,
                     fileFormatVersion);
       return scanner;
-    } catch (IOException& e) {
+    } catch (const IOException& e) {
       log.Error() << e.GetDescription();
       scanner->CloseFailsafe();
       delete scanner;
@@ -139,7 +139,7 @@ namespace osmscout {
   {
     try{
       o->Close();
-    } catch (IOException& e) {
+    } catch (const IOException& e) {
       log.Error() << e.GetDescription();
       o->CloseFailsafe();
     }
@@ -290,7 +290,7 @@ namespace osmscout {
         }
       }
     }
-    catch (IOException& e) {
+    catch (const IOException& e) {
       log.Error() << e.GetDescription();
       return AdminRegionVisitor::error;
     }
@@ -635,7 +635,7 @@ namespace osmscout {
 
       return true;
     }
-    catch (IOException& e) {
+    catch (const IOException& e) {
       log.Error() << e.GetDescription();
       return false;
     }
@@ -660,7 +660,7 @@ namespace osmscout {
 
       return true;
     }
-    catch (IOException& e) {
+    catch (const IOException& e) {
       log.Error() << e.GetDescription();
       return false;
     }
@@ -691,7 +691,7 @@ namespace osmscout {
 
       return true;
     }
-    catch (IOException& e) {
+    catch (const IOException& e) {
       log.Error() << e.GetDescription();
       return false;
     }
@@ -720,7 +720,7 @@ namespace osmscout {
 
       return true;
     }
-    catch (IOException& e) {
+    catch (const IOException& e) {
       log.Error() << e.GetDescription();
       return false;
     }
@@ -751,7 +751,7 @@ namespace osmscout {
 
       return true;
     }
-    catch (IOException& e) {
+    catch (const IOException& e) {
       log.Error() << e.GetDescription();
       return false;
     }
@@ -782,7 +782,7 @@ namespace osmscout {
 
       return true;
     }
-    catch (IOException& e) {
+    catch (const IOException& e) {
       log.Error() << e.GetDescription();
       return false;
     }
@@ -839,7 +839,7 @@ namespace osmscout {
 
       return true;
     }
-    catch (IOException& e) {
+    catch (const IOException& e) {
       log.Error() << e.GetDescription();
       return false;
     }

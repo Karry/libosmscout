@@ -80,7 +80,7 @@ namespace osmscout {
 
       isLoaded=true;
     }
-    catch (IOException& e) {
+    catch (const IOException& e) {
       log.Error() << e.GetDescription();
       scanner.CloseFailsafe();
       return false;

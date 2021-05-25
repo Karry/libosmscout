@@ -247,7 +247,7 @@ namespace osmscout {
     double alpha1=bearing.AsRadians();
 
     double tanU1=(1-f)*tan(lat1);
-    double cosU1=1/sqrt((1+tanU1*tanU1));
+    double cosU1=1/sqrt(1+tanU1*tanU1);
     double sinU1=tanU1*cosU1;
 
     double cosAlpha1=cos(alpha1);
@@ -826,7 +826,7 @@ namespace osmscout {
     }
   }
 
-  std::array<CellDimension,CELL_DIMENSION_COUNT> cellDimension = {
+  const std::array<CellDimension,CELL_DIMENSION_COUNT> cellDimension = {
       CellDimension{360.0,                      180.0                       }, //  0
       CellDimension{ 180.0,                       90.0                      }, //  1
       CellDimension{  90.0,                       45.0                      }, //  2
