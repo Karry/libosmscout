@@ -8,8 +8,7 @@
 #include <osmscout/CoreFeatures.h>
 #include <osmscout/TypeConfig.h>
 
-#define CATCH_CONFIG_MAIN
-#include <catch.hpp>
+#include <TestMain.h>
 
 bool Equals(const std::vector<osmscout::Point>& coordsA, const std::vector<osmscout::Point>& coordsB)
 {
