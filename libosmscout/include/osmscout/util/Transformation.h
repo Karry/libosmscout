@@ -143,8 +143,7 @@ namespace osmscout {
         end=length-1;
 
         for (size_t i=start; i<=end; i++) {
-          batchTransformer.GeoToPixel(nodes[i].GetLon(),
-                                      nodes[i].GetLat(),
+          batchTransformer.GeoToPixel(nodes[i],
                                       points[i].x,
                                       points[i].y);
           points[i].draw=true;
@@ -340,6 +339,10 @@ namespace osmscout {
     size_t GetEnd() const
     {
       return end;
+    }
+
+    bool IsValid() const {
+      return start!=std::numeric_limits<size_t>::max();
     }
   };
 

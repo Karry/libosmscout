@@ -212,9 +212,129 @@ namespace osmscout {
     log.Debug() << "MapPainter::~MapPainter()";
   }
 
+  static void CalculateStatistics(const Projection& projection,
+                                  const MapParameter& parameter,
+                                  const StyleConfig& styleConfig,
+                                  const NodeRef& node,
+                                  MapPainter::DataStatistic& statistic)
+  {
+    statistic.nodeCount++;
+    statistic.coordCount++;
+
+    if (parameter.IsDebugData()) {
+      IconStyleRef iconStyle=styleConfig.GetNodeIconStyle(node->GetFeatureValueBuffer(),
+                                                          projection);
+
+      if (iconStyle) {
+        statistic.iconCount++;
+      }
+
+      statistic.labelCount+=styleConfig.GetNodeTextStyleCount(node->GetFeatureValueBuffer(),
+                                                              projection);
+
+    }
+  }
+
+  static void CalculateStatistics(const Projection& projection,
+                                  const MapParameter& parameter,
+                                  const StyleConfig& styleConfig,
+                                  const WayRef& way,
+                                  MapPainter::DataStatistic& statistic)
+  {
+    statistic.wayCount++;
+    statistic.coordCount+=way->nodes.size();
+
+    if (parameter.IsDebugData()) {
+      PathShieldStyleRef shieldStyle=styleConfig.GetWayPathShieldStyle(way->GetFeatureValueBuffer(),
+                                                                       projection);
+      PathTextStyleRef   pathTextStyle=styleConfig.GetWayPathTextStyle(way->GetFeatureValueBuffer(),
+                                                                       projection);
+
+      if (shieldStyle) {
+        statistic.labelCount++;
+      }
+
+      if (pathTextStyle) {
+        statistic.labelCount++;
+      }
+    }
+  }
+
+  static void CalculateStatistics(const Projection& projection,
+                                  const MapParameter& parameter,
+                                  const StyleConfig& styleConfig,
+                                  const AreaRef& area,
+                                  MapPainter::DataStatistic& statistic)
+  {
+    statistic.areaCount++;
+
+    for (const auto& ring : area->rings) {
+      statistic.coordCount+=ring.nodes.size();
+
+      if (parameter.IsDebugData() && ring.IsMaster()) {
+        IconStyleRef iconStyle=styleConfig.GetAreaIconStyle(area->GetType(),
+                                                            ring.GetFeatureValueBuffer(),
+                                                            projection);
+
+        if (iconStyle) {
+          statistic.iconCount++;
+        }
+
+        statistic.labelCount+=styleConfig.GetAreaTextStyleCount(area->GetType(),
+                                                                ring.GetFeatureValueBuffer(),
+                                                                projection);
+      }
+    }
+  }
+
+  static void DumpStatisticWarnings(const MapParameter& parameter,
+                                    const std::unordered_map<TypeInfoRef,MapPainter::DataStatistic>& statistics)
+  {
+    for (const auto& [type, statistic] : statistics) {
+      if (type) {
+        if (parameter.GetWarningObjectCountLimit()>0 &&
+            statistic.objectCount>parameter.GetWarningObjectCountLimit()) {
+          log.Warn() << "Type : " << type->GetName() << " has " << statistic.objectCount << " objects (performance limit: " << parameter.GetWarningObjectCountLimit() << ")";
+        }
+
+        if (parameter.GetWarningCoordCountLimit()>0 &&
+            statistic.coordCount>parameter.GetWarningCoordCountLimit()) {
+          log.Warn() << "Type : " << type->GetName() << " has " << statistic.coordCount << " coords (performance limit: " << parameter.GetWarningCoordCountLimit() << ")";
+        }
+      }
+    }
+  }
+
+  static std::list<MapPainter::DataStatistic> MapToSortedList(const std::unordered_map<TypeInfoRef,MapPainter::DataStatistic>& statistics)
+  {
+    std::list<MapPainter::DataStatistic> statisticList;
+
+    for (const auto& [type, statistic] : statistics) {
+      statisticList.push_back(statistic);
+    }
+
+    statisticList.sort([](const MapPainter::DataStatistic& a,
+                                const MapPainter::DataStatistic& b)->bool {return a.objectCount>b.objectCount;});
+
+    return statisticList;
+  }
+
+  static void DumpDataStatistics(const std::list<MapPainter::DataStatistic>& statistics)
+  {
+    log.Info() << "Type|ObjectCount|NodeCount|WayCount|AreaCount|Nodes|Labels|Icons";
+    for (const auto& entry : statistics) {
+      log.Info() << entry.type->GetName() << " "
+                 << entry.objectCount << " "
+                 << entry.nodeCount << " " << entry.wayCount << " " << entry.areaCount << " "
+                 << entry.coordCount << " "
+                 << entry.labelCount << " "
+                 << entry.iconCount;
+    }
+  }
+
   void MapPainter::DumpDataStatistics(const Projection& projection,
                                       const MapParameter& parameter,
-                                      const MapData& data)
+                                      const MapData& data) const
   {
     std::unordered_map<TypeInfoRef,DataStatistic> statistics;
     TypeInfoSet                                   types;
@@ -224,187 +344,76 @@ namespace osmscout {
     for (const auto& node : data.nodes) {
       DataStatistic& entry=statistics[node->GetType()];
 
-      entry.nodeCount++;
-      entry.coordCount++;
-
-      if (parameter.IsDebugData()) {
-        IconStyleRef iconStyle=styleConfig->GetNodeIconStyle(node->GetFeatureValueBuffer(),
-                                                             projection);
-
-        styleConfig->GetNodeTextStyles(node->GetFeatureValueBuffer(),
-                                       projection,
-                                       textStyles);
-
-        entry.labelCount+=textStyles.size();
-
-        if (iconStyle) {
-          entry.iconCount++;
-        }
-      }
+      CalculateStatistics(projection,
+                          parameter,
+                          *styleConfig,
+                          node,
+                          entry);
     }
 
     for (const auto& node : data.poiNodes) {
       DataStatistic& entry=statistics[node->GetType()];
 
-      entry.nodeCount++;
-      entry.coordCount++;
-
-      if (parameter.IsDebugData()) {
-        IconStyleRef iconStyle=styleConfig->GetNodeIconStyle(node->GetFeatureValueBuffer(),
-                                                             projection);
-
-        styleConfig->GetNodeTextStyles(node->GetFeatureValueBuffer(),
-                                       projection,
-                                       textStyles);
-
-        entry.labelCount+=textStyles.size();
-
-        if (iconStyle) {
-          entry.iconCount++;
-        }
-      }
+      CalculateStatistics(projection,
+                          parameter,
+                          *styleConfig,
+                          node,
+                          entry);
     }
 
     for (const auto& way : data.ways) {
       DataStatistic& entry=statistics[way->GetType()];
 
-      entry.wayCount++;
-      entry.coordCount+=way->nodes.size();
-
-      if (parameter.IsDebugData()) {
-        PathShieldStyleRef shieldStyle=styleConfig->GetWayPathShieldStyle(way->GetFeatureValueBuffer(),
-                                                                          projection);
-        PathTextStyleRef   pathTextStyle=styleConfig->GetWayPathTextStyle(way->GetFeatureValueBuffer(),
-                                                                          projection);
-
-        if (shieldStyle) {
-          entry.labelCount++;
-        }
-
-        if (pathTextStyle) {
-          entry.labelCount++;
-        }
-      }
+      CalculateStatistics(projection,
+                          parameter,
+                          *styleConfig,
+                          way,
+                          entry);
     }
 
     for (const auto& way : data.poiWays) {
       DataStatistic& entry=statistics[way->GetType()];
 
-      entry.wayCount++;
-      entry.coordCount+=way->nodes.size();
-
-      if (parameter.IsDebugData()) {
-        PathShieldStyleRef shieldStyle=styleConfig->GetWayPathShieldStyle(way->GetFeatureValueBuffer(),
-                                                                          projection);
-        PathTextStyleRef   pathTextStyle=styleConfig->GetWayPathTextStyle(way->GetFeatureValueBuffer(),
-                                                                          projection);
-
-        if (shieldStyle) {
-          entry.labelCount++;
-        }
-
-        if (pathTextStyle) {
-          entry.labelCount++;
-        }
-      }
+      CalculateStatistics(projection,
+                          parameter,
+                          *styleConfig,
+                          way,
+                          entry);
     }
 
     for (const auto& area : data.areas) {
       DataStatistic& entry=statistics[area->GetType()];
 
-      entry.areaCount++;
-
-      for (const auto& ring : area->rings) {
-        entry.coordCount+=ring.nodes.size();
-
-        if (parameter.IsDebugData()) {
-          if (ring.IsMaster()) {
-            IconStyleRef iconStyle=styleConfig->GetAreaIconStyle(area->GetType(),
-                                                                 ring.GetFeatureValueBuffer(),
-                                                                 projection);
-
-            styleConfig->GetAreaTextStyles(area->GetType(),
-                                           ring.GetFeatureValueBuffer(),
-                                           projection,
-                                           textStyles);
-            if (iconStyle) {
-              entry.iconCount++;
-            }
-
-            entry.labelCount+=textStyles.size();
-          }
-        }
-      }
+      CalculateStatistics(projection,
+                          parameter,
+                          *styleConfig,
+                          area,
+                          entry);
     }
 
     for (const auto& area : data.poiAreas) {
       DataStatistic& entry=statistics[area->GetType()];
 
-      entry.areaCount++;
-
-      for (const auto& ring : area->rings) {
-        entry.coordCount+=ring.nodes.size();
-
-        if (parameter.IsDebugData()) {
-          if (ring.IsMaster()) {
-            IconStyleRef iconStyle=styleConfig->GetAreaIconStyle(area->GetType(),
-                                                                 ring.GetFeatureValueBuffer(),
-                                                                 projection);
-
-            styleConfig->GetAreaTextStyles(area->GetType(),
-                                           ring.GetFeatureValueBuffer(),
-                                           projection,
-                                           textStyles);
-            if (iconStyle) {
-              entry.iconCount++;
-            }
-
-            entry.labelCount+=textStyles.size();
-          }
-        }
-      }
+      CalculateStatistics(projection,
+                          parameter,
+                          *styleConfig,
+                          area,
+                          entry);
     }
 
-    for (auto& entry : statistics) {
-      entry.second.objectCount=entry.second.nodeCount+entry.second.wayCount+entry.second.areaCount;
-
-      if (entry.first) {
-        if (parameter.GetWarningObjectCountLimit()>0 &&
-          entry.second.objectCount>parameter.GetWarningObjectCountLimit()) {
-          log.Warn() << "Type : " << entry.first->GetName() << " has " << entry.second.objectCount << " objects (performance limit: " << parameter.GetWarningObjectCountLimit() << ")";
-        }
-
-        if (parameter.GetWarningCoordCountLimit()>0 &&
-            entry.second.coordCount>parameter.GetWarningCoordCountLimit()) {
-          log.Warn() << "Type : " << entry.first->GetName() << " has " << entry.second.coordCount << " coords (performance limit: " << parameter.GetWarningCoordCountLimit() << ")";
-        }
-
-      }
+    for (auto& [type, statistic] : statistics) {
+      statistic.objectCount=statistic.nodeCount+statistic.wayCount+statistic.areaCount;
     }
+
+    DumpStatisticWarnings(parameter,
+                          statistics);
 
     if (parameter.IsDebugData()) {
-      std::list<DataStatistic> statisticList;
-
-      for (auto& entry : statistics) {
-        entry.second.type=entry.first;
-
-        statisticList.push_back(entry.second);
+      for (auto& [type, statistic] : statistics) {
+        statistic.type=type;
       }
 
-      statistics.clear();
-
-      statisticList.sort([](const DataStatistic& a,
-                            const DataStatistic& b)->bool {return a.objectCount>b.objectCount;});
-
-      log.Info() << "Type|ObjectCount|NodeCount|WayCount|AreaCount|Nodes|Labels|Icons";
-      for (const auto& entry : statisticList) {
-        log.Info() << entry.type->GetName() << " "
-                   << entry.objectCount << " "
-                   << entry.nodeCount << " " << entry.wayCount << " " << entry.areaCount << " "
-                   << entry.coordCount << " "
-                   << entry.labelCount << " "
-                   << entry.iconCount;
-      }
+      ::osmscout::DumpDataStatistics(MapToSortedList(statistics));
     }
   }
 
@@ -416,46 +425,16 @@ namespace osmscout {
       return false;
     }
 
-    double x;
-    double y;
+    double xMin;
+    double xMax;
+    double yMin;
+    double yMax;
 
-    projection.GeoToPixel(boundingBox.GetMinCoord(),
-                          x,
-                          y);
-
-    double xMin=x;
-    double xMax=x;
-    double yMin=y;
-    double yMax=y;
-
-    projection.GeoToPixel(boundingBox.GetMaxCoord(),
-                          x,
-                          y);
-
-    xMin=std::min(xMin,x);
-    xMax=std::max(xMax,x);
-    yMin=std::min(yMin,y);
-    yMax=std::max(yMax,y);
-
-    projection.GeoToPixel(GeoCoord(boundingBox.GetMinLat(),
-                                   boundingBox.GetMaxLon()),
-                          x,
-                          y);
-
-    xMin=std::min(xMin,x);
-    xMax=std::max(xMax,x);
-    yMin=std::min(yMin,y);
-    yMax=std::max(yMax,y);
-
-    projection.GeoToPixel(GeoCoord(boundingBox.GetMaxLat(),
-                                   boundingBox.GetMinLon()),
-                          x,
-                          y);
-
-    xMin=std::min(xMin,x);
-    xMax=std::max(xMax,x);
-    yMin=std::min(yMin,y);
-    yMax=std::max(yMax,y);
+    if (!projection.BoundingBoxToPixel(boundingBox,
+                                       xMin,yMin,
+                                       xMax,yMax)) {
+      return false;
+    }
 
     xMin=xMin-pixelOffset;
     xMax=xMax+pixelOffset;
@@ -477,50 +456,16 @@ namespace osmscout {
                                 const GeoBox& boundingBox,
                                 double pixelOffset) const
   {
-    if (!boundingBox.IsValid()){
+    double xMin;
+    double xMax;
+    double yMin;
+    double yMax;
+
+    if (!projection.BoundingBoxToPixel(boundingBox,
+                                       xMin,yMin,
+                                       xMax,yMax)) {
       return false;
     }
-
-    double x;
-    double y;
-
-    projection.GeoToPixel(boundingBox.GetMinCoord(),
-                          x,
-                          y);
-
-    double xMin=x;
-    double xMax=x;
-    double yMin=y;
-    double yMax=y;
-
-    projection.GeoToPixel(boundingBox.GetMaxCoord(),
-                          x,
-                          y);
-
-    xMin=std::min(xMin,x);
-    xMax=std::max(xMax,x);
-    yMin=std::min(yMin,y);
-    yMax=std::max(yMax,y);
-
-    projection.GeoToPixel(GeoCoord(boundingBox.GetMinLat(),
-                                   boundingBox.GetMaxLon()),
-                          x,
-                          y);
-
-    xMin=std::min(xMin,x);
-    xMax=std::max(xMax,x);
-    yMin=std::min(yMin,y);
-    yMax=std::max(yMax,y);
-
-    projection.GeoToPixel(GeoCoord(boundingBox.GetMaxLat(),
-                                   boundingBox.GetMinLon()),
-                          x,
-                          y);
-
-    xMin=std::min(xMin,x);
-    xMax=std::max(xMax,x);
-    yMin=std::min(yMin,y);
-    yMax=std::max(yMax,y);
 
     xMin=xMin-pixelOffset;
     xMax=xMax+pixelOffset;
@@ -531,16 +476,6 @@ namespace osmscout {
              yMin>=projection.GetHeight() ||
              xMax<0 ||
              yMax<0);
-  }
-
-  void MapPainter::Transform(const Projection& projection,
-                             const MapParameter& /*parameter*/,
-                             const GeoCoord& coord,
-                             double& x,
-                             double& y)
-  {
-    projection.GeoToPixel(coord,
-                          x,y);
   }
 
   double MapPainter::GetProjectedWidth(const Projection& projection,
@@ -561,7 +496,7 @@ namespace osmscout {
                                       const MapParameter& /*parameter*/,
                                       const MapData& /*data*/)
   {
-    // No code
+    // Nothing to do in the base class implementation
   }
 
   void MapPainter::BeforeDrawing(const StyleConfig& /*styleConfig*/,
@@ -569,7 +504,7 @@ namespace osmscout {
                                  const MapParameter& /*parameter*/,
                                  const MapData& /*data*/)
   {
-
+    // Nothing to do in the base class implementation
   }
 
   void MapPainter::AfterDrawing(const StyleConfig& /*styleConfig*/,
@@ -577,7 +512,7 @@ namespace osmscout {
                                 const MapParameter& /*parameter*/,
                                 const MapData& /*data*/)
   {
-
+    // Nothing to do in the base class implementation
   }
 
   void MapPainter::RegisterPointWayLabel(const Projection& projection,
@@ -592,7 +527,8 @@ namespace osmscout {
                                                 shieldGridSizeVert);
 
     for (const auto& gridPoint : gridPoints) {
-      double x,y;
+      double x;
+      double y;
 
       projection.GeoToPixel(gridPoint,x,y);
 
@@ -604,8 +540,7 @@ namespace osmscout {
       labelBox.style=style;
       labelBox.text=text;
 
-      std::vector<LabelData> vect;
-      vect.push_back(labelBox);
+      std::vector<LabelData> vect = {labelBox};
       RegisterRegularLabel(projection, parameter, vect, Vertex2D(x,y), /*proposedWidth*/ -1);
     }
   }
@@ -660,7 +595,8 @@ namespace osmscout {
         data.iconHeight=iconStyle->GetHeight();
 
         labelLayoutData.push_back(data);
-      } else if (iconStyle->GetSymbol()) {
+      }
+      else if (iconStyle->GetSymbol()) {
         LabelData data;
 
         data.type=LabelData::Type::Symbol;
@@ -690,18 +626,18 @@ namespace osmscout {
       if (projection.GetMagnification()>textStyle->GetScaleAndFadeMag() &&
           parameter.GetDrawFadings()) {
         double factor=projection.GetMagnification().GetLevel()-textStyle->GetScaleAndFadeMag().GetLevel();
-        data.fontSize=textStyle->GetSize()*pow(1.5,factor);
 
+        data.fontSize=textStyle->GetSize()*pow(1.5,factor);
         data.alpha=std::min(textStyle->GetAlpha()/factor, 1.0);
       }
       else if (textStyle->GetAutoSize()) {
-        double height=std::abs((objectHeight)*0.1);
+        double height=std::abs(objectHeight*0.1);
 
         if (height==0 || height<standardFontSize) {
           continue;
         }
 
-        // Retricts the height of a label to maxHeight
+        // Restricts the height of a label to maxHeight
         double alpha=textStyle->GetAlpha();
         double maxHeight=projection.GetHeight()/5.0;
 
@@ -718,7 +654,6 @@ namespace osmscout {
       }
       else {
         data.fontSize=textStyle->GetSize();
-
         data.alpha=textStyle->GetAlpha();
       }
 
@@ -939,12 +874,12 @@ namespace osmscout {
     double           symbolSpace=projection.ConvertWidthToPixel(borderSymbolStyle->GetSymbolSpace());
     CoordBufferRange range=areaData.coordRange;
 
-    if (borderSymbolStyle->GetOffset()!=0.0) {
+    if (borderSymbolStyle->HasOffset()) {
       lineOffset+=GetProjectedWidth(projection,
                                     borderSymbolStyle->GetOffset());
     }
 
-    if (borderSymbolStyle->GetDisplayOffset()!=0.0) {
+    if (borderSymbolStyle->HasDisplayOffset()) {
       lineOffset+=projection.ConvertWidthToPixel(borderSymbolStyle->GetDisplayOffset());
     }
 
@@ -975,12 +910,11 @@ namespace osmscout {
                                  projection,
                                  textStyles);
 
-    double x,y;
+    double x;
+    double y;
 
-    Transform(projection,
-              parameter,
-              node->GetCoords(),
-              x,y);
+    projection.GeoToPixel(node->GetCoords(),
+                          x,y);
 
     LayoutPointLabels(projection,
                       parameter,
@@ -1034,24 +968,14 @@ namespace osmscout {
       return false;
     }
 
-    LanesFeatureValue      *lanesValue=nullptr;
-    std::vector<OffsetRel> laneTurns; // cached turns
+    const LanesFeatureValue *lanesValue=nullptr;
+    std::vector<OffsetRel>  laneTurns; // cached turns
 
-    for (const auto &pathSymbolStyle : symbolStyles) {
+    for (const auto& pathSymbolStyle : symbolStyles) {
       CoordBufferRange range=data.coordRange;
       double symbolSpace = projection.ConvertWidthToPixel(pathSymbolStyle->GetSymbolSpace());
 
-      if (pathSymbolStyle->GetOffsetRel() == OffsetRel::laneForwardLeft ||
-          pathSymbolStyle->GetOffsetRel() == OffsetRel::laneForwardThroughLeft ||
-          pathSymbolStyle->GetOffsetRel() == OffsetRel::laneForwardThrough ||
-          pathSymbolStyle->GetOffsetRel() == OffsetRel::laneForwardThroughRight ||
-          pathSymbolStyle->GetOffsetRel() == OffsetRel::laneForwardRight ||
-          pathSymbolStyle->GetOffsetRel() == OffsetRel::laneBackwardLeft ||
-          pathSymbolStyle->GetOffsetRel() == OffsetRel::laneBackwardThroughLeft ||
-          pathSymbolStyle->GetOffsetRel() == OffsetRel::laneBackwardThrough ||
-          pathSymbolStyle->GetOffsetRel() == OffsetRel::laneBackwardThroughRight ||
-          pathSymbolStyle->GetOffsetRel() == OffsetRel::laneBackwardRight ) {
-
+      if (IsLaneOffset(pathSymbolStyle->GetOffsetRel())) {
         if (lanesValue==nullptr) {
           lanesValue=lanesReader.GetValue(*data.buffer);
         }
@@ -1072,7 +996,7 @@ namespace osmscout {
         for (const OffsetRel &laneTurn: laneTurns) {
           if (pathSymbolStyle->GetOffsetRel() == laneTurn) {
             range=coordBuffer.GenerateParallelWay(range,
-                                                   laneOffset);
+                                                  laneOffset);
 
             DrawContourSymbol(projection,
                               parameter,
@@ -1086,12 +1010,12 @@ namespace osmscout {
       else {
         double lineOffset = 0.0;
 
-        if (pathSymbolStyle->GetOffset() != 0.0) {
+        if (pathSymbolStyle->HasOffset()) {
           lineOffset += GetProjectedWidth(projection,
                                           pathSymbolStyle->GetOffset());
         }
 
-        if (pathSymbolStyle->GetDisplayOffset() != 0.0) {
+        if (pathSymbolStyle->HasDisplayOffset()) {
           lineOffset += projection.ConvertWidthToPixel(pathSymbolStyle->GetDisplayOffset());
         }
 
@@ -1237,20 +1161,20 @@ namespace osmscout {
       startTileY--;
     }
 
-    std::vector<Point> points;
+    std::vector<GeoCoord> coords;
 
     // Horizontal lines
 
     for (uint32_t y=startTileY; y<=endTileY; y++) {
-      points.resize(endTileX-startTileX+1);
+      coords.resize(endTileX-startTileX+1);
 
       for (uint32_t x=startTileX; x<=endTileX; x++) {
-        points[x-startTileX].Set(0,OSMTileId(x,y).GetTopLeftCoord(magnification));
+        coords[x-startTileX]=OSMTileId(x,y).GetTopLeftCoord(magnification);
       }
 
       CoordBufferRange transRange;
 
-      transRange=TransformWay(points,
+      transRange=TransformWay(coords,
                               transBuffer,
                               coordBuffer,
                               projection,
@@ -1276,15 +1200,15 @@ namespace osmscout {
     // Vertical lines
 
     for (uint32_t x=startTileX; x<=endTileX; x++) {
-      points.resize(endTileY-startTileY+1);
+      coords.resize(endTileY-startTileY+1);
 
       for (uint32_t y=startTileY; y<=endTileY; y++) {
-        points[y-startTileY].Set(0,OSMTileId(x,y).GetTopLeftCoord(magnification));
+        coords[y-startTileY]=OSMTileId(x,y).GetTopLeftCoord(magnification);
       }
 
       CoordBufferRange transRange;
 
-      transRange=TransformWay(points,
+      transRange=TransformWay(coords,
                               transBuffer,
                               coordBuffer,
                               projection,
@@ -1308,33 +1232,154 @@ namespace osmscout {
     }
   }
 
+  bool MapPainter::PrepareAreaRing(const StyleConfig& styleConfig,
+                                   const Projection& projection,
+                                   const MapParameter& parameter,
+                                   const std::vector<CoordBufferRange>& coordRanges,
+                                   const Area& area,
+                                   const Area::Ring& ring,
+                                   size_t i,
+                                   const TypeInfoRef& type)
+  {
+    if (type->GetIgnore()) {
+      // clipping inner ring, we will not render it, but still go deeper,
+      // there may be nested outer rings
+      return true;
+    }
+
+    if (!coordRanges[i].IsValid()) {
+      return false; // ring was skipped or reduced to single point
+    }
+
+    FillStyleRef                fillStyle;
+    std::vector<BorderStyleRef> borderStyles;
+    BorderStyleRef              borderStyle;
+
+    fillStyle=styleConfig.GetAreaFillStyle(type,
+                                           ring.GetFeatureValueBuffer(),
+                                           projection);
+
+    FillStyleProcessorRef fillProcessor=parameter.GetFillStyleProcessor(ring.GetType()->GetIndex());
+
+    if (fillProcessor) {
+      fillStyle=fillProcessor->Process(ring.GetFeatureValueBuffer(),
+                                       fillStyle);
+    }
+
+    styleConfig.GetAreaBorderStyles(type,
+                                    ring.GetFeatureValueBuffer(),
+                                    projection,
+                                    borderStyles);
+
+    if (!fillStyle && borderStyles.empty()) {
+      // Nothing to draw
+      return false;
+    }
+
+    size_t borderStyleIndex=0;
+
+    // Get the borderStyle of the border itself
+    if (!borderStyles.empty() &&
+        borderStyles.front()->GetDisplayOffset()==0.0 &&
+        borderStyles.front()->GetOffset()==0.0) {
+      borderStyle=borderStyles[borderStyleIndex];
+      borderStyleIndex++;
+    }
+
+    AreaData a;
+    double   borderWidth=borderStyle ? borderStyle->GetWidth() : 0.0;
+
+    a.boundingBox=ring.GetBoundingBox();
+    a.isOuter = ring.IsOuter();
+
+    if (!IsVisibleArea(projection,
+                       a.boundingBox,
+                       borderWidth/2.0)) {
+      return false;
+    }
+
+    // Collect possible clippings. We only take into account inner rings of the next level
+    // that do not have a type and thus act as a clipping region. If a inner ring has a type,
+    // we currently assume that it does not have alpha and paints over its region and clipping is
+    // not required.
+    area.VisitClippingRings(i, [&a, &coordRanges](size_t j, const Area::Ring &, const TypeInfoRef &type) -> bool {
+      if (type->GetIgnore() && coordRanges[j].IsValid()) {
+        a.clippings.push_back(coordRanges[j]);
+      }
+
+      return true;
+    });
+
+    a.ref=area.GetObjectFileRef();
+    a.type=type;
+    a.buffer=&ring.GetFeatureValueBuffer();
+    a.fillStyle=fillStyle;
+    a.borderStyle=borderStyle;
+    a.coordRange=coordRanges[i];
+
+    areaData.push_back(a);
+
+    for (size_t idx=borderStyleIndex;
+         idx<borderStyles.size();
+         idx++) {
+      borderStyle=borderStyles[idx];
+
+      double offset=0.0;
+
+      CoordBufferRange range=coordRanges[i];
+
+      if (borderStyle->GetOffset()!=0.0) {
+        offset+=GetProjectedWidth(projection,
+                                  borderStyle->GetOffset());
+      }
+
+      if (borderStyle->GetDisplayOffset()!=0.0) {
+        offset+=projection.ConvertWidthToPixel(borderStyle->GetDisplayOffset());
+      }
+
+      if (offset!=0.0) {
+        range=coordBuffer.GenerateParallelWay(range,
+                                              offset);
+      }
+
+      // Add a copy of the AreaData definition without the buffer and the fill but only the border
+
+      a.ref=area.GetObjectFileRef();
+      a.type=type;
+      a.buffer=nullptr;
+      a.fillStyle=nullptr;
+      a.borderStyle=borderStyle;
+      a.coordRange=range;
+
+      areaData.push_back(a);
+    }
+
+    return true;
+  }
+
   void MapPainter::PrepareArea(const StyleConfig& styleConfig,
                                const Projection& projection,
                                const MapParameter& parameter,
                                const AreaRef &area)
   {
-    std::vector<PolyData> td(area->rings.size());
+    std::vector<CoordBufferRange> td(area->rings.size()); // Polygon information for each ring
 
     for (size_t i=0; i<area->rings.size(); i++) {
       const Area::Ring &ring = area->rings[i];
       // The master ring does not have any nodes, so we skip it
       // Rings with less than 3 nodes should be skipped, too (no area)
       if (ring.IsMaster() || ring.nodes.size() < 3) {
-        td[i].transStart=0;
-        td[i].transEnd=0;
+        // td is initialized to empty by default
         continue;
       }
 
       if (ring.segments.size() <= 1){
-        CoordBufferRange range=TransformArea(ring.nodes,
-                                             transBuffer,
-                                             coordBuffer,
-                                             projection,
-                                             parameter.GetOptimizeAreaNodes(),
-                                             errorTolerancePixel);
-
-        td[i].transStart=range.GetStart();
-        td[i].transEnd=range.GetEnd();
+        td[i]=TransformArea(ring.nodes,
+                            transBuffer,
+                            coordBuffer,
+                            projection,
+                            parameter.GetOptimizeAreaNodes(),
+                            errorTolerancePixel);
       }
       else {
         std::vector<Point> nodes;
@@ -1343,133 +1388,33 @@ namespace osmscout {
           if (projection.GetDimensions().Intersects(segment.bbox, false)){
             // TODO: add TransBuffer::Transform* methods with vector subrange (begin/end)
             nodes.insert(nodes.end(), ring.nodes.data() + segment.from, ring.nodes.data() + segment.to);
-          } else {
+          }
+          else {
             nodes.push_back(ring.nodes[segment.from]);
             nodes.push_back(ring.nodes[segment.to-1]);
           }
         }
 
-        CoordBufferRange range=TransformArea(nodes,
-                                             transBuffer,
-                                             coordBuffer,
-                                             projection,
-                                             parameter.GetOptimizeAreaNodes(),
-                                             errorTolerancePixel);
-
-        td[i].transStart=range.GetStart();
-        td[i].transEnd=range.GetEnd();
+        td[i]=TransformArea(nodes,
+                            transBuffer,
+                            coordBuffer,
+                            projection,
+                            parameter.GetOptimizeAreaNodes(),
+                            errorTolerancePixel);
       }
     }
 
-    area->VisitRings([&](size_t i, const Area::Ring &ring, const TypeInfoRef &type) -> bool {
-
-      if (type->GetIgnore()) {
-        // clipping inner ring, we will not render it, but still go deeper,
-        // there may be nested outer rings
-        return true;
-      }
-      if (td[i].transStart==td[i].transEnd) {
-        return false; // ring was skipped or reduced to single point
-      }
-
-      FillStyleRef                fillStyle;
-      std::vector<BorderStyleRef> borderStyles;
-      BorderStyleRef              borderStyle;
-
-      fillStyle=styleConfig.GetAreaFillStyle(type,
-                                             ring.GetFeatureValueBuffer(),
-                                             projection);
-
-      FillStyleProcessorRef fillProcessor=parameter.GetFillStyleProcessor(ring.GetType()->GetIndex());
-
-      if (fillProcessor) {
-        fillStyle=fillProcessor->Process(ring.GetFeatureValueBuffer(),
-                                         fillStyle);
-      }
-
-      styleConfig.GetAreaBorderStyles(type,
-                                      ring.GetFeatureValueBuffer(),
-                                      projection,
-                                      borderStyles);
-
-      if (!fillStyle && borderStyles.empty()) {
-        return false;
-      }
-
-      size_t borderStyleIndex=0;
-
-      if (!borderStyles.empty() &&
-          borderStyles.front()->GetDisplayOffset()==0.0 &&
-          borderStyles.front()->GetOffset()==0.0) {
-        borderStyle=borderStyles[borderStyleIndex];
-        borderStyleIndex++;
-      }
-
-      AreaData a;
-      double   borderWidth=borderStyle ? borderStyle->GetWidth() : 0.0;
-
-      a.boundingBox=ring.GetBoundingBox();
-      a.isOuter = ring.IsOuter();
-
-      if (!IsVisibleArea(projection,
-                         a.boundingBox,
-                         borderWidth/2.0)) {
-        return false;
-      }
-
-      // Collect possible clippings. We only take into account inner rings of the next level
-      // that do not have a type and thus act as a clipping region. If a inner ring has a type,
-      // we currently assume that it does not have alpha and paints over its region and clipping is
-      // not required.
-      area->VisitClippingRings(i, [&a, &td](size_t j, const Area::Ring &, const TypeInfoRef &type) -> bool {
-        if (type->GetIgnore() && td[j].transStart < td[j].transEnd) {
-          a.clippings.push_back(td[j]);
-        }
-        return true;
-      });
-
-      a.ref=area->GetObjectFileRef();
-      a.type=type;
-      a.buffer=&ring.GetFeatureValueBuffer();
-      a.fillStyle=fillStyle;
-      a.borderStyle=borderStyle;
-      a.coordRange=CoordBufferRange(td[i].transStart,td[i].transEnd);
-
-      areaData.push_back(a);
-
-      for (size_t idx=borderStyleIndex;
-           idx<borderStyles.size();
-           idx++) {
-        borderStyle=borderStyles[idx];
-
-        double offset=0.0;
-
-        CoordBufferRange range=CoordBufferRange(td[i].transStart,td[i].transEnd);
-
-        if (borderStyle->GetOffset()!=0.0) {
-          offset+=GetProjectedWidth(projection,
-                                    borderStyle->GetOffset());
-        }
-
-        if (borderStyle->GetDisplayOffset()!=0.0) {
-          offset+=projection.ConvertWidthToPixel(borderStyle->GetDisplayOffset());
-        }
-
-        if (offset!=0.0) {
-          range=coordBuffer.GenerateParallelWay(range,
-                                                 offset);
-        }
-
-        a.ref=area->GetObjectFileRef();
-        a.type=type;
-        a.buffer=nullptr;
-        a.fillStyle=nullptr;
-        a.borderStyle=borderStyle;
-        a.coordRange=range;
-
-        areaData.push_back(a);
-      }
-      return true;
+    area->VisitRings([this,&styleConfig,&projection,&parameter,&td,&area](size_t i,
+                         const Area::Ring& ring,
+                         const TypeInfoRef& type)->bool {
+      return PrepareAreaRing(styleConfig,
+                             projection,
+                             parameter,
+                             td,
+                             *area,
+                             ring,
+                             i,
+                             type);
     });
   }
 
@@ -1499,32 +1444,24 @@ namespace osmscout {
     }
   }
 
-  std::vector<OffsetRel> MapPainter::ParseLaneTurns(const LanesFeatureValue &lanesValue)
+  std::vector<OffsetRel> MapPainter::ParseLaneTurns(const LanesFeatureValue &lanesValue) const
   {
     std::vector<OffsetRel> laneTurns;
+
     laneTurns.reserve(lanesValue.GetLanes());
 
     // backward
+
     auto turns=SplitString(lanesValue.GetTurnBackward(), "|");
     int lanes=lanesValue.GetBackwardLanes();
     int lane=0;
+
     for (const std::string &turn: turns) {
       if (lane>=lanes){
         break;
       }
-      if (turn == "left" || turn == "merge_to_left" || turn == "slight_left" || turn == "sharp_left") {
-        laneTurns.push_back(OffsetRel::laneBackwardLeft);
-      } else if (turn == "through;left" || turn == "through;slight_left" || turn == "through;sharp_left") {
-        laneTurns.push_back(OffsetRel::laneBackwardThroughLeft);
-      } else if (turn == "through") {
-        laneTurns.push_back(OffsetRel::laneBackwardThrough);
-      } else if (turn == "through;right" || turn == "through;slight_right" || turn == "through;sharp_right") {
-        laneTurns.push_back(OffsetRel::laneBackwardThroughRight);
-      } else if (turn == "right" || turn == "merge_to_right" || turn == "slight_right" || turn == "sharp_right") {
-        laneTurns.push_back(OffsetRel::laneBackwardRight);
-      } else {
-        laneTurns.push_back(OffsetRel::base);
-      }
+
+      laneTurns.push_back(ParseBackwardTurnStringToOffset(turn));
       lane++;
     }
     for (;lane<lanes;lane++){
@@ -1532,26 +1469,17 @@ namespace osmscout {
     }
 
     // forward
+
     turns=SplitString(lanesValue.GetTurnForward(), "|");
     lanes=lanesValue.GetForwardLanes();
     lane=0;
+
     for (const std::string &turn: turns) {
       if (lane>=lanes){
         break;
       }
-      if (turn == "left" || turn == "merge_to_left" || turn == "slight_left" || turn == "sharp_left") {
-        laneTurns.push_back(OffsetRel::laneForwardLeft);
-      } else if (turn == "through;left" || turn == "through;slight_left" || turn == "through;sharp_left") {
-        laneTurns.push_back(OffsetRel::laneForwardThroughLeft);
-      } else if (turn == "through") {
-        laneTurns.push_back(OffsetRel::laneForwardThrough);
-      } else if (turn == "through;right" || turn == "through;slight_right" || turn == "through;sharp_right") {
-        laneTurns.push_back(OffsetRel::laneForwardThroughRight);
-      } else if (turn == "right" || turn == "merge_to_right" || turn == "slight_right" || turn == "sharp_right") {
-        laneTurns.push_back(OffsetRel::laneForwardRight);
-      } else {
-        laneTurns.push_back(OffsetRel::base);
-      }
+
+      laneTurns.push_back(ParseForwardTurnStringToOffset(turn));
       lane++;
     }
     for (;lane<lanes;lane++){
@@ -1580,7 +1508,8 @@ namespace osmscout {
         if (projection.GetDimensions().Intersects(segment.bbox, false)){
           // TODO: add TransBuffer::Transform* methods with vector subrange (begin/end)
           nodes.insert(nodes.end(), way.nodes.data() + segment.from, way.nodes.data() + segment.to);
-        } else {
+        }
+        else {
           nodes.push_back(way.nodes[segment.from]);
           nodes.push_back(way.nodes[segment.to-1]);
         }
@@ -1595,13 +1524,111 @@ namespace osmscout {
     }
   }
 
+  double MapPainter::CalculateLineWith(const Projection& projection,
+                                       const FeatureValueBuffer& buffer,
+                                       const LineStyle& lineStyle) const
+  {
+    double lineWidth=0.0;
+
+    if (lineStyle.GetWidth()>0.0) {
+      const WidthFeatureValue *widthValue=widthReader.GetValue(buffer);
+
+
+      if (widthValue!=nullptr) {
+        lineWidth+=GetProjectedWidth(projection,
+                                     widthValue->GetWidth());
+      }
+      else {
+        lineWidth+=GetProjectedWidth(projection,
+                                     lineStyle.GetWidth());
+      }
+    }
+
+    if (lineStyle.GetDisplayWidth()>0.0) {
+      lineWidth+=projection.ConvertWidthToPixel(lineStyle.GetDisplayWidth());
+    }
+
+    return lineWidth;
+  }
+
+  double MapPainter::CalculateLineOffset(const Projection& projection,
+                                         const LineStyle& lineStyle,
+                                         double lineWidth) const
+  {
+    double lineOffset=0.0;
+
+    switch (lineStyle.GetOffsetRel()) {
+    case OffsetRel::base:
+    case OffsetRel::laneDivider:
+    case OffsetRel::laneForwardLeft:
+    case OffsetRel::laneForwardThroughLeft:
+    case OffsetRel::laneForwardThrough:
+    case OffsetRel::laneForwardThroughRight:
+    case OffsetRel::laneForwardRight:
+    case OffsetRel::laneBackwardLeft:
+    case OffsetRel::laneBackwardThroughLeft:
+    case OffsetRel::laneBackwardThrough:
+    case OffsetRel::laneBackwardThroughRight:
+    case OffsetRel::laneBackwardRight:
+      lineOffset=0.0;
+      break;
+    case OffsetRel::leftOutline:
+      lineOffset=-lineWidth/2.0;
+      break;
+    case OffsetRel::rightOutline:
+      lineOffset=lineWidth/2.0;
+      break;
+    case OffsetRel::sidecar:
+      lineOffset=-1.1 * lineWidth/2.0; // special handling not supported for ordinary ways
+      break;
+    }
+
+    if (lineStyle.GetOffset()!=0.0) {
+      lineOffset+=GetProjectedWidth(projection,
+                                    lineStyle.GetOffset());
+    }
+
+    if (lineStyle.GetDisplayOffset()!=0.0) {
+      lineOffset+=projection.ConvertWidthToPixel(lineStyle.GetDisplayOffset());
+    }
+
+    return lineOffset;
+  }
+
+  Color MapPainter::CalculateLineColor(const FeatureValueBuffer& buffer,
+                                       const LineStyle& lineStyle) const
+  {
+    Color color=lineStyle.GetLineColor();
+
+    if (lineStyle.GetPreferColorFeature()){
+      const ColorFeatureValue *colorValue=colorReader.GetValue(buffer);
+      if (colorValue != nullptr){
+        color=colorValue->GetColor();
+      }
+    }
+
+    return color;
+  }
+
+  int8_t MapPainter::CalculateLineLayer(const FeatureValueBuffer& buffer) const
+  {
+    const LayerFeatureValue *layerValue=layerReader.GetValue(buffer);
+
+    if (layerValue!=nullptr) {
+      return layerValue->GetLayer();
+    }
+    else {
+      return 0;
+    }
+  }
+
   void MapPainter::CalculatePaths(const StyleConfig& styleConfig,
                                   const Projection& projection,
                                   const MapParameter& parameter,
                                   const Way& way)
   {
-    FileOffset ref = way.GetFileOffset();
-    const FeatureValueBuffer &buffer = way.GetFeatureValueBuffer();
+    FileOffset ref=way.GetFileOffset();
+    const FeatureValueBuffer& buffer=way.GetFeatureValueBuffer();
 
     styleConfig.GetWayLineStyles(buffer,
                              projection,
@@ -1611,96 +1638,25 @@ namespace osmscout {
       return;
     }
 
+    bool transformed=false;
+    const AccessFeatureValue *accessValue=nullptr;
+    const LanesFeatureValue  *lanesValue=nullptr;
+    std::vector<OffsetRel> laneTurns; // cached turns
+
     WayPathData pathData;
 
     pathData.ref=ref;
     pathData.buffer=&buffer;
     pathData.mainSlotWidth=0.0;
-    bool transformed=false;
-    AccessFeatureValue *accessValue=nullptr;
-    LanesFeatureValue  *lanesValue=nullptr;
-    std::vector<OffsetRel> laneTurns; // cached turns
 
     for (const auto& lineStyle : lineStyles) {
-      double       lineWidth=0.0;
-      double       lineOffset=0.0;
-
-      if (lineStyle->GetWidth()>0.0) {
-        WidthFeatureValue *widthValue=widthReader.GetValue(buffer);
-
-
-        if (widthValue!=nullptr) {
-          lineWidth+=GetProjectedWidth(projection,
-                                       widthValue->GetWidth());
-        }
-        else {
-          lineWidth+=GetProjectedWidth(projection,
-                                       lineStyle->GetWidth());
-        }
-      }
-
-      if (lineStyle->GetDisplayWidth()>0.0) {
-        lineWidth+=projection.ConvertWidthToPixel(lineStyle->GetDisplayWidth());
-      }
-
-      if (lineStyle->GetSlot().empty()) {
-        pathData.mainSlotWidth=lineWidth;
-      }
+      double lineWidth=CalculateLineWith(projection,
+                                         buffer,
+                                         *lineStyle);
 
       if (lineWidth==0.0) {
         continue;
       }
-
-      switch (lineStyle->GetOffsetRel()) {
-      case OffsetRel::base:
-        lineOffset=0.0;
-        break;
-      case OffsetRel::leftOutline:
-        lineOffset=-pathData.mainSlotWidth/2.0;
-        break;
-      case OffsetRel::rightOutline:
-        lineOffset=pathData.mainSlotWidth/2.0;
-        break;
-      case OffsetRel::laneDivider:
-        lineOffset=0.0;
-        lanesValue=lanesReader.GetValue(buffer);
-        accessValue=accessReader.GetValue(buffer);
-
-        if (lanesValue==nullptr &&
-            accessValue==nullptr) {
-          continue;
-        }
-        break;
-      case OffsetRel::laneForwardLeft:
-      case OffsetRel::laneForwardThroughLeft:
-      case OffsetRel::laneForwardThrough:
-      case OffsetRel::laneForwardThroughRight:
-      case OffsetRel::laneForwardRight:
-      case OffsetRel::laneBackwardLeft:
-      case OffsetRel::laneBackwardThroughLeft:
-      case OffsetRel::laneBackwardThrough:
-      case OffsetRel::laneBackwardThroughRight:
-      case OffsetRel::laneBackwardRight:
-        lineOffset=0.0;
-        lanesValue=lanesReader.GetValue(buffer);
-        break;
-      case OffsetRel::sidecar:
-        lineOffset=-1.1 * pathData.mainSlotWidth/2.0; // special handling not supported for ordinary ways
-        break;
-      }
-
-      if (lineStyle->GetOffset()!=0.0) {
-        lineOffset+=GetProjectedWidth(projection,
-                                      lineStyle->GetOffset());
-      }
-
-      if (lineStyle->GetDisplayOffset()!=0.0) {
-        lineOffset+=projection.ConvertWidthToPixel(lineStyle->GetDisplayOffset());
-      }
-
-      WayData data;
-
-      data.lineWidth=lineWidth;
 
       if (!IsVisibleWay(projection,
                         way.GetBoundingBox(),
@@ -1708,34 +1664,46 @@ namespace osmscout {
         continue;
       }
 
+      if (lineStyle->GetSlot().empty()) {
+        pathData.mainSlotWidth=lineWidth;
+      }
+
+      if (lineStyle->GetOffsetRel()==OffsetRel::laneDivider) {
+        lanesValue=lanesReader.GetValue(buffer);
+        accessValue=accessReader.GetValue(buffer);
+
+        if (lanesValue==nullptr &&
+            accessValue==nullptr) {
+          continue;
+        }
+      }
+      else if (IsLaneOffset(lineStyle->GetOffsetRel())) {
+        lanesValue=lanesReader.GetValue(buffer);
+      }
+
+      double lineOffset=CalculateLineOffset(projection,
+                                            *lineStyle,
+                                            pathData.mainSlotWidth);
+
+      WayData data;
+
+      data.lineWidth=lineWidth;
+
       if (!transformed) {
         TransformPathData(projection, parameter, way, pathData);
         transformed=true;
         wayPathData.push_back(pathData);
       }
 
-      Color color=lineStyle->GetLineColor();
-      if (lineStyle->GetPreferColorFeature()){
-        ColorFeatureValue *colorValue=colorReader.GetValue(buffer);
-        if (colorValue != nullptr){
-          color=colorValue->GetColor();
-        }
-      }
-
-      data.layer=0;
       data.buffer=&buffer;
       data.lineStyle=lineStyle;
-      data.color=color;
+      data.layer=CalculateLineLayer(buffer);
+      data.color=CalculateLineColor(buffer,
+                                    *lineStyle);
       data.wayPriority=styleConfig.GetWayPrio(buffer.GetType());
       data.coordRange=pathData.coordRange;
-      data.startIsClosed=way.nodes[0].GetSerial()==0;
-      data.endIsClosed=way.nodes[way.nodes.size()-1].GetSerial()==0;
-
-      LayerFeatureValue *layerValue=layerReader.GetValue(buffer);
-
-      if (layerValue!=nullptr) {
-        data.layer=layerValue->GetLayer();
-      }
+      data.startIsClosed=!way.GetFront().IsRelevant();
+      data.endIsClosed=!way.GetBack().IsRelevant();
 
       if (lineOffset!=0.0) {
         data.coordRange=coordBuffer.GenerateParallelWay(pathData.coordRange,
@@ -1759,8 +1727,8 @@ namespace osmscout {
           continue;
         }
 
-        double  lanesSpace=pathData.mainSlotWidth/lanes;
-        double  laneOffset=-pathData.mainSlotWidth/2.0+lanesSpace;
+        double lanesSpace=pathData.mainSlotWidth/lanes;
+        double laneOffset=-pathData.mainSlotWidth/2.0+lanesSpace;
 
         for (size_t lane=1; lane<lanes; lane++) {
           data.coordRange=coordBuffer.GenerateParallelWay(pathData.coordRange,
@@ -1769,17 +1737,7 @@ namespace osmscout {
           laneOffset+=lanesSpace;
         }
       }
-      else if (lineStyle->GetOffsetRel() == OffsetRel::laneForwardLeft ||
-               lineStyle->GetOffsetRel() == OffsetRel::laneForwardThroughLeft ||
-               lineStyle->GetOffsetRel() == OffsetRel::laneForwardThrough ||
-               lineStyle->GetOffsetRel() == OffsetRel::laneForwardThroughRight ||
-               lineStyle->GetOffsetRel() == OffsetRel::laneForwardRight ||
-               lineStyle->GetOffsetRel() == OffsetRel::laneBackwardLeft ||
-               lineStyle->GetOffsetRel() == OffsetRel::laneBackwardThroughLeft ||
-               lineStyle->GetOffsetRel() == OffsetRel::laneBackwardThrough ||
-               lineStyle->GetOffsetRel() == OffsetRel::laneBackwardThroughRight ||
-               lineStyle->GetOffsetRel() == OffsetRel::laneBackwardRight ) {
-
+      else if (IsLaneOffset(lineStyle->GetOffsetRel())) {
         if (lanesValue==nullptr || lanesValue->GetLanes()<1){
           continue;
         }
@@ -1916,21 +1874,9 @@ namespace osmscout {
       PathTextStyleRef routeTextStyle=styleConfig.GetRoutePathTextStyle(route->GetFeatureValueBuffer(),
                                                                         projection);
 
-      Color color=lineStyle->GetLineColor();
-      if (lineStyle->GetPreferColorFeature()){
-        ColorFeatureValue *colorValue=colorReader.GetValue(route->GetFeatureValueBuffer());
-        if (colorValue != nullptr){
-          color=colorValue->GetColor();
-        }
-      }
+      Color color=CalculateLineColor(route->GetFeatureValueBuffer(),*lineStyle);
 
-      double lineWidth=0;
-      if (lineStyle->GetWidth()>0.0) {
-        lineWidth+=GetProjectedWidth(projection,lineStyle->GetWidth());
-      }
-      if (lineStyle->GetDisplayWidth()>0.0) {
-        lineWidth+=projection.ConvertWidthToPixel(lineStyle->GetDisplayWidth());
-      }
+      double lineWidth=CalculateLineWith(projection,route->GetFeatureValueBuffer(),*lineStyle);
 
       RouteData routeTmp;
       auto FlushRouteData = [&](){
@@ -2017,7 +1963,7 @@ namespace osmscout {
           }
 
           // collapse colors
-          auto &pathData=memberWay->second.wayData;
+          const auto& pathData=memberWay->second.wayData;
           if (memberWay->second.colors.find(color)!=memberWay->second.colors.end()){
             FlushRouteData();
             continue;
@@ -2099,12 +2045,12 @@ namespace osmscout {
     }
 
     // collect data about route labels
-    for (const auto& it : wayDataMap){
-      if (!it.second.labels.empty()){
+    for (const auto& [offset, routes] : wayDataMap){
+      if (!routes.labels.empty()){
         RouteLabelData labelData;
 
-        labelData.wayData= it.second.wayData;
-        labelData.labels = it.second.labels;
+        labelData.wayData= routes.wayData;
+        labelData.labels = routes.labels;
 
         routeLabelData.push_back(labelData);
       }
@@ -2328,14 +2274,14 @@ static void DumpGroundTile(const GroundTile& tile)
     std::set<GeoCoord> drawnLabels;
 #endif
 
-    FillStyleRef       landFill=styleConfig->GetLandFillStyle(projection);
-    FillStyleRef       seaFill=styleConfig->GetSeaFillStyle(projection);
-    FillStyleRef       coastFill=styleConfig->GetCoastFillStyle(projection);
-    FillStyleRef       unknownFill=styleConfig->GetUnknownFillStyle(projection);
-    LineStyleRef       coastlineLine=styleConfig->GetCoastlineLineStyle(projection);
-    std::vector<Point> points;
-    size_t             start=0; // Make the compiler happy
-    size_t             end=0;   // Make the compiler happy
+    FillStyleRef          landFill=styleConfig->GetLandFillStyle(projection);
+    FillStyleRef          seaFill=styleConfig->GetSeaFillStyle(projection);
+    FillStyleRef          coastFill=styleConfig->GetCoastFillStyle(projection);
+    FillStyleRef          unknownFill=styleConfig->GetUnknownFillStyle(projection);
+    LineStyleRef          coastlineLine=styleConfig->GetCoastlineLineStyle(projection);
+    std::vector<GeoCoord> coords;
+    size_t                start=0; // Make the compiler happy
+    size_t                end=0;   // Make the compiler happy
 
     if (!landFill) {
       landFill=this->landFill;
@@ -2415,7 +2361,7 @@ static void DumpGroundTile(const GroundTile& tile)
 #if defined(DEBUG_GROUNDTILES)
         std::cout << " >= sub" << std::endl;
 #endif
-        points.resize(tile.coords.size());
+        coords.resize(tile.coords.size());
 
         for (size_t i=0; i<tile.coords.size(); i++) {
           double lat;
@@ -2424,10 +2370,10 @@ static void DumpGroundTile(const GroundTile& tile)
           lat=groundTileData.boundingBox.GetMinCoord().GetLat() + double(tile.coords[i].y) / double(GroundTile::Coord::CELL_MAX) * (tile.cellHeight+pixelAsDegree);
           lon=groundTileData.boundingBox.GetMinCoord().GetLon() + double(tile.coords[i].x) / double(GroundTile::Coord::CELL_MAX) * (tile.cellWidth+pixelAsDegree);
 
-          points[i].SetCoord(GeoCoord(lat,lon));
+          coords[i]=GeoCoord(lat,lon);
         }
 
-        TransformArea(points,
+        TransformArea(coords,
                       transBuffer,
                       projection,
                       TransPolygon::none,

@@ -58,6 +58,11 @@ namespace osmscout {
     sidecar                     //!< special offset for routes, line are stacked next to way, same colors are "collapsed"
   };
 
+  extern bool IsLaneOffset(OffsetRel rel);
+
+  extern OffsetRel ParseForwardTurnStringToOffset(const std::string& turn);
+  extern OffsetRel ParseBackwardTurnStringToOffset(const std::string& turn);
+
   /**
    * \ingroup Stylesheet
    *
@@ -1283,9 +1288,19 @@ namespace osmscout {
       return symbolSpace;
     }
 
+    bool HasDisplayOffset() const
+    {
+      return displayOffset!=0.0;
+    }
+
     double GetDisplayOffset() const
     {
       return displayOffset;
+    }
+
+    bool HasOffset() const
+    {
+      return offset!=0.0;
     }
 
     double GetOffset() const

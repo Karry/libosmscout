@@ -167,26 +167,20 @@ namespace osmscout {
       double                   mainSlotWidth;   //!< Width of main slot, used for relative positioning
     };
 
-    struct OSMSCOUT_MAP_API PolyData
-    {
-      size_t                   transStart;      //!< Start of coordinates in transformation buffer
-      size_t                   transEnd;        //!< End of coordinates in transformation buffer (inclusive)
-    };
-
     /**
      * Data structure for holding temporary data about areas
      */
     struct OSMSCOUT_MAP_API AreaData
     {
-      ObjectFileRef            ref;
-      TypeInfoRef              type;
-      const FeatureValueBuffer *buffer;         //!< Features of the line segment, can be NULL in case of border only areas
-      FillStyleRef             fillStyle;       //!< Fill style
-      BorderStyleRef           borderStyle;     //!< Border style
-      GeoBox                   boundingBox;     //!< Bounding box of the area
-      bool                     isOuter;         //!< flag if this area is outer ring of some relation
-      CoordBufferRange         coordRange;      //!< Range of coordinates in transformation buffer
-      std::list<PolyData>      clippings;       //!< Clipping polygons to be used during drawing of this area
+      ObjectFileRef               ref;
+      TypeInfoRef                 type;
+      const FeatureValueBuffer    *buffer;         //!< Features of the line segment, can be NULL in case of border only areas
+      FillStyleRef                fillStyle;       //!< Fill style
+      BorderStyleRef              borderStyle;     //!< Border style
+      GeoBox                      boundingBox;     //!< Bounding box of the area
+      bool                        isOuter;         //!< flag if this area is outer ring of some relation
+      CoordBufferRange            coordRange;      //!< Range of coordinates in transformation buffer
+      std::list<CoordBufferRange> clippings;       //!< Clipping polygons to be used during drawing of this area
     };
 
     using WayPathDataIt=std::list<WayPathData>::iterator;
@@ -279,7 +273,7 @@ namespace osmscout {
     //@{
     void DumpDataStatistics(const Projection& projection,
                             const MapParameter& parameter,
-                            const MapData& data);
+                            const MapData& data) const;
     //@}
 
     /**
@@ -301,6 +295,19 @@ namespace osmscout {
                            const Way& way,
                            WayPathData &pathData);
 
+    double CalculateLineWith(const Projection& projection,
+                             const FeatureValueBuffer& buffer,
+                             const LineStyle& lineStyle) const;
+
+    double CalculateLineOffset(const Projection& projection,
+                               const LineStyle& lineStyle,
+                               double lineWidth) const;
+
+    Color CalculateLineColor(const FeatureValueBuffer& buffer,
+                             const LineStyle& lineStyle) const;
+
+    int8_t CalculateLineLayer(const FeatureValueBuffer& buffer) const;
+
     void CalculatePaths(const StyleConfig& styleConfig,
                         const Projection& projection,
                         const MapParameter& parameter,
@@ -315,6 +322,15 @@ namespace osmscout {
                        const Projection& projection,
                        const MapParameter& parameter,
                        const MapData& data);
+
+    bool PrepareAreaRing(const StyleConfig& styleConfig,
+                         const Projection& projection,
+                         const MapParameter& parameter,
+                         const std::vector<CoordBufferRange>& coordRanges,
+                         const Area& area,
+                         const Area::Ring& ring,
+                         size_t i,
+                         const TypeInfoRef& type);
 
     void PrepareArea(const StyleConfig& styleConfig,
                      const Projection& projection,
@@ -473,12 +489,6 @@ namespace osmscout {
     bool IsVisibleWay(const Projection& projection,
                       const GeoBox& boundingBox,
                       double pixelOffset) const;
-
-    void Transform(const Projection& projection,
-                   const MapParameter& parameter,
-                   const GeoCoord& coord,
-                   double& x,
-                   double& y);
 
     double GetProjectedWidth(const Projection& projection,
                              double minPixel,
@@ -646,10 +656,10 @@ namespace osmscout {
 
     //@}
 
-    std::vector<OffsetRel> ParseLaneTurns(const LanesFeatureValue&);
+    std::vector<OffsetRel> ParseLaneTurns(const LanesFeatureValue&) const;
 
   public:
-    MapPainter(const StyleConfigRef& styleConfig);
+    explicit MapPainter(const StyleConfigRef& styleConfig);
     virtual ~MapPainter();
 
     bool Draw(const Projection& projection,
