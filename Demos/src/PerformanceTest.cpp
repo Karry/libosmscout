@@ -28,20 +28,20 @@
 #include <osmscoutmap/MapService.h>
 
 #if defined(HAVE_LIB_OSMSCOUTMAPCAIRO)
-#include <osmscout/MapPainterCairo.h>
+#include <osmscoutmapcairo/MapPainterCairo.h>
 #endif
 #if defined(HAVE_LIB_OSMSCOUTMAPQT)
 #include <QApplication>
 #include <QDesktopWidget>
 #include <QPixmap>
 #include <QScreen>
-#include <osmscout/MapPainterQt.h>
+#include <osmscoutmapqt/MapPainterQt.h>
 #endif
 #if defined(HAVE_LIB_OSMSCOUTMAPAGG)
-#include <osmscout/MapPainterAgg.h>
+#include <osmscoutmapagg/MapPainterAgg.h>
 #endif
 #if defined(HAVE_LIB_OSMSCOUTMAPOPENGL)
-#include <osmscout/MapPainterOpenGL.h>
+#include <osmscoutmapopengl/MapPainterOpenGL.h>
 #include <GLFW/glfw3.h>
 #endif
 
