@@ -26,6 +26,7 @@
 
 #include <osmscout/LocationDescriptionService.h>
 
+#include <algorithm>
 #include <cassert>
 #include <iostream>
 #include <string_view>
@@ -237,6 +238,10 @@ namespace osmscout {
                                                                                   const ObjectFileRef& targetObject)
   {
     for (const auto& object : node.GetObjects()) {
+      if (object.type==refNode) {
+        continue;
+      }
+
       // Way is origin way and starts or ends here so it is not an additional crossing way
       if (originObject.Valid() &&
           object==originObject &&
@@ -304,6 +309,9 @@ namespace osmscout {
                                                                    nodeId);
 
       for (const auto& object : node->GetObjects()) {
+        if (object.type==refNode) {
+          continue;
+        }
         bool canUseForward=postprocessor.CanUseForward(node->GetDatabaseId(),
                                                        nodeId,
                                                        object);
@@ -401,18 +409,18 @@ namespace osmscout {
 
           lookup++;
           while (true) {
-            // Next node does not exists or does not have a path?
+            // Next node does not exist or does not have a path?
             if (lookup==description.Nodes().end() ||
                 !lookup->HasPathObject()) {
               break;
             }
 
-            // Next node is to far away from last node?
+            // Next node is too far away from last node?
             if (lookup->GetDistance()-curveB->GetDistance()>curveMaxNodeDistance) {
               break;
             }
 
-            // Next node is to far away from turn origin?
+            // Next node is too far away from turn origin?
             if (forwardDistance+lookup->GetDistance()-curveB->GetDistance()>curveMaxDistance) {
               break;
             }
@@ -459,12 +467,6 @@ namespace osmscout {
   bool RoutePostprocessor::MotorwayJunctionPostprocessor::Process(const RoutePostprocessor& postprocessor,
                                                                   RouteDescription& description)
   {
-     ObjectFileRef           prevObject;
-     DatabaseId              prevDatabase=0;
-     ObjectFileRef           curObject;
-     DatabaseId              curDatabase;
-
-     WayRef                  way;
      std::string             junctionRef;
      std::string             junctionName;
 
@@ -472,53 +474,48 @@ namespace osmscout {
        junctionName="";
        junctionRef="";
 
-       // The last node does not have a pathWayId set, since we are not going anywhere!
-       if (!node.HasPathObject()) {
+       const DatabaseId dbId=node.GetDatabaseId();
+
+       const auto &it=postprocessor.junctionTypes.find(dbId);
+       if (it==postprocessor.junctionTypes.end()) {
          continue;
        }
 
-       // Only load the next way, if it is different from the old one
-       curObject=node.GetPathObject();
-       curDatabase=node.GetDatabaseId();
+       auto nameReaderIt=postprocessor.nameReaders.find(dbId);
+       assert(nameReaderIt!=postprocessor.nameReaders.end());
+       NameFeatureValueReader* nameReader=nameReaderIt->second;
 
-       if (curObject==prevObject && curDatabase==prevDatabase) {
-         continue;
-       }
+       auto refReaderIt=postprocessor.refReaders.find(dbId);
+       assert(refReaderIt!=postprocessor.refReaders.end());
+       RefFeatureValueReader* refReader=refReaderIt->second;
 
-       switch (node.GetPathObject().GetType()) {
-       case refNone:
-         assert(false);
-         break;
-       case refNode:
-         assert(false);
-         break;
-       case refArea:
-         // TODO: junction in area?
-         break;
-       case refWay:
-         way=postprocessor.GetWay(node.GetDBFileOffset());
+       TypeInfoSet junctionTypes=it->second;
+       for (const auto &obj : node.GetObjects()){
+         if (obj.IsNode()) {
+           NodeRef n=postprocessor.GetNode(DBFileOffset(node.GetDatabaseId(),obj.GetFileOffset()));
+           if (junctionTypes.IsSet(n->GetType())) {
 
-         GeoCoord coord=way->GetCoord(node.GetCurrentNodeIndex());
-         if (!postprocessor.LoadJunction(curDatabase,
-                                         coord,
-                                         junctionRef,
-                                         junctionName)){
-           log.Error() << "Error loading junction!";
-           return false;
+             RefFeatureValue *refFeatureValue=refReader->GetValue(n->GetFeatureValueBuffer());
+
+             if (refFeatureValue!=nullptr) {
+               junctionRef=refFeatureValue->GetRef();
+             }
+
+             NameFeatureValue *nameFeatureValue=nameReader->GetValue(n->GetFeatureValueBuffer());
+
+             if (nameFeatureValue!=nullptr) {
+               junctionName = nameFeatureValue->GetName();
+             }
+
+             if (!junctionName.empty() || !junctionRef.empty()) {
+               RouteDescription::NameDescriptionRef nameDescription=std::make_shared<RouteDescription::NameDescription>(junctionName,
+                                                                                                                        junctionRef);
+               node.AddDescription(RouteDescription::MOTORWAY_JUNCTION_DESC,
+                                   std::make_shared<RouteDescription::MotorwayJunctionDescription>(nameDescription));
+             }
+           }
          }
-
-         break;
        }
-
-       if (!junctionName.empty() || !junctionRef.empty()) {
-         RouteDescription::NameDescriptionRef nameDescription=std::make_shared<RouteDescription::NameDescription>(junctionName,
-                                                                                                                  junctionRef);
-         node.AddDescription(RouteDescription::MOTORWAY_JUNCTION_DESC,
-                             std::make_shared<RouteDescription::MotorwayJunctionDescription>(nameDescription));
-       }
-
-       prevObject=curObject;
-       prevDatabase=curDatabase;
      }
 
      return true;
@@ -640,6 +637,90 @@ namespace osmscout {
                         desc);
   }
 
+  std::vector<RoutePostprocessor::InstructionPostprocessor::NodeExit>
+      RoutePostprocessor::InstructionPostprocessor::CollectNodeExits(const RoutePostprocessor& postprocessor,
+                                                                     RouteDescription::Node& node)
+  {
+    std::vector<NodeExit> exits;
+    if (!node.GetPathObject().IsWay()) {
+      return exits; // just ways are supported in this method
+    }
+
+    WayRef outgoingWay=postprocessor.GetWay(DBFileOffset(node.GetDatabaseId(), node.GetPathObject().GetFileOffset()));
+    Point nodePoint=outgoingWay->nodes[node.GetCurrentNodeIndex()];
+    for (const ObjectFileRef &obj: node.GetObjects()) {
+      if (obj.IsWay()) {
+        WayRef way=postprocessor.GetWay(DBFileOffset(node.GetDatabaseId(), obj.GetFileOffset()));
+        for (size_t ni=0; ni<way->nodes.size(); ++ni) {
+          if (way->nodes[ni].IsIdentical(nodePoint)) {
+            if (ni>0 && postprocessor.CanUseBackward(node.GetDatabaseId(), nodePoint.GetId(), obj)) {
+              exits.push_back({obj, ni-1, GetSphericalBearingInitial(nodePoint.GetCoord(), way->nodes[ni-1].GetCoord())});
+            }
+            if (ni+1<way->nodes.size() && postprocessor.CanUseForward(node.GetDatabaseId(), nodePoint.GetId(), obj)) {
+              exits.push_back({obj, ni+1, GetSphericalBearingInitial(nodePoint.GetCoord(), way->nodes[ni+1].GetCoord())});
+            }
+            break;
+          }
+        }
+      }
+    }
+    return exits;
+  }
+
+  void RoutePostprocessor::InstructionPostprocessor::HandleMiniRoundabout(const RoutePostprocessor& postprocessor,
+                                                                          RouteDescription::Node& node,
+                                                                          ObjectFileRef incomingPath,
+                                                                          size_t incomingNode)
+  {
+    if (incomingPath.type!=refWay) {
+      return; // just ways are supported as roundabout exits
+    }
+
+    auto clockwiseDirectionReader=postprocessor.clockwiseDirectionReaders.find(node.GetDatabaseId());
+    assert(clockwiseDirectionReader != postprocessor.clockwiseDirectionReaders.end());
+
+    roundaboutClockwise=false;
+    for (const auto &obj : node.GetObjects()){
+      if (obj.IsNode()) {
+        NodeRef n=postprocessor.GetNode(DBFileOffset(node.GetDatabaseId(),obj.GetFileOffset()));
+        if (clockwiseDirectionReader->second->IsSet(n->GetFeatureValueBuffer())) {
+          roundaboutClockwise=true;
+          break;
+        }
+      }
+    }
+
+    roundaboutCrossingCounter=0;
+    RouteDescription::RoundaboutEnterDescriptionRef desc=std::make_shared<RouteDescription::RoundaboutEnterDescription>(roundaboutClockwise);
+    node.AddDescription(RouteDescription::ROUNDABOUT_ENTER_DESC,desc);
+
+    // collect roundabout exits
+    std::vector<NodeExit> exits=CollectNodeExits(postprocessor, node);
+    // sort exists by its bearing
+    std::sort(exits.begin(), exits.end(), [&](const NodeExit &a, const NodeExit &b) {
+      if (roundaboutClockwise) {
+        return a.bearing.AsRadians() < b.bearing.AsRadians();
+      } else {
+        return a.bearing.AsRadians() > b.bearing.AsRadians();
+      }
+    });
+
+    bool entered=false;
+    for (size_t i=0;; ++i) {
+      NodeExit &exit=exits[i%exits.size()];
+      if (entered) {
+        roundaboutCrossingCounter++;
+        if (exit.ref==node.GetPathObject() && exit.node==node.GetTargetNodeIndex()) {
+          break;
+        }
+      } else if (exit.ref==incomingPath && exit.node==incomingNode) {
+        entered=true;
+      }
+    }
+
+    RoutePostprocessor::InstructionPostprocessor::HandleRoundaboutLeave(node);
+  }
+
   void RoutePostprocessor::InstructionPostprocessor::HandleRoundaboutNode(RouteDescription::Node& node)
   {
     if (node.HasDescription(RouteDescription::CROSSING_WAYS_DESC)) {
@@ -677,14 +758,62 @@ namespace osmscout {
                         desc);
   }
 
-  bool RoutePostprocessor::InstructionPostprocessor::HandleNameChange(const std::list<RouteDescription::Node>& path,
-                                                                      std::list<RouteDescription::Node>::const_iterator& lastNode,
-                                                                      std::list<RouteDescription::Node>::iterator& node)
+  void RoutePostprocessor::InstructionPostprocessor::HandleMotorwayLink(const RoutePostprocessor& postprocessor,
+                                                                        const RouteDescription::NameDescriptionRef &originName,
+                                                                        const std::list<RouteDescription::Node>::const_iterator &lastNode,
+                                                                        const std::list<RouteDescription::Node>::iterator &node,
+                                                                        const std::list<RouteDescription::Node>::const_iterator &end)
+  {
+    bool                                 originIsMotorway=postprocessor.IsMotorway(*lastNode);
+    bool                                 targetIsMotorway=false;
+    auto                                 next=node;
+    RouteDescription::NameDescriptionRef nextName;
+
+    next++;
+    while (next!=end && next->HasPathObject()) {
+
+      nextName=std::dynamic_pointer_cast<RouteDescription::NameDescription>(next->GetDescription(RouteDescription::WAY_NAME_DESC));
+
+      if (!postprocessor.IsMotorwayLink(*next)) {
+        break;
+      }
+
+      next++;
+    }
+
+    if (next->GetPathObject().Valid()) {
+      targetIsMotorway=postprocessor.IsMotorway(*next);
+    }
+
+    if (originIsMotorway && targetIsMotorway) {
+      RouteDescription::MotorwayChangeDescriptionRef desc=std::make_shared<RouteDescription::MotorwayChangeDescription>(originName,
+                                                                                                                        nextName);
+
+      node->AddDescription(RouteDescription::MOTORWAY_CHANGE_DESC,
+                           desc);
+    }
+    else if (originIsMotorway && !targetIsMotorway) {
+      RouteDescription::MotorwayLeaveDescriptionRef desc=std::make_shared<RouteDescription::MotorwayLeaveDescription>(originName);
+
+      node->AddDescription(RouteDescription::MOTORWAY_LEAVE_DESC,
+                           desc);
+    }
+    else if (!originIsMotorway && targetIsMotorway) {
+      RouteDescription::MotorwayEnterDescriptionRef desc=std::make_shared<RouteDescription::MotorwayEnterDescription>(nextName);
+
+      node->AddDescription(RouteDescription::MOTORWAY_ENTER_DESC,
+                           desc);
+    }
+  }
+
+  bool RoutePostprocessor::InstructionPostprocessor::HandleNameChange(std::list<RouteDescription::Node>::const_iterator& lastNode,
+                                                                      std::list<RouteDescription::Node>::iterator& node,
+                                                                      const std::list<RouteDescription::Node>::const_iterator &end)
   {
     RouteDescription::NameDescriptionRef nextName;
     RouteDescription::NameDescriptionRef lastName;
 
-    if (lastNode==path.end()) {
+    if (lastNode==end) {
       return false;
     }
 
@@ -724,8 +853,9 @@ namespace osmscout {
     return true;
   }
 
-  bool RoutePostprocessor::InstructionPostprocessor::HandleDirectionChange(const std::list<RouteDescription::Node>& path,
-                                                                           std::list<RouteDescription::Node>::iterator& node)
+  bool RoutePostprocessor::InstructionPostprocessor::HandleDirectionChange(const RoutePostprocessor& postprocessor,
+                                                                           std::list<RouteDescription::Node>::iterator& node,
+                                                                           const std::list<RouteDescription::Node>::const_iterator& end)
   {
     if (node->GetObjects().size()<=1){
       return false;
@@ -737,7 +867,7 @@ namespace osmscout {
 
     --lastNode;
 
-    if (lastNode==path.end()) {
+    if (lastNode==end) {
       return false;
     }
 
@@ -747,13 +877,30 @@ namespace osmscout {
     RouteDescription::DescriptionRef          desc=node->GetDescription(RouteDescription::DIRECTION_DESC);
     RouteDescription::DirectionDescriptionRef directionDesc=std::dynamic_pointer_cast<RouteDescription::DirectionDescription>(desc);
 
+    if (!directionDesc ||
+        directionDesc->GetCurve()==RouteDescription::DirectionDescription::straightOn) {
+      return false;
+    }
+
+    // When there is no other way in junction that can be used for driving from the junction,
+    // we don't have to signalize explicit turn.
+    // There may be one-way in forbidden direction or way with forbidden type for current vehicle.
+    if (lastNode->GetDatabaseId() == node->GetDatabaseId()) {
+      std::vector<NodeExit> exits=CollectNodeExits(postprocessor, *node);
+      auto IsIncoming = [&](const auto &exit) { return exit.ref==lastNode->GetPathObject() && exit.node==lastNode->GetCurrentNodeIndex(); };
+      auto IsOutgoing = [&](const auto &exit) { return exit.ref==node->GetPathObject() && exit.node==node->GetTargetNodeIndex(); };
+      auto IsUsable = [&](const auto &exit) { return !IsIncoming(exit) && !IsOutgoing(exit); };
+      auto usableExit=std::find_if(exits.begin(), exits.end(), IsUsable);
+      if (usableExit == exits.end()) {
+        return false;
+      }
+    }
+
     if (lastName &&
         nextName &&
-        directionDesc &&
         lastName->GetName()==nextName->GetName() &&
         lastName->GetRef()==nextName->GetRef()) {
       if (directionDesc->GetCurve()!=RouteDescription::DirectionDescription::slightlyLeft &&
-          directionDesc->GetCurve()!=RouteDescription::DirectionDescription::straightOn &&
           directionDesc->GetCurve()!=RouteDescription::DirectionDescription::slightlyRight) {
 
           node->AddDescription(RouteDescription::TURN_DESC,
@@ -762,8 +909,7 @@ namespace osmscout {
           return true;
       }
     }
-    else if (directionDesc &&
-        directionDesc->GetCurve()!=RouteDescription::DirectionDescription::straightOn) {
+    else {
 
       node->AddDescription(RouteDescription::TURN_DESC,
                            std::make_shared<RouteDescription::TurnDescription>());
@@ -813,6 +959,15 @@ namespace osmscout {
 
       if (node->HasPathObject()) {
         targetName=std::dynamic_pointer_cast<RouteDescription::NameDescription>(node->GetDescription(RouteDescription::WAY_NAME_DESC));
+      }
+
+      if (postprocessor.IsMiniRoundabout(*node) &&
+          !inRoundabout &&
+          lastNode->GetDatabaseId() == node->GetDatabaseId()) {
+        HandleMiniRoundabout(postprocessor, *node, lastNode->GetPathObject(), lastNode->GetCurrentNodeIndex());
+
+        lastNode=node++;
+        continue;
       }
 
       if (!postprocessor.IsRoundabout(*lastNode) &&
@@ -866,68 +1021,13 @@ namespace osmscout {
 
       if (!postprocessor.IsMotorwayLink(*lastNode) &&
                postprocessor.IsMotorwayLink(*node)) {
-        bool                                 originIsMotorway=postprocessor.IsMotorway(*lastNode);
-        bool                                 targetIsMotorway=false;
-        auto                                 next=node;
-        RouteDescription::NameDescriptionRef nextName;
 
-        next++;
-        while (next!=description.Nodes().end() &&
-               next->HasPathObject()) {
-
-          nextName=std::dynamic_pointer_cast<RouteDescription::NameDescription>(next->GetDescription(RouteDescription::WAY_NAME_DESC));
-
-          if (!postprocessor.IsMotorwayLink(*next)) {
-            break;
-          }
-
-          next++;
-        }
-
-        if (next->GetPathObject().Valid()) {
-          targetIsMotorway=postprocessor.IsMotorway(*next);
-        }
-
-        if (originIsMotorway && targetIsMotorway) {
-          RouteDescription::MotorwayChangeDescriptionRef desc=std::make_shared<RouteDescription::MotorwayChangeDescription>(originName,
-                                                                                                                            nextName);
-
-          node->AddDescription(RouteDescription::MOTORWAY_CHANGE_DESC,
-                               desc);
-
-          node=next;
-          lastNode=node++;
-
-          continue;
-
-        }
-
-        if (originIsMotorway && !targetIsMotorway) {
-          RouteDescription::MotorwayLeaveDescriptionRef desc=std::make_shared<RouteDescription::MotorwayLeaveDescription>(originName);
-
-          node->AddDescription(RouteDescription::MOTORWAY_LEAVE_DESC,
-                               desc);
-
-          HandleDirectionChange(description.Nodes(),
-                                next);
-
-          node=next;
-          lastNode=node++;
-
-          continue;
-        }
-
-        if (!originIsMotorway && targetIsMotorway) {
-          RouteDescription::MotorwayEnterDescriptionRef desc=std::make_shared<RouteDescription::MotorwayEnterDescription>(nextName);
-
-          node->AddDescription(RouteDescription::MOTORWAY_ENTER_DESC,
-                               desc);
-
-          node=next;
-          lastNode=node++;
-
-          continue;
-        }
+        // adds MotorwayEnter, MotorwayChange or MotorwayLeave depending on what is after motorway_link
+        HandleMotorwayLink(postprocessor,
+                           originName,
+                           lastNode,
+                           node,
+                           description.Nodes().end());
 
         lastNode=node++;
 
@@ -937,16 +1037,15 @@ namespace osmscout {
       if (inRoundabout) {
         HandleRoundaboutNode(*node);
       }
-      else if (HandleDirectionChange(description.Nodes(),
-                                     node)) {
+      else if (HandleDirectionChange(postprocessor, node, description.Nodes().end())) {
         lastNode=node++;
 
         continue;
       }
 
-      if (HandleNameChange(description.Nodes(),
-                           lastNode,
-                           node)) {
+      if (HandleNameChange(lastNode,
+                           node,
+                           description.Nodes().end())) {
         lastNode=node++;
 
         continue;
@@ -1612,15 +1711,18 @@ namespace osmscout {
     return true;
   }
 
-  bool RoutePostprocessor::ResolveAllAreasAndWays(const RouteDescription& description,
-                                                  DatabaseId dbId,
-                                                  Database& database)
+  bool RoutePostprocessor::ResolveAllPathObjects(const RouteDescription& description,
+                                                 DatabaseId dbId,
+                                                 Database& database)
   {
     std::set<FileOffset>         areaOffsets;
     std::vector<AreaRef>         areas;
 
     std::set<FileOffset>         wayOffsets;
     std::vector<WayRef>          ways;
+
+    std::set<FileOffset>         nodeOffsets;
+    std::vector<NodeRef>         nodes;
 
     for (const auto &node : description.Nodes()) {
       if (node.GetDatabaseId()!=dbId){
@@ -1644,8 +1746,9 @@ namespace osmscout {
       for (const auto &object : node.GetObjects()) {
         switch (object.GetType()) {
         case refNone:
-        case refNode:
           assert(false);
+        case refNode:
+          nodeOffsets.insert(object.GetFileOffset());
           break;
         case refArea:
           areaOffsets.insert(object.GetFileOffset());
@@ -1656,6 +1759,19 @@ namespace osmscout {
         }
       }
     }
+
+    if (!database.GetNodesByOffset(nodeOffsets,nodes)) {
+      log.Error() << "Cannot retrieve junction nodes";
+      return false;
+    }
+
+    nodeOffsets.clear();
+
+    for (const auto& node : nodes) {
+      nodeMap[DBFileOffset(dbId,node->GetFileOffset())]=node;
+    }
+
+    nodes.clear();
 
     if (!database.GetWaysByOffset(wayOffsets,ways)) {
       log.Error() << "Cannot retrieve crossing ways";
@@ -1690,6 +1806,7 @@ namespace osmscout {
   {
     areaMap.clear();
     wayMap.clear();
+    nodeMap.clear();
 
     motorwayTypes.clear();
     motorwayLinkTypes.clear();
@@ -1713,6 +1830,11 @@ namespace osmscout {
       delete p.second;
     }
     roundaboutReaders.clear();
+
+    for (const auto& p:clockwiseDirectionReaders){
+      delete p.second;
+    }
+    clockwiseDirectionReaders.clear();
 
     for (const auto& p:destinationReaders){
       delete p.second;
@@ -1749,6 +1871,15 @@ namespace osmscout {
     auto entry=wayMap.find(offset);
 
     assert(entry!=wayMap.end());
+
+    return entry->second;
+  }
+
+  NodeRef RoutePostprocessor::GetNode(const DBFileOffset &offset) const
+  {
+    auto entry=nodeMap.find(offset);
+
+    assert(entry!=nodeMap.end());
 
     return entry->second;
   }
@@ -1848,84 +1979,6 @@ namespace osmscout {
     return std::make_shared<RouteDescription::NameDescription>(name,ref);
   }
 
-  bool RoutePostprocessor::LoadJunction(DatabaseId dbId,
-                                        GeoCoord coord,
-                                        std::string junctionRef,
-                                        std::string junctionName) const
-  {
-    double                  delta=1E-7;
-    std::vector<FileOffset> nodeOffsets;
-    std::vector<NodeRef>    nodes;
-
-    auto nameReaderIt=nameReaders.find(dbId);
-    assert(nameReaderIt!=nameReaders.end());
-    NameFeatureValueReader* nameReader=nameReaderIt->second;
-
-    auto refReaderIt=refReaders.find(dbId);
-    assert(refReaderIt!=refReaders.end());
-    RefFeatureValueReader* refReader=refReaderIt->second;
-
-    assert(dbId<databases.size() && databases[dbId]);
-    DatabaseRef database=databases[dbId];
-
-    AreaNodeIndexRef areaNodeIndex=database->GetAreaNodeIndex();
-
-    if (!areaNodeIndex) {
-      return false;
-    }
-
-    auto it=junctionTypes.find(dbId);
-    assert(it!=junctionTypes.end());
-    TypeInfoSet nodeTypes=it->second;
-
-    TypeInfoSet loadedTypes;
-    GeoBox boundingBox(GeoCoord(coord.GetLat()-delta,coord.GetLon()-delta),
-                       GeoCoord(coord.GetLat()+delta,coord.GetLon()+delta));
-
-    nodeOffsets.clear();
-    if (!areaNodeIndex->GetOffsets(boundingBox,
-                                   nodeTypes,
-                                   nodeOffsets,
-                                   loadedTypes)) {
-      log.Error() << "Error getting nodes from area node index!";
-      return false;
-    }
-
-    if (nodeOffsets.empty()) {
-      return true;
-    }
-
-    nodes.clear();
-    std::sort(nodeOffsets.begin(),nodeOffsets.end());
-
-    if (!database->GetNodesByOffset(nodeOffsets,
-                                   nodes)) {
-      log.Error() << "Error reading nodes in area!";
-      return false;
-    }
-
-    for (const auto& node : nodes) {
-      if (fabs(node->GetCoords().GetLat() - coord.GetLat()) < delta &&
-          fabs(node->GetCoords().GetLon() - coord.GetLon()) < delta) {
-        RefFeatureValue *refFeatureValue=refReader->GetValue(node->GetFeatureValueBuffer());
-
-        if (refFeatureValue!=nullptr) {
-          junctionRef=refFeatureValue->GetRef();
-        }
-
-        NameFeatureValue *nameFeatureValue=nameReader->GetValue(node->GetFeatureValueBuffer());
-
-        if (nameFeatureValue!=nullptr) {
-          junctionName = nameFeatureValue->GetName();
-        }
-
-        break;
-      }
-    }
-
-    return true;
-  }
-
   bool RoutePostprocessor::IsMotorwayLink(const RouteDescription::Node& node) const
   {
     auto types=motorwayLinkTypes.find(node.GetDatabaseId());
@@ -1959,6 +2012,24 @@ namespace osmscout {
       return types->second.IsSet(way->GetType());
     }
 
+    return false;
+  }
+
+  bool RoutePostprocessor::IsMiniRoundabout(const RouteDescription::Node& node) const
+  {
+    const auto &it=miniRoundaboutTypes.find(node.GetDatabaseId());
+    if (it==miniRoundaboutTypes.end()) {
+      return false;
+    }
+    TypeInfoRef miniRoundaboutType=it->second;
+    for (const auto &obj : node.GetObjects()){
+      if (obj.IsNode()) {
+        NodeRef n=GetNode(DBFileOffset(node.GetDatabaseId(),obj.GetFileOffset()));
+        if (n->GetType()==miniRoundaboutType) {
+          return true;
+        }
+      }
+    }
     return false;
   }
 
@@ -2280,7 +2351,8 @@ namespace osmscout {
                                                        const std::list<PostprocessorRef>& processors,
                                                        const std::set<std::string>& motorwayTypeNames,
                                                        const std::set<std::string>& motorwayLinkTypeNames,
-                                                       const std::set<std::string>& junctionTypeNames)
+                                                       const std::set<std::string>& junctionTypeNames,
+                                                       const std::string& miniRoundaboutTypeName)
   {
     Cleanup(); // We do not trust ourself ;-)
 
@@ -2297,6 +2369,7 @@ namespace osmscout {
       refReaders[dbId]=new RefFeatureValueReader(*typeConfig);
       bridgeReaders[dbId]=new BridgeFeatureReader(*typeConfig);
       roundaboutReaders[dbId]=new RoundaboutFeatureReader(*typeConfig);
+      clockwiseDirectionReaders[dbId]=new ClockwiseDirectionFeatureReader(*typeConfig);
       destinationReaders[dbId]=new DestinationFeatureValueReader(*typeConfig);
       maxSpeedReaders[dbId]=new MaxSpeedFeatureValueReader(*typeConfig);
       lanesReaders[dbId]=new LanesFeatureValueReader(*typeConfig);
@@ -2321,10 +2394,12 @@ namespace osmscout {
         junctionTypes[dbId].Set(type);
       }
 
+      miniRoundaboutTypes[dbId]=typeConfig->GetTypeInfo(miniRoundaboutTypeName);
+
       // load objects
-      if (!ResolveAllAreasAndWays(description,
-                                  dbId,
-                                  *database)) {
+      if (!ResolveAllPathObjects(description,
+                                 dbId,
+                                 *database)) {
         Cleanup();
         return false;
       }

@@ -21,6 +21,7 @@ set(SOURCE_FILES
     qml/main.qml
     qml/SearchDialog.qml
     qml/MapDownloadDialog.qml
+    qml/VoiceDownloadDialog.qml
     qml/custom/MapDialog.qml
     qml/custom/ScrollIndicator.qml
     qml/custom/LineEdit.qml
@@ -120,11 +121,11 @@ install(TARGETS OSMScout2 RUNTIME DESTINATION bin LIBRARY DESTINATION lib ARCHIV
 # install QM files to correct location - QStandardPaths::AppDataLocation / "translations"
 if(APPLE)
 	install(FILES ${TRANSLATION_QM_FILES}
-			DESTINATION "/Library/Application Support/libosmscout/OSMScout2/translations")
+			DESTINATION "/Library/Application Support/osmscout/OSMScout2/translations")
 elseif(WIN32)
 #	install(FILES ${TRANSLATION_QM_FILES}
-#			DESTINATION C:/ProgramData/libosmscout/OSMScout2/translations)
+#			DESTINATION C:/ProgramData/osmscout/OSMScout2/translations)
 else() # Linux
 	install(FILES ${TRANSLATION_QM_FILES}
-			DESTINATION share/libosmscout/OSMScout2/translations)
+			DESTINATION share/osmscout/OSMScout2/translations)
 endif()
