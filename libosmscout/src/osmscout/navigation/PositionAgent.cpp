@@ -180,10 +180,6 @@ namespace osmscout {
     }
   }
 
-  PositionAgent::PositionAgent()
-  {
-  }
-
   std::list<NavigationMessageRef> PositionAgent::Process(const NavigationMessageRef& message)
   {
     std::list<NavigationMessageRef> result;
