@@ -30,8 +30,29 @@
 
 namespace osmscout {
   class OSMSCOUT_MAP_OPENGL_API MapPainterOpenGL
-   {
+  {
   private:
+    /**
+     * Type of the line vertex.
+     * It is necessary for joining triangles correctly.
+     *
+     *  1 ----------- 3 5 ----------- 3 5 ----------- 7
+     *  |       _____/| |       _____/| |       _____/|
+     *  |  ____/      | |  ____/      | |  ____/      |
+     *  2 /__________ 4 6 /---------- 4 6 /---------- 8
+     */
+    enum PathVertexType: int {
+      TStart = 1,
+      BStart = 2,
+      TR = 3,
+      BR = 4,
+      TL = 5,
+      BL = 6,
+      TEnd = 7,
+      BEnd = 8
+    };
+  private:
+    bool initialized = false;
 
     int width;
     int height;
@@ -48,22 +69,22 @@ namespace osmscout {
     float lookX;
     float lookY;
 
-    OpenGLMapData AreaRenderer;
-    OpenGLMapData GroundTileRenderer;
-    OpenGLMapData GroundRenderer;
-    OpenGLMapData WayRenderer;
-    OpenGLMapData ImageRenderer;
-    OpenGLMapData TextRenderer;
+    OpenGLMapData<GL_RGBA, 4> areaRenderer;
+    OpenGLMapData<GL_RGBA, 4> groundTileRenderer;
+    OpenGLMapData<GL_RGBA, 4> groundRenderer;
+    OpenGLMapData<GL_RGBA, 4> wayRenderer;
+    OpenGLMapData<GL_RGBA, 4> imageRenderer;
+    OpenGLMapData<GL_RED, 1> textRenderer;
 
-    TextLoader Textloader;
+    TextLoader textLoader;
 
-    osmscout::MapData MapData;
+    osmscout::MapData mapData;
     osmscout::StyleConfigRef styleConfig;
-    osmscout::MapParameter Parameter;
+    osmscout::MapParameter parameter;
     osmscout::FillStyleRef landFill;
     osmscout::FillStyleRef seaFill;
-    osmscout::GeoCoord Center;
-    osmscout::Magnification Magnification;
+    osmscout::GeoCoord center;
+    osmscout::Magnification magnification;
 
     /**
      * Processes OSM area data, and converts to the format required by the OpenGL pipeline
@@ -112,7 +133,7 @@ namespace osmscout {
     void SwapWayData();
 
     void AddPathVertex(osmscout::Point current, osmscout::Point previous, osmscout::Point next,
-                       osmscout::Color color, int type, float width, glm::vec3 barycentric, int border = 0,
+                       osmscout::Color color, PathVertexType type, float width, glm::vec3 barycentric, int border = 0,
                        double z = 0, float dashsize = 0.0, float length = 1,
                        osmscout::Color gapcolor = osmscout::Color(1.0, 1.0, 1.0, 1.0));
 
@@ -122,9 +143,16 @@ namespace osmscout {
 
   public:
 
-    MapPainterOpenGL(int width, int height, double dpi, int screenWidth, int screenHeight, std::string fontPath);
+    MapPainterOpenGL(int width, int height, double dpi, int screenWidth, int screenHeight,
+                     const std::string &fontPath, const std::string &shaderDir,
+                     long defaultTextSize=12);
 
-    ~MapPainterOpenGL();
+    ~MapPainterOpenGL() = default;
+
+    bool IsInitialized() const
+    {
+      return initialized;
+    }
 
     /**
      * Zooms on the map.
