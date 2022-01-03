@@ -389,7 +389,7 @@ void DBThread::LoadStyle(QString stylesheetFilename,
                          const QString &suffix)
 {
   QWriteLocker locker(&lock);
-  LoadStyle(stylesheetFilename, stylesheetFlags, suffix);
+  LoadStyleInternal(stylesheetFilename, stylesheetFlags, suffix);
 }
 
 void DBThread::LoadStyleInternal(QString stylesheetFilename,
