@@ -23,7 +23,7 @@
 #include <iomanip>
 #include <limits>
 #include <list>
-#include <math.h>
+#include <cmath>
 
 #include <osmscout/system/Assert.h>
 #include <osmscout/system/Math.h>
@@ -117,7 +117,7 @@ namespace osmscout {
 		Gdiplus::Graphics* m_pGraphics;
 
 		GdiRender(INT width, INT height)
-			: m_pMemBitmap(NULL)
+			: m_pMemBitmap(nullptr)
 			, m_width(width)
 			, m_height(height)
 		{
@@ -178,7 +178,7 @@ namespace osmscout {
 			return m_SolidBrushes[colorGdi.GetValue()];
 		}
 
-		inline Gdiplus::SolidBrush* GetSolidBrush(FillStyleRef fillstyle)
+		inline Gdiplus::SolidBrush* GetSolidBrush(const FillStyleRef& fillstyle)
 		{
 			return GetSolidBrush(fillstyle->GetFillColor());
 		}
@@ -199,9 +199,9 @@ namespace osmscout {
 				(BYTE)startCap,
 				(BYTE)endCap
 			};
-			
-			for (size_t uj = 0; uj < dash.size(); uj++) {
-				key.dashs += (float)dash[uj];
+
+			for (double uj : dash) {
+				key.dashs += (float)uj;
 			}
 
 			auto existingPen = m_Pens.find(key);
@@ -211,14 +211,14 @@ namespace osmscout {
 			}
 
             Gdiplus::Pen* pen = new Gdiplus::Pen(GetSolidBrush(color), (Gdiplus::REAL)width);
-			
+
 			switch (startCap)
 			{
 			case LineStyle::CapStyle::capRound: pen->SetStartCap(Gdiplus::LineCap::LineCapRound); break;
 			case LineStyle::CapStyle::capSquare: pen->SetStartCap(Gdiplus::LineCap::LineCapSquare); break;
 			default: break;
 			}
-			
+
 			switch (endCap)
 			{
 			case LineStyle::CapStyle::capRound: pen->SetEndCap(Gdiplus::LineCap::LineCapRound); break;
@@ -226,7 +226,7 @@ namespace osmscout {
 			default: break;
 			}
 
-			if (dash.size() > 0) {
+			if (!dash.empty()) {
 				Gdiplus::REAL* dashArray = new Gdiplus::REAL[dash.size()];
 				for (size_t uj = 0; uj < dash.size(); uj++) dashArray[uj] = (Gdiplus::REAL)dash[uj];
 				pen->SetDashPattern(dashArray, (INT)dash.size());
@@ -243,7 +243,7 @@ namespace osmscout {
 			return GetPen(border->GetColor(), border->GetWidth(), border->GetDash());
 		}
 
-		Gdiplus::Font* GetFont(std::string fontname, double fontsize)
+		Gdiplus::Font* GetFont(const std::string& fontname, double fontsize)
 		{
 			FONTDEF key = { fontname, (float)fontsize };
 			if (m_Fonts.find(key) == m_Fonts.end())
@@ -254,16 +254,16 @@ namespace osmscout {
 			return m_Fonts[key];
 		}
 
-		Gdiplus::Image* GetIcon(size_t iconID, std::string path = "")
+		Gdiplus::Image* GetIcon(size_t iconID, const std::string& path = "")
 		{
 			if (m_Images.find(iconID) == m_Images.end() && path.length() > 0)
 			{
 				const wchar_t* ext[] = { L".png", L".jpeg", L".jpg", L".gif", L".tiff", L".tif", L".bmp", L".emf", NULL };
-				for (int i = 0; ext[i] != NULL; i++)
+				for (int i = 0; ext[i] != nullptr; i++)
 				{
 					std::wstring filepath = osmscout::UTF8StringToWString(path) + ext[i];
 					Gdiplus::Image* pImage = Gdiplus::Image::FromFile(filepath.c_str());
-					if (pImage != NULL)
+					if (pImage != nullptr)
 					{
 						if (pImage->GetHeight() > 0 && pImage->GetWidth() > 0)
 						{
@@ -274,14 +274,14 @@ namespace osmscout {
 				}
 			}
 			if (m_Images.find(iconID) == m_Images.end())
-				return NULL;
+				return nullptr;
 			else
 				return m_Images[iconID];
 		}
 
-		inline INT GetWidth() { return m_width; }
+		inline INT GetWidth() const { return m_width; }
 
-		inline INT GetHeight() { return m_height; }
+		inline INT GetHeight() const { return m_height; }
 	};
 
 #define RENDEROBJECT(r) if (m_pBuffer == NULL) return; \
@@ -292,53 +292,36 @@ namespace osmscout {
 	class PointFBuffer
 	{
 	public:
-		Gdiplus::PointF* m_Data;
-		size_t m_Size;
+		std::vector<Gdiplus::PointF> m_Data;
 
 	public:
-		PointFBuffer()
-			: m_Data(NULL)
-			, m_Size(0)
-		{
-		}
+		PointFBuffer() = default;
+        PointFBuffer(size_t bufferSize)
+        {
+            m_Data.reserve(bufferSize);
+        }
 
-		~PointFBuffer()
-		{
-			if (m_Data != NULL)
-			{
-				delete m_Data;
-				m_Data = NULL;
-				m_Size = 0;
-			}
-		}
+        void Reserve(size_t bufferSize)
+        {
+            m_Data.reserve(bufferSize);
+        }
 
 		void AddPoint(Gdiplus::PointF pt)
 		{
-			m_Size++;
-			if (m_Size == 1)
-			{
-				m_Data = new Gdiplus::PointF[m_Size];
-				m_Data[0] = pt;
-			}
-			else
-			{
-				Gdiplus::PointF* tmp = new Gdiplus::PointF[m_Size];
-				for (size_t i = 0; i < m_Size - 1; i++) tmp[i] = m_Data[i];
-				tmp[m_Size - 1] = pt;
-				delete m_Data;
-				m_Data = tmp;
-			}
+            m_Data.push_back(pt);
 		}
 
 		inline void AddPoint(float x, float y) { AddPoint(Gdiplus::PointF((Gdiplus::REAL)x, (Gdiplus::REAL)y)); }
 		inline void AddPoint(double x, double y) { AddPoint(Gdiplus::PointF((Gdiplus::REAL)x, (Gdiplus::REAL)y)); }
 
-		inline void Close() { if (m_Size > 0) { if (!m_Data[0].Equals(m_Data[m_Size - 1])) AddPoint(m_Data[0]); } }
-
-		double GetLength()
+		double GetLength() const
 		{
 			double result = 0;
-			for (size_t i = 1; i < m_Size; i++) result += sqrt((m_Data[i].X - m_Data[i - 1].X) * (m_Data[i].X - m_Data[i - 1].X) + (m_Data[i].Y - m_Data[i - 1].Y) * (m_Data[i].Y - m_Data[i - 1].Y));
+			for (size_t i = 1; i < m_Data.size(); i++)
+            {
+                result += sqrt((m_Data[i].X - m_Data[i - 1].X) * (m_Data[i].X - m_Data[i - 1].X) +
+                                   (m_Data[i].Y - m_Data[i - 1].Y) * (m_Data[i].Y - m_Data[i - 1].Y));
+            }
 			return result;
 		}
 	};
@@ -346,12 +329,12 @@ namespace osmscout {
 	MapPainterGDI::MapPainterGDI(const StyleConfigRef& styleConfig)
 		: MapPainter(styleConfig)
 		, m_labelLayouter(this)
-		, m_pBuffer(NULL)
+		, m_pBuffer(nullptr)
 	{
 		if (m_gdiplusInstCount == 0)
 		{
 			Gdiplus::GdiplusStartupInput gdiplusStartupInput;
-			Gdiplus::GdiplusStartup(&m_gdiplusToken, &gdiplusStartupInput, NULL);
+			Gdiplus::GdiplusStartup(&m_gdiplusToken, &gdiplusStartupInput, nullptr);
 		}
 		m_gdiplusInstCount++;
 		m_pBuffer = new GdiRender(100, 100);
@@ -359,11 +342,11 @@ namespace osmscout {
 
 	MapPainterGDI::~MapPainterGDI()
 	{
-		if (m_pBuffer != NULL)
+		if (m_pBuffer != nullptr)
 		{
 			((GdiRender*)m_pBuffer)->Release();
 			delete m_pBuffer;
-			m_pBuffer = NULL;
+			m_pBuffer = nullptr;
 		}
 		m_gdiplusInstCount--;
 		if (m_gdiplusToken > 0 && m_gdiplusInstCount == 0)
@@ -392,10 +375,10 @@ namespace osmscout {
 
 	DoubleRectangle MapPainterGDI::GlyphBoundingBox(const NativeGlyph &glyph) const
 	{
-		return DoubleRectangle(0.0,
+		return {0.0,
 			(double)(glyph.height * -1),
 			(double)glyph.width,
-			(double)glyph.height);
+			(double)glyph.height};
 	}
 
 	std::shared_ptr<MapPainterGDI::GdiLabel> MapPainterGDI::Layout(const Projection& projection,
@@ -448,7 +431,9 @@ namespace osmscout {
 				pFont->GetFamily(&fontFamily);
 				Gdiplus::GraphicsPath path;
 				path.AddString(text.c_str(), (INT)text.length(), &fontFamily, pFont->GetStyle(), projection.ConvertWidthToPixel(label.fontSize * parameter.GetFontSize()), rectF, &stringFormat);
-				Gdiplus::Pen* pPen = pRender->GetPen(osmscout::Color::WHITE);
+				osmscout::Color fill = style->GetEmphasizeColor();
+				if (label.alpha != 1.0) fill = osmscout::Color(fill.GetR(), fill.GetG(), fill.GetB(), label.alpha);
+				Gdiplus::Pen* pPen = pRender->GetPen(fill);
 				pRender->m_pGraphics->DrawPath(pPen, &path);
 				pRender->m_pGraphics->FillPath(pBrush, &path);
 			}
@@ -474,7 +459,7 @@ namespace osmscout {
 
 	void MapPainterGDI::DrawGlyphs(const Projection &projection,
 		const MapParameter &parameter,
-		const osmscout::PathTextStyleRef style,
+		const osmscout::PathTextStyleRef& style,
 		const std::vector<GdiGlyph> &glyphs)
 	{
 		assert(!glyphs.empty());
@@ -556,11 +541,11 @@ namespace osmscout {
 		style.SetHeight((unsigned int)dimension);
 
 		Gdiplus::Image* pImage = pRender->GetIcon(idx);
-		if (pImage != NULL) return true;
+		if (pImage != nullptr) return true;
 
 		for (const auto& path : parameter.GetIconPaths()) {
 			pImage = pRender->GetIcon(idx, AppendFileToDir(path, style.GetIconName()));
-			if (pImage != NULL) return true;
+			if (pImage != nullptr) return true;
 		}
 
 		style.SetIconId(0);
@@ -641,40 +626,64 @@ namespace osmscout {
 
 			if (polygon != nullptr)
 			{
-				pPen = (polygon->GetBorderStyle()) ? pRender->GetPen(polygon->GetBorderStyle()) : NULL;
-				pBrush = (polygon->GetFillStyle()) ? pRender->GetSolidBrush(polygon->GetFillStyle()) : NULL;
-				PointFBuffer polypoints;
-				for (auto pixel = polygon->GetCoords().begin();
-					pixel != polygon->GetCoords().end();
-					++pixel) {
-					polypoints.AddPoint(x + projection.ConvertWidthToPixel(pixel->GetX()) - centerX, y + projection.ConvertWidthToPixel(pixel->GetY()) - centerY);
+				pPen = (polygon->GetBorderStyle()) ? pRender->GetPen(polygon->GetBorderStyle()) : nullptr;
+				pBrush = (polygon->GetFillStyle()) ? pRender->GetSolidBrush(polygon->GetFillStyle()) : nullptr;
+				PointFBuffer polypoints(polygon->GetCoords().size());
+				for (const auto&  pixel: polygon->GetCoords()) {
+					polypoints.AddPoint(x + projection.ConvertWidthToPixel(pixel.GetX()) - centerX,
+                                        y + projection.ConvertWidthToPixel(pixel.GetY()) - centerY);
 				}
-				if (pBrush) pRender->m_pGraphics->FillPolygon(pBrush, polypoints.m_Data, (INT)polypoints.m_Size);
-				if (pPen) pRender->m_pGraphics->DrawPolygon(pPen, polypoints.m_Data, (INT)polypoints.m_Size);
+				if (pBrush != nullptr)
+                {
+                    pRender->m_pGraphics->FillPolygon(pBrush,
+                                                      polypoints.m_Data.data(),
+                                                      (INT)polypoints.m_Data.size());
+                }
+
+                if (pPen != nullptr)
+                {
+                    pRender->m_pGraphics->DrawPolygon(pPen,
+                                                      polypoints.m_Data.data(),
+                                                      (INT)polypoints.m_Data.size());
+                }
 			}
 			else if (rectangle != nullptr) {
-				pPen = (rectangle->GetBorderStyle()) ? pRender->GetPen(rectangle->GetBorderStyle()) : NULL;
-				pBrush = (rectangle->GetFillStyle()) ? pRender->GetSolidBrush(rectangle->GetFillStyle()) : NULL;
+				pPen = (rectangle->GetBorderStyle()) ? pRender->GetPen(rectangle->GetBorderStyle()) : nullptr;
+				pBrush = (rectangle->GetFillStyle()) ? pRender->GetSolidBrush(rectangle->GetFillStyle()) : nullptr;
 				Gdiplus::RectF rect(
 					(Gdiplus::REAL)(x + projection.ConvertWidthToPixel(rectangle->GetTopLeft().GetX()) - centerX),
 					(Gdiplus::REAL)(y + projection.ConvertWidthToPixel(rectangle->GetTopLeft().GetY()) - centerY),
 					(Gdiplus::REAL)(projection.ConvertWidthToPixel(rectangle->GetWidth())),
 					(Gdiplus::REAL)(projection.ConvertWidthToPixel(rectangle->GetHeight()))
 				);
-				if (pBrush) pRender->m_pGraphics->FillRectangle(pBrush, rect);
-				if (pPen) pRender->m_pGraphics->DrawRectangle(pPen, rect);
+				if (pBrush != nullptr)
+                {
+                    pRender->m_pGraphics->FillRectangle(pBrush, rect);
+                }
+
+				if (pPen != nullptr)
+                {
+                    pRender->m_pGraphics->DrawRectangle(pPen, rect);
+                }
 			}
 			else if (circle != nullptr) {
-				pPen = (circle->GetBorderStyle()) ? pRender->GetPen(circle->GetBorderStyle()) : NULL;
-				pBrush = (circle->GetFillStyle()) ? pRender->GetSolidBrush(circle->GetFillStyle()) : NULL;
+				pPen = (circle->GetBorderStyle()) ? pRender->GetPen(circle->GetBorderStyle()) : nullptr;
+				pBrush = (circle->GetFillStyle()) ? pRender->GetSolidBrush(circle->GetFillStyle()) : nullptr;
 				Gdiplus::RectF rect(
 					(Gdiplus::REAL)(x + projection.ConvertWidthToPixel(circle->GetCenter().GetX()) - centerX - 2 * projection.ConvertWidthToPixel(circle->GetRadius())),
 					(Gdiplus::REAL)(y + projection.ConvertWidthToPixel(circle->GetCenter().GetY()) - centerY - 2 * projection.ConvertWidthToPixel(circle->GetRadius())),
 					(Gdiplus::REAL)(2 * projection.ConvertWidthToPixel(circle->GetRadius())),
 					(Gdiplus::REAL)(2 * projection.ConvertWidthToPixel(circle->GetRadius()))
 				);
-				if (pBrush) pRender->m_pGraphics->FillEllipse(pBrush, rect);
-				if (pPen) pRender->m_pGraphics->DrawEllipse(pPen, rect);
+				if (pBrush != nullptr)
+                {
+                    pRender->m_pGraphics->FillEllipse(pBrush, rect);
+                }
+
+                if (pPen != nullptr)
+                {
+                    pRender->m_pGraphics->DrawEllipse(pPen, rect);
+                }
 			}
 		}
 	}
@@ -685,7 +694,7 @@ namespace osmscout {
 	{
 		RENDEROBJECT(pRender);
 		Gdiplus::Image* pImage = pRender->GetIcon(style->GetIconId());
-		if (pImage != NULL)
+		if (pImage != nullptr)
 			pRender->m_pGraphics->DrawImage(pImage, (INT)(x - width / 2.0), (INT)(y - height / 2.0), (INT)width, (INT)height);
 	}
 
@@ -700,12 +709,16 @@ namespace osmscout {
 	{
 		RENDEROBJECT(pRender);
 		Gdiplus::Pen* pPen = pRender->GetPen(color, width, dash, startCap, endCap);
-		PointFBuffer points;
+		PointFBuffer points(transEnd-transStart + 1);
+
 		for (size_t i = transStart; i <= transEnd; i++)
 		{
 			points.AddPoint(coordBuffer.buffer[i].GetX(), coordBuffer.buffer[i].GetY());
 		}
-		pRender->m_pGraphics->DrawLines(pPen, points.m_Data, (INT)points.m_Size);
+
+		pRender->m_pGraphics->DrawLines(pPen,
+                                        points.m_Data.data(),
+                                        (INT)points.m_Data.size());
 	}
 
 	void MapPainterGDI::DrawWayOutline(const StyleConfig& /*styleConfig*/,
@@ -721,7 +734,8 @@ namespace osmscout {
 		const MapParameter& parameter,
 		const WayData& data)
 	{
-		if (!data.lineStyle->GetDash().empty() && data.lineStyle->GetGapColor().GetA() > 0.0) {
+		if (!data.lineStyle->GetDash().empty() && data.lineStyle->GetGapColor().GetA() > 0.0)
+        {
 			DrawPath(projection,
 				parameter,
 				data.lineStyle->GetGapColor(),
@@ -731,6 +745,7 @@ namespace osmscout {
 				data.endIsClosed ? data.lineStyle->GetEndCap() : data.lineStyle->GetJoinCap(),
 				data.coordRange.GetStart(), data.coordRange.GetEnd());
 		}
+
 		DrawPath(projection,
 			parameter,
 			data.lineStyle->GetLineColor(),
@@ -755,53 +770,66 @@ namespace osmscout {
 		const MapPainter::AreaData& area)
 	{
 		RENDEROBJECT(pRender);
-		PointFBuffer areaPoints;
+		PointFBuffer areaPoints(area.coordRange.GetEnd()-area.coordRange.GetStart()+1);
+
 		for (size_t i = area.coordRange.GetStart(); i <= area.coordRange.GetEnd(); i++)
 		{
-			areaPoints.AddPoint(coordBuffer.buffer[i].GetX(), coordBuffer.buffer[i].GetY());
+			areaPoints.AddPoint(coordBuffer.buffer[i].GetX(),
+                                coordBuffer.buffer[i].GetY());
 		}
-		areaPoints.Close();
-		struct clippingRegion
+
+        struct clippingRegion
 		{
-			PointFBuffer* points;
+			PointFBuffer points;
 			Gdiplus::GraphicsPath* path;
 			Gdiplus::Region* region;
 		};
-		std::vector<clippingRegion> clippingInfo;
-		for (const auto& data : area.clippings) {
-			clippingRegion cr;
-			cr.points = new PointFBuffer();
-			for (size_t i = data.GetStart(); i <= data.GetEnd(); i++) {
-				cr.points->AddPoint(coordBuffer.buffer[i].GetX(), coordBuffer.buffer[i].GetY());
+
+		std::vector<clippingRegion> clippings;
+
+        clippings.reserve(area.clippings.size());
+		for (const auto& clippingPolygon : area.clippings) {
+			clippingRegion clipping;
+
+            clipping.points.Reserve(clippingPolygon.GetEnd() - clippingPolygon.GetStart() + 1);
+			for (size_t i = clippingPolygon.GetStart(); i <= clippingPolygon.GetEnd(); i++) {
+				clipping.points.AddPoint(coordBuffer.buffer[i].GetX(), coordBuffer.buffer[i].GetY());
 			}
-			cr.points->Close();
-			cr.path = new Gdiplus::GraphicsPath();
-			cr.path->AddLines(cr.points->m_Data, (INT)cr.points->m_Size);
-			cr.region = new Gdiplus::Region(cr.path);
-			pRender->m_pGraphics->ExcludeClip(cr.region);
-			clippingInfo.push_back(cr);
+
+            clipping.path = new Gdiplus::GraphicsPath();
+			clipping.path->AddLines(clipping.points.m_Data.data(), (INT)clipping.points.m_Data.size());
+
+            clipping.region = new Gdiplus::Region(clipping.path);
+			pRender->m_pGraphics->ExcludeClip(clipping.region);
+
+			clippings.push_back(clipping);
 		}
+
 		if (area.fillStyle)
 		{
-			pRender->m_pGraphics->FillPolygon(pRender->GetSolidBrush(area.fillStyle), areaPoints.m_Data, (INT)areaPoints.m_Size);
+			pRender->m_pGraphics->FillPolygon(pRender->GetSolidBrush(area.fillStyle),
+                                              areaPoints.m_Data.data(),
+                                              (INT)areaPoints.m_Data.size());
 		}
+
 		pRender->m_pGraphics->ResetClip();
+
 		if (area.borderStyle)
 		{
 			Gdiplus::Pen* pPen = pRender->GetPen(area.borderStyle);
-			for (size_t i = 0; i < clippingInfo.size(); i++)
-			{
-				pRender->m_pGraphics->DrawLines(pPen, clippingInfo[i].points->m_Data, (INT)clippingInfo[i].points->m_Size);
-			}
-			pRender->m_pGraphics->DrawLines(pPen, areaPoints.m_Data, (INT)areaPoints.m_Size);
+
+			pRender->m_pGraphics->DrawPolygon(pPen,
+                                              areaPoints.m_Data.data(),
+                                              (INT)areaPoints.m_Data.size());
 		}
-		for (size_t i = 0; i < clippingInfo.size(); i++)
+
+		for (auto & clipping : clippings)
 		{
-			delete clippingInfo[i].region;
-			delete clippingInfo[i].path;
-			delete clippingInfo[i].points;
+			delete clipping.region;
+			delete clipping.path;
 		}
-		clippingInfo.clear();
+
+		clippings.clear();
 	}
 
 	bool MapPainterGDI::DrawMap(const Projection& projection, const MapParameter& parameter, const MapData& data, HDC hdc, RECT paintRect)
