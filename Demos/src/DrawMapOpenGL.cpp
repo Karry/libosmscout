@@ -41,7 +41,7 @@
  */
 
 int main(int argc, char* argv[]) {
-  DrawMapDemo drawDemo("DrawMapOpenGL", argc, argv);
+  DrawMapDemo drawDemo("DrawMapOpenGL", argc, argv, 96.0, ARG_WS_CONSOLE, DEFAULT_FONT_FILE);
 
   std::string shaderPath=SHADER_INSTALL_DIR;
   drawDemo.argParser.AddOption(osmscout::CmdLineStringOption([&shaderPath](const std::string& value) {
@@ -62,8 +62,9 @@ int main(int argc, char* argv[]) {
   glfwSetErrorCallback([](int, const char *err_str) {
     std::cerr << "GLFW Error: " << err_str << std::endl;
   });
-  if (!glfwInit())
+  if (!glfwInit()) {
     return 1;
+  }
   glfwWindowHint(GLFW_SAMPLES, 4);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
@@ -77,7 +78,12 @@ int main(int argc, char* argv[]) {
   }
   glfwMakeContextCurrent(offscreen_context);
 
-  osmscout::MapPainterOpenGL* painter = new osmscout::MapPainterOpenGL(args.width, args.height, args.dpi, args.width, args.height, args.fontName, shaderPath);
+  osmscout::MapPainterOpenGL* painter = new osmscout::MapPainterOpenGL(args.width, args.height, args.dpi, args.fontName, shaderPath);
+
+  if (!painter->IsInitialized()) {
+    delete painter;
+    return 1;
+  }
 
   painter->ProcessData(drawDemo.data, drawDemo.drawParameter, drawDemo.projection, drawDemo.styleConfig);
   painter->SwapData();
