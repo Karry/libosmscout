@@ -35,6 +35,8 @@
 #include <osmscoutclientqt/OSMScoutQt.h>
 #include <osmscoutclientqt/OverlayObject.h>
 #include <osmscoutclientqt/VehiclePosition.h>
+#include <osmscoutclientqt/IconAnimation.h>
+#include <osmscoutclientqt/IconLookup.h>
 
 namespace osmscout {
 
@@ -89,6 +91,8 @@ class OSMSCOUT_CLIENT_QT_API MapWidget : public QQuickPaintedItem
   Q_PROPERTY(QString vehicleInTunnelIconFile    READ getVehicleInTunnelIconFile     WRITE setVehicleInTunnelIconFile)
   Q_PROPERTY(double vehicleIconSize             READ getVehicleIconSize             WRITE setVehicleIconSize)
 
+  Q_PROPERTY(bool interactiveIcons READ hasInteractiveIcons WRITE setInteractiveIcons)
+
 private:
   MapRenderer      *renderer{nullptr};
 
@@ -96,6 +100,9 @@ private:
 
   InputHandler     *inputHandler{nullptr};
   TapRecognizer    tapRecognizer;
+
+  IconLookup       *iconLookup{nullptr};
+  IconAnimation    iconAnimation;
 
   bool preventMouseStealing{false};
 
@@ -165,6 +172,10 @@ signals:
   void doubleTap(const int screenX, const int screenY, const double lat, const double lon);
   void longTap(const int screenX, const int screenY, const double lat, const double lon);
   void tapLongTap(const int screenX, const int screenY, const double lat, const double lon);
+
+  void iconTapped(QPoint screenCoord, double lat, double lon, QString databasePath,
+                  QString objectType, quint64 objectId, int poiId, QString type,
+                  QString name, QString phone, QString website);
 
   void stylesheetFilenameChanged();
   void styleErrorsChanged();
@@ -253,6 +264,8 @@ public slots:
    */
   void setVehicleScaleFactor(float factor);
 
+  void onIconFound(QPoint lookupCoord, MapIcon icon);
+
 private slots:
 
   virtual void onTap(const QPoint p);
@@ -299,6 +312,8 @@ public:
       changeView(*updated);
     }
   }
+
+  MapViewStruct GetViewStruct() const;
 
   inline VehiclePosition* GetVehiclePosition() const
   {
@@ -353,6 +368,13 @@ public:
     loadVehicleIcons();
     redraw();
   }
+
+  bool hasInteractiveIcons() const
+  {
+    return iconLookup!=nullptr;
+  }
+
+  void setInteractiveIcons(bool b);
 
   inline double GetLat() const
   {
