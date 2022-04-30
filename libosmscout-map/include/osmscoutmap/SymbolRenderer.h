@@ -41,15 +41,20 @@ virtual void Render(const Symbol &symbol, const Vertex2D &zeroCoord,
 virtual void Render(const Symbol &symbol, const Vertex2D &center, const Projection &projection) const;
 
 protected:
-virtual void SetFill(const FillStyleRef &fillStyle) const = 0;
+virtual void SetFill(const FillStyleRef&) const
+{};
 
-virtual void SetBorder(const BorderStyleRef &borderStyle, double screenMmInPixel) const = 0;
+virtual void SetBorder(const BorderStyleRef&, double /*screenMmInPixel*/) const
+{};
 
 virtual void DrawPolygon(const std::vector<Vertex2D> &polygonPixels) const = 0;
 
 virtual void DrawRect(double x, double y, double w, double h) const = 0;
 
 virtual void DrawCircle(double x, double y, double radius) const = 0;
+
+virtual void AfterDraw(const FillStyleRef&, const BorderStyleRef&, double /*screenMmInPixel*/) const
+{}
 };
 }
 

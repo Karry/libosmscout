@@ -25,6 +25,7 @@
 #include <list>
 
 #include <osmscoutmapcairo/LoaderPNG.h>
+#include <osmscoutmapcairo/SymbolRendererCairo.h>
 
 #include <osmscout/system/Assert.h>
 #include <osmscout/system/Math.h>
@@ -1190,37 +1191,12 @@ namespace osmscout {
   }
 
   void MapPainterCairo::DrawSymbol(const Projection& projection,
-                                   const MapParameter& parameter,
+                                   const MapParameter& /*parameter*/,
                                    const Symbol& symbol,
                                    double x, double y)
   {
-    double minX;
-    double minY;
-    double maxX;
-    double maxY;
-
-    symbol.GetBoundingBox(projection,minX,minY,maxX,maxY);
-
-    for (const auto& primitive: symbol.GetPrimitives()) {
-      FillStyleRef   fillStyle=primitive->GetFillStyle();
-      BorderStyleRef borderStyle=primitive->GetBorderStyle();
-
-      cairo_new_path(draw);
-
-      DrawPrimitivePath(projection,
-                        parameter,
-                        primitive,
-                        x,y,
-                        minX,
-                        minY,
-                        maxX,
-                        maxY);
-
-      DrawFillStyle(projection,
-                    parameter,
-                    fillStyle,
-                    borderStyle);
-    }
+    SymbolRendererCairo renderer(draw);
+    renderer.Render(symbol, Vertex2D(x, y), projection);
   }
 
   void MapPainterCairo::DrawIcon(const IconStyle* style,

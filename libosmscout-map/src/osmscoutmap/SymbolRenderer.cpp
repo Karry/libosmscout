@@ -31,14 +31,14 @@ void SymbolRenderer::Render(const Symbol &symbol, const Vertex2D &zeroCoord,
   for (const auto& primitive : symbol.GetPrimitives()) {
     const DrawPrimitive *primitivePtr=primitive.get();
 
+    FillStyleRef   fillStyle=primitivePtr->GetFillStyle();
+    BorderStyleRef borderStyle=primitivePtr->GetBorderStyle();
+
+    SetFill(fillStyle);
+    SetBorder(borderStyle, screenMmInPixel);
+
     if (const auto *polygon = dynamic_cast<const PolygonPrimitive*>(primitivePtr);
       polygon != nullptr) {
-
-      FillStyleRef   fillStyle=polygon->GetFillStyle();
-      BorderStyleRef borderStyle=polygon->GetBorderStyle();
-
-      SetFill(fillStyle);
-      SetBorder(borderStyle, screenMmInPixel);
 
       std::vector<Vertex2D> polygonPixels;
       polygonPixels.reserve(polygon->GetCoords().size());
@@ -59,12 +59,6 @@ void SymbolRenderer::Render(const Symbol &symbol, const Vertex2D &zeroCoord,
     else if (const auto *rectangle = dynamic_cast<const RectanglePrimitive*>(primitivePtr);
       rectangle != nullptr) {
 
-      FillStyleRef   fillStyle=rectangle->GetFillStyle();
-      BorderStyleRef borderStyle=rectangle->GetBorderStyle();
-
-      SetFill(fillStyle);
-      SetBorder(borderStyle, screenMmInPixel);
-
       if (rectangle->GetProjectionMode()==DrawPrimitive::ProjectionMode::MAP) {
         DrawRect(zeroCoord.GetX() + rectangle->GetTopLeft().GetX() * screenMmInPixel,
                  zeroCoord.GetY() + rectangle->GetTopLeft().GetY() * screenMmInPixel,
@@ -80,12 +74,6 @@ void SymbolRenderer::Render(const Symbol &symbol, const Vertex2D &zeroCoord,
     }
     else if (const auto *circle = dynamic_cast<const CirclePrimitive*>(primitivePtr);
       circle != nullptr) {
-
-      FillStyleRef   fillStyle=circle->GetFillStyle();
-      BorderStyleRef borderStyle=circle->GetBorderStyle();
-
-      SetFill(fillStyle);
-      SetBorder(borderStyle, screenMmInPixel);
 
       if (circle->GetProjectionMode()==DrawPrimitive::ProjectionMode::MAP) {
         DrawCircle(zeroCoord.GetX() + circle->GetCenter().GetX() * screenMmInPixel,
