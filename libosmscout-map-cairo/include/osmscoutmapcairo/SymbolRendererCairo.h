@@ -52,9 +52,14 @@ public:
 
 protected:
   void DrawPolygon(const std::vector<Vertex2D> &polygonPixels) const override;
+
   void DrawRect(double x, double y, double w, double h) const override;
+
   void DrawCircle(double x, double y, double radius) const override;
-  void AfterDraw(const FillStyleRef &fillStyle, const BorderStyleRef &borderStyle, double screenMmInPixel) const override;
+
+  void AfterPrimitive(const FillStyleRef &fillStyle,
+                      const BorderStyleRef &borderStyle,
+                      double screenMmInPixel) const override;
 
 private:
   void SetLineAttributes(const Color &color,

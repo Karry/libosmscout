@@ -85,6 +85,7 @@ void SymbolRenderer::Render(const Symbol &symbol, const Vertex2D &zeroCoord,
                    circle->GetRadius() * groundMeterInPixel);
       }
     }
+    AfterPrimitive(fillStyle, borderStyle, screenMmInPixel);
   }
 }
 

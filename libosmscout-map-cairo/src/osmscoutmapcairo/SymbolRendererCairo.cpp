@@ -89,9 +89,9 @@ void SymbolRendererCairo::SetLineAttributes(const Color &color,
 }
 
 
-void SymbolRendererCairo::AfterDraw(const FillStyleRef &fill,
-                                    const BorderStyleRef &border,
-                                    double screenMmInPixel) const
+void SymbolRendererCairo::AfterPrimitive(const FillStyleRef &fill,
+                                         const BorderStyleRef &border,
+                                         double screenMmInPixel) const
 {
   bool hasFill = false;
   bool hasBorder = false;

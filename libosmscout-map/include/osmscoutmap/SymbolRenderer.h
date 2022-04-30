@@ -53,7 +53,7 @@ virtual void DrawRect(double x, double y, double w, double h) const = 0;
 
 virtual void DrawCircle(double x, double y, double radius) const = 0;
 
-virtual void AfterDraw(const FillStyleRef&, const BorderStyleRef&, double /*screenMmInPixel*/) const
+virtual void AfterPrimitive(const FillStyleRef&, const BorderStyleRef&, double /*screenMmInPixel*/) const
 {}
 };
 }
