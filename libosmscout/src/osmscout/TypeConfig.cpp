@@ -318,18 +318,16 @@ namespace osmscout {
     return typeInfo;
   }
 
-  FeatureValueBuffer::FeatureValueBuffer()
-    : featureBits(nullptr),
-      featureValueBuffer(nullptr)
-  {
-    // no code
-  }
-
   FeatureValueBuffer::FeatureValueBuffer(const FeatureValueBuffer& other)
-    : featureBits(nullptr),
-      featureValueBuffer(nullptr)
   {
     Set(other);
+  }
+
+  FeatureValueBuffer::FeatureValueBuffer(FeatureValueBuffer&& other) noexcept
+  {
+    std::swap(type, other.type);
+    std::swap(featureBits, other.featureBits);
+    std::swap(featureValueBuffer, other.featureValueBuffer);
   }
 
   FeatureValueBuffer::~FeatureValueBuffer()
@@ -339,18 +337,37 @@ namespace osmscout {
     }
   }
 
+  FeatureValueBuffer& FeatureValueBuffer::operator=(const FeatureValueBuffer& other)
+  {
+    if (this!=&other) {
+      Set(other);
+    }
+
+    return *this;
+  }
+
+  FeatureValueBuffer& FeatureValueBuffer::operator=(FeatureValueBuffer&& other) noexcept
+  {
+    std::swap(type, other.type);
+    std::swap(featureBits, other.featureBits);
+    std::swap(featureValueBuffer, other.featureValueBuffer);
+    return *this;
+  }
+
+
   void FeatureValueBuffer::Set(const FeatureValueBuffer& other)
   {
     if (type) {
       DeleteData();
     }
+
     if (other.GetType()) {
       SetType(other.GetType());
 
       for (size_t idx=0; idx<other.GetFeatureCount(); idx++) {
         if (other.HasFeature(idx)) {
           if (other.GetFeature(idx).GetFeature()->HasValue()) {
-            FeatureValue* otherValue=other.GetValue(idx);
+            const FeatureValue* otherValue=other.GetValue(idx);
             FeatureValue* thisValue=AllocateValue(idx);
 
             *thisValue=*otherValue;
@@ -527,13 +544,6 @@ namespace osmscout {
     Write<3>(writer, std::array<bool,3>{specialFlag1, specialFlag2, specialFlag3});
   }
 
-  FeatureValueBuffer& FeatureValueBuffer::operator=(const FeatureValueBuffer& other)
-  {
-    Set(other);
-
-    return *this;
-  }
-
   bool FeatureValueBuffer::operator==(const FeatureValueBuffer& other) const
   {
     if (this->type!=other.type) {
@@ -549,8 +559,8 @@ namespace osmscout {
       if (HasFeature(i) &&
           other.HasFeature(i) &&
           GetFeature(i).GetFeature()->HasValue()) {
-        FeatureValue *thisValue=GetValue(i);
-        FeatureValue *otherValue=other.GetValue(i);
+        const FeatureValue *thisValue=GetValue(i);
+        const FeatureValue *otherValue=other.GetValue(i);
 
         if (!(*thisValue==*otherValue)) {
           return false;
@@ -590,7 +600,7 @@ namespace osmscout {
 
       // Copy feature with/without value
       if (other.GetFeature(i).GetFeature()->HasValue()) {
-        FeatureValue* otherValue=other.GetValue(i);
+        const FeatureValue* otherValue=other.GetValue(i);
         FeatureValue* thisValue=AllocateValue(featureIndex);
 
         *thisValue=*otherValue;
@@ -801,10 +811,9 @@ namespace osmscout {
     }
 
     // All ways have a layer
-    if (typeInfo->CanBeWay()) {
-      if (!typeInfo->HasFeature(LayerFeature::NAME)) {
-        typeInfo->AddFeature(featureLayer);
-      }
+    if (typeInfo->CanBeWay() &&
+        !typeInfo->HasFeature(LayerFeature::NAME)) {
+      typeInfo->AddFeature(featureLayer);
     }
 
     // All that is PATH-like automatically has a number of features,
@@ -948,7 +957,7 @@ namespace osmscout {
     return (TypeId)types.size();
   }
 
-  const TypeInfoRef TypeConfig::GetTypeInfo(const std::string& name) const
+  TypeInfoRef TypeConfig::GetTypeInfo(const std::string& name) const
   {
     auto typeEntry=nameToTypeMap.find(name);
 
@@ -956,7 +965,7 @@ namespace osmscout {
       return typeEntry->second;
     }
 
-    return TypeInfoRef();
+    return {};
   }
 
   TypeInfoRef TypeConfig::GetNodeType(const TagMap& tagMap) const
@@ -1241,7 +1250,7 @@ namespace osmscout {
 
       scanner.Close();
     }
-    catch (IOException& e) {
+    catch (const IOException& e) {
       log.Error() << e.GetDescription();
       scanner.CloseFailsafe();
       return false;
@@ -1351,7 +1360,7 @@ namespace osmscout {
 
       writer.Close();
     }
-    catch (IOException& e) {
+    catch (const IOException& e) {
       log.Error() << e.GetDescription();
       writer.CloseFailsafe();
       return false;

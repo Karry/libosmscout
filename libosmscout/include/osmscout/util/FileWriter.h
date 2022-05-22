@@ -49,17 +49,17 @@ namespace osmscout {
   class OSMSCOUT_API FileWriter CLASS_FINAL
   {
   private:
-    std::string          filename;    //!< The filename
-    std::FILE            *file;       //!< The low level FILE object
-    bool                 hasError;    //!< Flag for signaling that the stream has errors
-    std::vector<int32_t> deltaBuffer; //!< Temporary storage for deltas for storing of std::vector<GeoCoord>
-    std::vector<uint8_t> byteBuffer;  //!< Temporary data buffer for storing of std::vector<GeoCoord>
+    std::string          filename;      //!< The filename
+    std::FILE            *file=nullptr; //!< The low level FILE object
+    bool                 hasError=true; //!< Flag for signaling that the stream has errors
+    std::vector<int32_t> deltaBuffer;   //!< Temporary storage for deltas for storing of std::vector<GeoCoord>
+    std::vector<uint8_t> byteBuffer;    //!< Temporary data buffer for storing of std::vector<GeoCoord>
 
   public:
     static const uint64_t MAX_NODES;
 
   public:
-    FileWriter();
+    FileWriter() = default;
     ~FileWriter();
 
     void Open(const std::string& filename);
@@ -86,6 +86,8 @@ namespace osmscout {
     void Write(const std::string& value);
 
     void Write(bool boolean);
+
+    void Write(std::byte byteValue);
 
     void Write(int8_t number);
     void Write(int16_t number);

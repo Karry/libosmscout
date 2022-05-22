@@ -1350,6 +1350,11 @@ TYPES
       ADDRESS POI
       GROUP tourism
 
+  TYPE tourism_information_guidepost
+    = NODE ("tourism"=="information" AND "information"=="guidepost")
+      {Name, NameAlt}
+      GROUP tourism
+
   TYPE tourism_hostel_building
     = AREA ("tourism"=="hostel" AND EXISTS "building" AND !("building" IN ["no","false","0"]))
       {Name, NameAlt}
@@ -1517,7 +1522,7 @@ TYPES
       GROUP historic, building, routingPOI
 
   TYPE historic
-    = NODE AREA (EXISTS "historic" AND !("historic" IN ["citywalls"]))
+    = NODE AREA (EXISTS "historic" AND !("historic" IN ["citywalls"]) AND !("barrier"=="city_wall"))
       {Name, NameAlt}
       ADDRESS POI
       GROUP historic

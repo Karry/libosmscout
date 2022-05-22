@@ -137,16 +137,18 @@ namespace osmscout {
     std::unordered_set<std::string>             groups;                        //!< Set of idents that server as categorizing groups
     std::unordered_map<std::string,std::string> descriptions;                  //!< Map of descriptions for given language codes
 
-  private:
-    /**
-     * We forbid copying of TypeInfo instances
-     */
-    TypeInfo(const TypeInfo& other) = delete;
-
-    TypeInfo& operator=(const TypeInfo& other) = delete;
-
   public:
     explicit TypeInfo(const std::string& name);
+    ~TypeInfo() = default;
+
+    /**
+     * We forbid copying and moving of TypeInfo instances
+     */
+    TypeInfo(const TypeInfo& other) = delete;
+    TypeInfo(TypeInfo&& other) = delete;
+
+    TypeInfo& operator=(const TypeInfo& other) = delete;
+    TypeInfo& operator=(const TypeInfo&& other) = delete;
 
     /**
      * Set the id of this type
@@ -727,8 +729,8 @@ namespace osmscout {
   {
   private:
     TypeInfoRef type;
-    uint8_t     *featureBits;
-    char        *featureValueBuffer;
+    uint8_t     *featureBits=nullptr;
+    char        *featureValueBuffer=nullptr;
 
   private:
     void DeleteData();
@@ -746,9 +748,13 @@ namespace osmscout {
     }
 
   public:
-    FeatureValueBuffer();
+    FeatureValueBuffer() = default;
     FeatureValueBuffer(const FeatureValueBuffer& other);
+    FeatureValueBuffer(FeatureValueBuffer&& other) noexcept;
     ~FeatureValueBuffer();
+
+    FeatureValueBuffer& operator=(const FeatureValueBuffer& other);
+    FeatureValueBuffer& operator=(FeatureValueBuffer&& other) noexcept;
 
     /**
      * Deletes the current feature values and assign the type and values
@@ -912,7 +918,6 @@ namespace osmscout {
                bool specialFlag2,
                bool specialFlag3) const;
 
-    FeatureValueBuffer& operator=(const FeatureValueBuffer& other);
     bool operator==(const FeatureValueBuffer& other) const;
     bool operator!=(const FeatureValueBuffer& other) const;
 
@@ -967,14 +972,14 @@ namespace osmscout {
     void Write(FileWriter& writer,
                const std::array<bool,FlagCnt> &specialFlags) const
     {
-      static_assert(FlagCnt <= 8);
+      static_assert(FlagCnt <= 8u);
       if (BitsToBytes(type->GetFeatureCount()) == BitsToBytes(type->GetFeatureCount() + specialFlags.size())) {
-        uint8_t mask=0x80;
+        uint8_t mask=0x80u;
         for (const bool &specialFlag: specialFlags) {
           if (specialFlag) {
-            featureBits[type->GetFeatureMaskBytes() - 1] |= mask;
+            featureBits[type->GetFeatureMaskBytes() - 1u] |= mask;
           } else {
-            featureBits[type->GetFeatureMaskBytes() - 1] &= ~mask;
+            featureBits[type->GetFeatureMaskBytes() - 1u] &= uint8_t(~mask);
           }
           mask = mask >> 1;
         }
@@ -987,13 +992,13 @@ namespace osmscout {
           writer.Write(featureBits[i]);
         }
 
-        uint8_t flagByte = 0;
-        uint8_t mask=0x80;
+        uint8_t flagByte=0u;
+        uint8_t mask=0x80u;
         for (const bool &specialFlag: specialFlags) {
           if (specialFlag) {
             flagByte |= mask;
           }
-          mask = mask >> 1;
+          mask = mask >> 1u;
         }
 
         writer.Write(flagByte);
@@ -1335,7 +1340,7 @@ namespace osmscout {
      * Returns the type definition for the given type name. If there is no
      * type definition for the given name and invalid reference is returned.
      */
-    const TypeInfoRef GetTypeInfo(const std::string& name) const;
+    TypeInfoRef GetTypeInfo(const std::string& name) const;
 
     /**
      * Return a node type (or an invalid reference if no type got detected)

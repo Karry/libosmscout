@@ -71,22 +71,22 @@ namespace osmscout {
     };
 
   private:
-    std::string  filename;       //!< Filename
-    std::FILE    *file;          //!< Internal low level file handle
-    mutable bool hasError;       //!< Flag to signal errors in the stream
+    std::string  filename;            //!< Filename
+    std::FILE    *file=nullptr;       //!< Internal low level file handle
+    mutable bool hasError=true;       //!< Flag to signal errors in the stream
 
     // For mmap usage
-    char         *mmap;          //!< Pointer to the file memory
-    FileOffset   size;           //!< Size of the memory/file
-    FileOffset   offset;         //!< Current offset into the file memory
+    char         *mmap=nullptr;       //!< Pointer to the file memory
+    FileOffset   size=0;              //!< Size of the memory/file
+    FileOffset   offset=0;            //!< Current offset into the file memory
 
     // For std::vector<GeoCoord> loading
-    uint8_t      *byteBuffer;    //!< Temporary buffer for loading of std::vector<GeoCoord>
-    size_t       byteBufferSize; //!< Size of the temporary byte buffer
+    uint8_t      *byteBuffer=nullptr; //!< Temporary buffer for loading of std::vector<GeoCoord>
+    size_t       byteBufferSize=0;    //!< Size of the temporary byte buffer
 
     // For Windows mmap usage
 #if defined(__WIN32__) || defined(WIN32)
-    HANDLE       mmfHandle;
+    HANDLE       mmfHandle=0;
 #endif
 
     uint32_t             fileFormatVersion;
@@ -196,7 +196,7 @@ namespace osmscout {
     }
 
   public:
-    FileScanner();
+    FileScanner() = default;
     ~FileScanner();
 
     void Open(const std::string& filename,
@@ -229,6 +229,8 @@ namespace osmscout {
     std::string ReadString();
 
     bool ReadBool();
+
+    std::byte ReadByte();
 
     int8_t ReadInt8();
     int16_t ReadInt16();
@@ -289,7 +291,7 @@ namespace osmscout {
   {
   private:
     FileScanner& reader;
-    FileOffset   lastFileOffset;
+    FileOffset   lastFileOffset=0;
 
   public:
     explicit ObjectFileRefStreamReader(FileScanner& reader);
