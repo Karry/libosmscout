@@ -307,7 +307,7 @@ void DBRenderJob::Run(const osmscout::BasemapDatabaseRef& basemapDatabase,
     if (first) {
       // draw base map
       if (renderBasemap) {
-        skip = !addBasemapData(data);
+        skip &= !addBasemapData(data);
       }
     }
 

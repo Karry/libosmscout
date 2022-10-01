@@ -90,7 +90,8 @@ namespace osmscout {
                                   const MapParameter& /*parameter*/,
                                   const Symbol& /*symbol*/,
                                   double /*x*/,
-                                  double /*y*/)
+                                  double /*y*/,
+                                  double /*scaleFactor*/)
   {
     // no code
   }
@@ -103,8 +104,7 @@ namespace osmscout {
                                 const std::vector<double>& /*dash*/,
                                 LineStyle::CapStyle /*startCap*/,
                                 LineStyle::CapStyle /*endCap*/,
-                                size_t /*transStart*/,
-                                size_t /*transEnd*/)
+                                const CoordBufferRange& /*coordRange*/)
   {
     // no code
   }
@@ -112,9 +112,7 @@ namespace osmscout {
   void MapPainterNoOp::DrawContourSymbol(const Projection& /*projection*/,
                                          const MapParameter& /*parameter*/,
                                          const Symbol& /*symbol*/,
-                                         double /*space*/,
-                                         size_t /*transStart*/,
-                                         size_t /*transEnd*/)
+                                         const ContourSymbolData& /*data*/)
   {
     // no code
   }

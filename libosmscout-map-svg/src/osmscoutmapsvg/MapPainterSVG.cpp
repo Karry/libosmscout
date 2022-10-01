@@ -30,8 +30,6 @@
 #include <osmscout/util/File.h>
 #include <osmscout/util/Base64.h>
 
-// #define DEBUG_LABEL_LAYOUTER
-
 namespace osmscout {
 
   static const char* valueChar="0123456789abcdef";
@@ -162,9 +160,9 @@ namespace osmscout {
     double horizontalOffset = extends.x * -1.0;
     std::vector<Glyph<MapPainterSVG::NativeGlyph>> result;
 
-#ifdef DEBUG_LABEL_LAYOUTER
-    std::cout << " = getting glyphs for label: " << text << std::endl;
-#endif
+    if constexpr (debugLabelLayouter) {
+      std::cout << " = getting glyphs for label: " << text << std::endl;
+    }
 
     for (PangoLayoutIter *iter = pango_layout_get_iter(label.get());
          iter != nullptr;){
@@ -179,12 +177,12 @@ namespace osmscout {
                                                                    g_object_unref);
       g_object_ref(font.get());
 
-#ifdef DEBUG_LABEL_LAYOUTER
-      std::cout << "   run with " << run->glyphs->num_glyphs << " glyphs, " <<
-                wstr.size() << " length, " <<
-                run->item->num_chars << " chars " <<
-                "(font " << font.get() << "):" << std::endl;
-#endif
+      if constexpr (debugLabelLayouter) {
+        std::cout << "   run with " << run->glyphs->num_glyphs << " glyphs, " <<
+                  wstr.size() << " length, " <<
+                  run->item->num_chars << " chars " <<
+                  "(font " << font.get() << "):" << std::endl;
+      }
 
       for (int gi=0; gi < run->glyphs->num_glyphs; gi++){
         result.emplace_back();
@@ -211,10 +209,10 @@ namespace osmscout {
         result.back().glyph.glyphString = singleGlyphStr;
         result.back().glyph.character = WStringToUTF8String(wstr.substr(gi, 1));
 
-#ifdef DEBUG_LABEL_LAYOUTER
-        std::cout << "     " << glyphInfo.glyph << " \"" << result.back().glyph.character << "\": " <<
-            result.back().position.GetX() << " x " << result.back().position.GetY() << std::endl;
-#endif
+        if constexpr (debugLabelLayouter) {
+          std::cout << "     " << glyphInfo.glyph << " \"" << result.back().glyph.character << "\": " <<
+                    result.back().position.GetX() << " x " << result.back().position.GetY() << std::endl;
+        }
       }
 
       if (!pango_layout_iter_next_run(iter)){
@@ -697,8 +695,7 @@ namespace osmscout {
   void MapPainterSVG::DrawContourSymbol(const Projection& /*projection*/,
                                         const MapParameter& /*parameter*/,
                                         const Symbol& /*symbol*/,
-                                        double /*space*/,
-                                        size_t /*transStart*/, size_t /*transEnd*/)
+                                        const ContourSymbolData& /*data*/)
   {
     // Not implemented
   }
@@ -780,19 +777,11 @@ namespace osmscout {
   void MapPainterSVG::DrawSymbol(const Projection& projection,
                                  const MapParameter& /*parameter*/,
                                  const Symbol& symbol,
-                                 double x, double y)
+                                 double x, double y,
+                                 double /*scaleFactor*/)
   {
-    double minX;
-    double minY;
-    double maxX;
-    double maxY;
-    double centerX;
-    double centerY;
-
-    symbol.GetBoundingBox(projection,minX,minY,maxX,maxY);
-
-    centerX=(minX+maxX)/2;
-    centerY=(minY+maxY)/2;
+    ScreenBox boundingBox=symbol.GetBoundingBox(projection);
+    Vertex2D center=boundingBox.GetCenter();
 
     stream << "    <!-- symbol: " << symbol.GetName() << " -->" << std::endl;
     for (const auto& primitive : symbol.GetPrimitives()) {
@@ -819,8 +808,8 @@ namespace osmscout {
             stream << " ";
           }
 
-          stream << (x+projection.ConvertWidthToPixel(pixel->GetX())-centerX)
-                 << "," << (y+projection.ConvertWidthToPixel(pixel->GetY())-centerY);
+          stream << (x+projection.ConvertWidthToPixel(pixel->GetX())-center.GetX())
+                 << "," << (y+projection.ConvertWidthToPixel(pixel->GetY())-center.GetY());
         }
 
         stream << "\" />" << std::endl;
@@ -830,8 +819,8 @@ namespace osmscout {
         BorderStyleRef borderStyle=rectangle->GetBorderStyle();
 
         stream << "    <rect";
-        stream << " x=\"" << ((x+projection.ConvertWidthToPixel(rectangle->GetTopLeft().GetX())-centerX)) << "\"";
-        stream << " y=\"" << ((y+projection.ConvertWidthToPixel(rectangle->GetTopLeft().GetY())-centerY)) << "\"";
+        stream << " x=\"" << ((x+projection.ConvertWidthToPixel(rectangle->GetTopLeft().GetX())-center.GetX())) << "\"";
+        stream << " y=\"" << ((y+projection.ConvertWidthToPixel(rectangle->GetTopLeft().GetY())-center.GetY())) << "\"";
         stream << " width=\"" << (projection.ConvertWidthToPixel(rectangle->GetWidth())) << "\"";
         stream << " height=\"" << (projection.ConvertWidthToPixel(rectangle->GetHeight())) << "\"";
 
@@ -843,8 +832,8 @@ namespace osmscout {
         BorderStyleRef borderStyle=circle->GetBorderStyle();
 
         stream << "    <circle";
-        stream << " cx=\"" << (x+projection.ConvertWidthToPixel(circle->GetCenter().GetX())-centerX) << "\"";
-        stream << " cy=\"" << (y+projection.ConvertWidthToPixel(circle->GetCenter().GetY())-centerY) << "\"";
+        stream << " cx=\"" << (x+projection.ConvertWidthToPixel(circle->GetCenter().GetX())-center.GetX()) << "\"";
+        stream << " cy=\"" << (y+projection.ConvertWidthToPixel(circle->GetCenter().GetY())-center.GetY()) << "\"";
         stream << " r=\"" << (projection.ConvertWidthToPixel(circle->GetRadius())) << "\"";
 
         SetupFillAndStroke(fillStyle, borderStyle);
@@ -869,7 +858,7 @@ namespace osmscout {
                                const std::vector<double>& dash,
                                LineStyle::CapStyle /*startCap*/,
                                LineStyle::CapStyle /*endCap*/,
-                               size_t transStart, size_t transEnd)
+                               const CoordBufferRange& coordRange)
   {
     stream << "    <polyline";
     stream << " fill=\"none\"";
@@ -893,8 +882,8 @@ namespace osmscout {
 
     stream << "              points=\"";
 
-    for (size_t i=transStart; i<=transEnd; i++) {
-      if (i!=transStart) {
+    for (size_t i=coordRange.GetStart(); i<=coordRange.GetEnd(); i++) {
+      if (i!=coordRange.GetStart()) {
         stream << " ";
       }
 
@@ -961,7 +950,7 @@ namespace osmscout {
                emptyDash,
                data.startIsClosed ? data.lineStyle->GetEndCap() : data.lineStyle->GetJoinCap(),
                data.endIsClosed ? data.lineStyle->GetEndCap() : data.lineStyle->GetJoinCap(),
-               data.coordRange.GetStart(),data.coordRange.GetEnd());
+               data.coordRange);
     }
 
     DrawPath(projection,

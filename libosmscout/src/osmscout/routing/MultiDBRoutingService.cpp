@@ -87,7 +87,7 @@ namespace osmscout {
         return false;
       }
 
-      handle.router=router;
+      handle.router=std::move(router);
       handle.profile=profileBuilder(handle.database);
 
       RoutingDatabaseRef routingDatabase=std::make_shared<RoutingDatabase>();
@@ -96,7 +96,7 @@ namespace osmscout {
         return false;
       }
 
-      handle.routingDatabase=routingDatabase;
+      handle.routingDatabase=std::move(routingDatabase);
 
     }
 
@@ -326,7 +326,7 @@ namespace osmscout {
       std::unordered_map<Id,JunctionRef> junctionMap;
 
       for (const auto& junction : junctions) {
-        junctionMap.insert(std::make_pair(junction->GetId(),junction));
+        junctionMap.emplace(junction->GetId(),junction);
       }
 
       junctions.clear();

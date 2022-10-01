@@ -582,7 +582,7 @@ namespace osmscout {
         auto typeId=node.GetType()->GetNodeId();
 
         if (!data[typeId].IsComplexIndex()) {
-          listData[typeId].push_back(std::make_pair(node.GetCoords(),node.GetFileOffset()));
+          listData[typeId].emplace_back(node.GetCoords(), node.GetFileOffset());
         }
       }
 
@@ -642,8 +642,7 @@ namespace osmscout {
           continue;
         }
 
-        tileData[typeId][tileId].push_back(std::make_pair(node.GetCoords(),
-                                                          node.GetFileOffset()));
+        tileData[typeId][tileId].emplace_back(node.GetCoords(), node.GetFileOffset());
 
         if (tileData[typeId][tileId].size()==data[typeId].tileFillCount.find(tileId)->second) {
           if (indexType==IndexType::IndexTypeList) {

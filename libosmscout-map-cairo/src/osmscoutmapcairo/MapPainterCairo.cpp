@@ -25,6 +25,7 @@
 #include <list>
 
 #include <osmscoutmapcairo/LoaderPNG.h>
+#include <osmscoutmapcairo/SymbolRendererCairo.h>
 
 #include <osmscout/system/Assert.h>
 #include <osmscout/system/Math.h>
@@ -237,7 +238,7 @@ namespace osmscout {
   }
 
 
-  /* Projects the current text path of cr onto the provided path. */
+  /* Projects the current path of cr onto the provided path. */
   static void MapPathOnPath(cairo_t *draw,
                             cairo_path_t *srcPath,
                             cairo_path_t *dstPath,
@@ -246,7 +247,7 @@ namespace osmscout {
   {
     double *segmentLengths = CalculatePathSegmentLengths(dstPath);
 
-    // Center text on path
+    // Center on path
     TransformPathOntoPath(srcPath,
                           dstPath,
                           segmentLengths,
@@ -591,84 +592,56 @@ namespace osmscout {
   }
 
   void MapPainterCairo::DrawContourSymbol(const Projection &projection,
-                                          const MapParameter &parameter,
+                                          const MapParameter &/*parameter*/,
                                           const Symbol &symbol,
-                                          double space,
-                                          size_t transStart, size_t transEnd)
+                                          const ContourSymbolData& data)
   {
-    double lineLength = 0;
-    double xo = 0;
-    double yo = 0;
+    double lineLength = data.coordRange.GetLength();
 
     cairo_save(draw);
-
     cairo_new_path(draw);
 
-    for (size_t j = transStart; j <= transEnd; j++) {
-      if (j == transStart) {
-        cairo_move_to(draw,
-                      coordBuffer.buffer[j].GetX(),
-                      coordBuffer.buffer[j].GetY());
-      } else {
-        cairo_line_to(draw,
-                      coordBuffer.buffer[j].GetX(),
-                      coordBuffer.buffer[j].GetY());
-        lineLength += sqrt(pow(coordBuffer.buffer[j].GetX() - xo, 2) +
-                           pow(coordBuffer.buffer[j].GetY() - yo, 2));
-      }
+    cairo_move_to(draw,
+                  data.coordRange.GetFirst().GetX(),
+                  data.coordRange.GetFirst().GetY());
 
-      xo = coordBuffer.buffer[j].GetX();
-      yo = coordBuffer.buffer[j].GetY();
+    for (size_t j = data.coordRange.GetStart()+1; j <= data.coordRange.GetEnd(); j++) {
+      Vertex2D currentCoord=data.coordRange.Get(j);
+      cairo_line_to(draw,
+                    currentCoord.GetX(),
+                    currentCoord.GetY());
     }
 
     cairo_path_t *path = cairo_copy_path_flat(draw);
 
-    double minX;
-    double minY;
-    double maxX;
-    double maxY;
+    ScreenBox boundingBox=symbol.GetBoundingBox(projection);
+    double    width=boundingBox.GetWidth();
+    double    height=boundingBox.GetHeight();
 
-    symbol.GetBoundingBox(projection,minX, minY, maxX, maxY);
+    double currentPos = data.symbolOffset;
 
-    double width = maxX - minX;
-    double height = maxY - minY;
+    while (currentPos + width < lineLength) {
+      SymbolRendererCairo renderer(draw);
 
-    for (const auto &primitive : symbol.GetPrimitives()) {
-      FillStyleRef fillStyle = primitive->GetFillStyle();
-      BorderStyleRef borderStyle = primitive->GetBorderStyle();
+      cairo_path_t* patternPath;
 
-      double offset = space / 2.0;
+      renderer.Render(projection,
+                      symbol,
+                      Vertex2D(currentPos+width/2.0, 0.0),
+                      [&patternPath,this,&path,&height]() {
+                        patternPath=cairo_copy_path_flat(draw);
+                        MapPathOnPath(draw,
+                                      patternPath,
+                                      path,
+                                      0,
+                                      height/2);
+                      },
+                      [&patternPath]() {
+                        cairo_path_destroy(patternPath);
+                      },
+      data.symbolScale);
 
-      cairo_new_path(draw);
-
-      while (offset + width < lineLength) {
-        DrawPrimitivePath(projection,
-                          parameter,
-                          primitive,
-                          offset + width / 2, 0,
-                          minX,
-                          minY,
-                          maxX,
-                          maxY);
-
-        offset += width + space;
-      }
-
-      cairo_path_t *patternPath = cairo_copy_path_flat(draw);
-
-      // Now transform the text path so that it maps to the contour of the line
-      MapPathOnPath(draw,
-                    patternPath,
-                    path,
-                    0,
-                    height / 2);
-
-      DrawFillStyle(projection,
-                    parameter,
-                    fillStyle,
-                    borderStyle);
-
-      cairo_path_destroy(patternPath);
+      currentPos+=width+data.symbolSpace;
     }
 
     cairo_path_destroy(path);
@@ -706,9 +679,9 @@ namespace osmscout {
     double horizontalOffset = extends.x * -1.0;
     std::vector<Glyph<MapPainterCairo::CairoNativeGlyph>> result;
 
-#ifdef DEBUG_LABEL_LAYOUTER
-    std::cout << " = getting glyphs for label: " << text << std::endl;
-#endif
+    if constexpr (debugLabelLayouter) {
+      std::cout << " = getting glyphs for label: " << text << std::endl;
+    }
 
     for (PangoLayoutIter *iter = pango_layout_get_iter(label.get());
          iter != nullptr;){
@@ -722,9 +695,9 @@ namespace osmscout {
                                                                    g_object_unref);
       g_object_ref(font.get());
 
-#ifdef DEBUG_LABEL_LAYOUTER
-      std::cout << "   run with " << run->glyphs->num_glyphs << " glyphs (font " << font.get() << "):" << std::endl;
-#endif
+      if constexpr (debugLabelLayouter) {
+        std::cout << "   run with " << run->glyphs->num_glyphs << " glyphs (font " << font.get() << "):" << std::endl;
+      }
 
       for (int gi=0; gi < run->glyphs->num_glyphs; gi++){
         result.emplace_back();
@@ -744,9 +717,10 @@ namespace osmscout {
         result.back().position.SetX(((double)glyphInfo.geometry.x_offset/(double)PANGO_SCALE) + horizontalOffset);
         result.back().position.SetY((double)glyphInfo.geometry.y_offset/(double)PANGO_SCALE);
 
-#ifdef DEBUG_LABEL_LAYOUTER
-        std::cout << "     " << glyphInfo.glyph << ": " << result.back().position.GetX() << " x " << result.back().position.GetY() << std::endl;
-#endif
+        if constexpr (debugLabelLayouter) {
+          std::cout << "     " << glyphInfo.glyph << ": " << result.back().position.GetX() << " x "
+                    << result.back().position.GetY() << std::endl;
+        }
 
         glyphInfo.geometry.x_offset = 0;
         glyphInfo.geometry.y_offset = 0;
@@ -851,24 +825,24 @@ namespace osmscout {
     }
 
     cairo_set_matrix(draw, &matrix);
-#ifdef DEBUG_LABEL_LAYOUTER
-    for (auto const &glyph:glyphs) {
-      cairo_set_source_rgba(draw, 1, 0, 0, 1);
-      cairo_arc(draw,
-                glyph.trPosition.GetX(), glyph.trPosition.GetY(),
-                0.5,
-                0,
-                2*M_PI);
-      cairo_fill(draw);
+    if constexpr (debugLabelLayouter) {
+      for (auto const &glyph: glyphs) {
+        cairo_set_source_rgba(draw, 1, 0, 0, 1);
+        cairo_arc(draw,
+                  glyph.trPosition.GetX(), glyph.trPosition.GetY(),
+                  0.5,
+                  0,
+                  2 * M_PI);
+        cairo_fill(draw);
 
-      cairo_set_source_rgba(draw, 0, 0, 1, 1);
-      cairo_set_line_width(draw,0.2);
-      cairo_rectangle(draw,
-                      glyph.trPosition.GetX(), glyph.trPosition.GetY(),
-                      glyph.trWidth, glyph.trHeight);
-      cairo_stroke(draw);
+        cairo_set_source_rgba(draw, 0, 0, 1, 1);
+        cairo_set_line_width(draw, 0.2);
+        cairo_rectangle(draw,
+                        glyph.trPosition.GetX(), glyph.trPosition.GetY(),
+                        glyph.trWidth, glyph.trHeight);
+        cairo_stroke(draw);
+      }
     }
-#endif
   }
 
 
@@ -1109,7 +1083,11 @@ namespace osmscout {
                                              const Vertex2D &position,
                                              double objectWidth)
   {
-    labelLayouter.RegisterLabel(projection, parameter, position, labels, objectWidth);
+    labelLayouter.RegisterLabel(projection,
+                                parameter,
+                                position,
+                                labels,
+                                objectWidth);
   }
 
   /**
@@ -1120,7 +1098,10 @@ namespace osmscout {
                                     const PathLabelData &label,
                                     const LabelPath &labelPath)
   {
-    labelLayouter.RegisterContourLabel(projection, parameter, label, labelPath);
+    labelLayouter.RegisterContourLabel(projection,
+                                       parameter,
+                                       label,
+                                       labelPath);
   }
 
   void MapPainterCairo::DrawLabels(const Projection& projection,
@@ -1136,91 +1117,18 @@ namespace osmscout {
     labelLayouter.Reset();
   }
 
-  void MapPainterCairo::DrawPrimitivePath(const Projection& projection,
-                                          const MapParameter& /*parameter*/,
-                                          const DrawPrimitiveRef& p,
-                                          double x, double y,
-                                          double minX,
-                                          double minY,
-                                          double maxX,
-                                          double maxY)
-  {
-    DrawPrimitive* primitive=p.get();
-    double         centerX=(minX+maxX)/2;
-    double         centerY=(minY+maxY)/2;
-
-    if (const auto* polygon = dynamic_cast<const PolygonPrimitive*>(primitive);
-        polygon != nullptr) {
-
-      for (auto pixel=polygon->GetCoords().begin();
-           pixel!=polygon->GetCoords().end();
-           ++pixel) {
-        if (pixel==polygon->GetCoords().begin()) {
-          cairo_move_to(draw,
-                        x+projection.ConvertWidthToPixel(pixel->GetX())-centerX,
-                        y+projection.ConvertWidthToPixel(pixel->GetY())-centerY);
-        }
-        else {
-          cairo_line_to(draw,
-                        x+projection.ConvertWidthToPixel(pixel->GetX())-centerX,
-                        y+projection.ConvertWidthToPixel(pixel->GetY())-centerY);
-        }
-      }
-
-      cairo_close_path(draw);
-    }
-    else if (const auto* rectangle = dynamic_cast<const RectanglePrimitive*>(primitive);
-             rectangle != nullptr) {
-
-      cairo_rectangle(draw,
-                      x+projection.ConvertWidthToPixel(rectangle->GetTopLeft().GetX())-centerX,
-                      y+projection.ConvertWidthToPixel(rectangle->GetTopLeft().GetY())-centerY,
-                      projection.ConvertWidthToPixel(rectangle->GetWidth()),
-                      projection.ConvertWidthToPixel(rectangle->GetHeight()));
-    }
-    else if (const auto* circle = dynamic_cast<const CirclePrimitive*>(primitive);
-             circle != nullptr) {
-
-      cairo_arc(draw,
-                x+projection.ConvertWidthToPixel(circle->GetCenter().GetX())-centerX,
-                y+projection.ConvertWidthToPixel(circle->GetCenter().GetY())-centerY,
-                projection.ConvertWidthToPixel(circle->GetRadius()),
-                0,2*M_PI);
-    }
-  }
-
   void MapPainterCairo::DrawSymbol(const Projection& projection,
-                                   const MapParameter& parameter,
+                                   const MapParameter& /*parameter*/,
                                    const Symbol& symbol,
-                                   double x, double y)
+                                   double x, double y,
+                                   double scaleFactor)
   {
-    double minX;
-    double minY;
-    double maxX;
-    double maxY;
+    SymbolRendererCairo renderer(draw);
 
-    symbol.GetBoundingBox(projection,minX,minY,maxX,maxY);
-
-    for (const auto& primitive: symbol.GetPrimitives()) {
-      FillStyleRef   fillStyle=primitive->GetFillStyle();
-      BorderStyleRef borderStyle=primitive->GetBorderStyle();
-
-      cairo_new_path(draw);
-
-      DrawPrimitivePath(projection,
-                        parameter,
-                        primitive,
-                        x,y,
-                        minX,
-                        minY,
-                        maxX,
-                        maxY);
-
-      DrawFillStyle(projection,
-                    parameter,
-                    fillStyle,
-                    borderStyle);
-    }
+    renderer.Render(projection,
+                    symbol,
+                    Vertex2D(x, y),
+                    scaleFactor);
   }
 
   void MapPainterCairo::DrawIcon(const IconStyle* style,
@@ -1258,7 +1166,7 @@ namespace osmscout {
                                  const std::vector<double>& dash,
                                  LineStyle::CapStyle startCap,
                                  LineStyle::CapStyle endCap,
-                                 size_t transStart, size_t transEnd)
+                                 const CoordBufferRange& coordRange)
   {
     SetLineAttributes(color,width,dash);
 
@@ -1274,18 +1182,15 @@ namespace osmscout {
       cairo_set_line_cap(draw,CAIRO_LINE_CAP_ROUND);
     }
 
-    for (size_t i=transStart; i<=transEnd; i++) {
-      if (i==transStart) {
-        cairo_new_path(draw);
-        cairo_move_to(draw,
-                      coordBuffer.buffer[i].GetX(),
-                      coordBuffer.buffer[i].GetY());
-      }
-      else {
-        cairo_line_to(draw,
-                      coordBuffer.buffer[i].GetX(),
-                      coordBuffer.buffer[i].GetY());
-      }
+    cairo_new_path(draw);
+    cairo_move_to(draw,
+                  coordRange.GetFirst().GetX(),
+                  coordRange.GetFirst().GetY());
+
+    for (size_t i=coordRange.GetStart()+1; i<=coordRange.GetEnd(); i++) {
+      cairo_line_to(draw,
+                    coordRange.Get(i).GetX(),
+                    coordRange.Get(i).GetY());
     }
 
     cairo_stroke(draw);
@@ -1300,11 +1205,11 @@ namespace osmscout {
         cairo_set_line_width(draw,width);
 
         cairo_move_to(draw,
-                      coordBuffer.buffer[transStart].GetX(),
-                      coordBuffer.buffer[transStart].GetY());
+                      coordRange.GetFirst().GetX(),
+                      coordRange.GetFirst().GetY());
         cairo_line_to(draw,
-                      coordBuffer.buffer[transStart].GetX(),
-                      coordBuffer.buffer[transStart].GetY());
+                      coordRange.GetFirst().GetX(),
+                      coordRange.GetFirst().GetY());
         cairo_stroke(draw);
       }
 
@@ -1315,11 +1220,11 @@ namespace osmscout {
         cairo_set_line_width(draw,width);
 
         cairo_move_to(draw,
-                      coordBuffer.buffer[transEnd].GetX(),
-                      coordBuffer.buffer[transEnd].GetY());
+                      coordRange.GetLast().GetX(),
+                      coordRange.GetLast().GetY());
         cairo_line_to(draw,
-                      coordBuffer.buffer[transEnd].GetX(),
-                      coordBuffer.buffer[transEnd].GetY());
+                      coordRange.GetLast().GetX(),
+                      coordRange.GetLast().GetY());
         cairo_stroke(draw);
       }
     }
@@ -1337,12 +1242,12 @@ namespace osmscout {
 
     cairo_new_path(draw);
     cairo_move_to(draw,
-                  coordBuffer.buffer[area.coordRange.GetStart()].GetX(),
-                  coordBuffer.buffer[area.coordRange.GetStart()].GetY());
+                  area.coordRange.GetFirst().GetX(),
+                  area.coordRange.GetFirst().GetY());
     for (size_t i=area.coordRange.GetStart()+1; i<=area.coordRange.GetEnd(); i++) {
       cairo_line_to(draw,
-                    coordBuffer.buffer[i].GetX(),
-                    coordBuffer.buffer[i].GetY());
+                    area.coordRange.Get(i).GetX(),
+                    area.coordRange.Get(i).GetY());
     }
     cairo_close_path(draw);
 
@@ -1352,12 +1257,12 @@ namespace osmscout {
         cairo_new_sub_path(draw);
         cairo_set_line_width(draw,0.0);
         cairo_move_to(draw,
-                      coordBuffer.buffer[data.GetStart()].GetX(),
-                      coordBuffer.buffer[data.GetStart()].GetY());
+                      data.GetFirst().GetX(),
+                      data.GetFirst().GetY());
         for (size_t i=data.GetStart()+1; i<=data.GetEnd(); i++) {
           cairo_line_to(draw,
-                        coordBuffer.buffer[i].GetX(),
-                        coordBuffer.buffer[i].GetY());
+                        data.Get(i).GetX(),
+                        data.Get(i).GetY());
         }
         cairo_close_path(draw);
       }

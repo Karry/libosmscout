@@ -71,7 +71,8 @@ namespace osmscout {
                     const MapParameter& parameter,
                     const Symbol& symbol,
                     double x,
-                    double y) override;
+                    double y,
+                    double scaleFactor) override;
 
     void DrawPath(const Projection& projection,
                   const MapParameter& parameter,
@@ -80,15 +81,12 @@ namespace osmscout {
                   const std::vector<double>& dash,
                   LineStyle::CapStyle startCap,
                   LineStyle::CapStyle endCap,
-                  size_t transStart,
-                  size_t transEnd) override;
+                  const CoordBufferRange& coordRange) override;
 
     void DrawContourSymbol(const Projection& projection,
                            const MapParameter& parameter,
                            const Symbol& symbol,
-                           double space,
-                           size_t transStart,
-                           size_t transEnd) override;
+                           const ContourSymbolData& data) override;
 
     void DrawArea(const Projection& projection,
                   const MapParameter& parameter,

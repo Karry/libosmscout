@@ -177,7 +177,7 @@ namespace osmscout {
                     routeScanner);
 
         for (const auto& member : rawRel.members) {
-          idMap.insert(std::make_pair(member.GetObjectOSMRef(),ObjectFileRef()));
+          idMap.emplace(member.GetObjectOSMRef(),ObjectFileRef());
         }
       }
 
@@ -200,9 +200,9 @@ namespace osmscout {
         FileOffset fileOffset=nodeIdScanner.ReadFileOffset();
 
         ObjectOSMRef  osmRef(id,(OSMRefType)typeByte);
-        ObjectFileRef fileRef(fileOffset,refNode);
 
         if (idMap.find(osmRef)!=idMap.end()) {
+          ObjectFileRef fileRef(fileOffset, refNode);
           idMap[osmRef]=fileRef;
         }
       }
@@ -228,9 +228,9 @@ namespace osmscout {
         FileOffset fileOffset=wayIdScanner.ReadFileOffset();
 
         ObjectOSMRef  osmRef(id,(OSMRefType)typeByte);
-        ObjectFileRef fileRef(fileOffset,refWay);
 
         if (idMap.find(osmRef)!=idMap.end()) {
+          ObjectFileRef fileRef(fileOffset, refWay);
           idMap[osmRef]=fileRef;
         }
       }

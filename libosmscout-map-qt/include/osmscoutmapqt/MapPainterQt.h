@@ -107,9 +107,15 @@ namespace osmscout {
                    const MapParameter& parameter,
                    const BorderStyle& borderStyle);
 
-    bool FollowPath(FollowPathHandle &hnd, double l, Vertex2D &origin);
-    void FollowPathInit(FollowPathHandle &hnd, Vertex2D &origin, size_t transStart, size_t transEnd,
-                        bool isClosed, bool keepOrientation);
+    bool FollowPath(FollowPathHandle &hnd,
+                    const CoordBufferRange& coordRange,
+                    double l,
+                    Vertex2D &origin);
+    void FollowPathInit(FollowPathHandle &hnd,
+                        const CoordBufferRange& coordRange,
+                        Vertex2D &origin,
+                        bool isClosed,
+                        bool keepOrientation);
 
     void SetupTransformation(QPainter* painter,
                              const QPointF center,
@@ -197,7 +203,8 @@ namespace osmscout {
     void DrawSymbol(const Projection& projection,
                     const MapParameter& parameter,
                     const Symbol& symbol,
-                    double x, double y) override;
+                    double x, double y,
+                    double scaleFactor) override;
 
     void DrawPath(const Projection& projection,
                   const MapParameter& parameter,
@@ -206,13 +213,12 @@ namespace osmscout {
                   const std::vector<double>& dash,
                   LineStyle::CapStyle startCap,
                   LineStyle::CapStyle endCap,
-                  size_t transStart, size_t transEnd) override;
+                  const CoordBufferRange& coordRange) override;
 
     void DrawContourSymbol(const Projection& projection,
                            const MapParameter& parameter,
                            const Symbol& symbol,
-                           double space,
-                           size_t transStart, size_t transEnd) override;
+                           const ContourSymbolData& data) override;
 
     void DrawArea(const Projection& projection,
                   const MapParameter& parameter,

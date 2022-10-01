@@ -200,6 +200,14 @@ namespace osmscout {
       std::map<PathTextStyleRef,std::set<std::string>> labels;
     };
 
+    struct OSMSCOUT_MAP_API ContourSymbolData
+    {
+      double            symbolOffset; //!< Initial offset of the symbol
+      double            symbolSpace;  //!< Space between individual symbols on the contour
+      CoordBufferRange  coordRange;   //!< Range of coordinates of the path in transformation buffer
+      double            symbolScale;  //!< Potential magnification of the symbol
+    };
+
   protected:
     /**
      Internal coordinate transformation data structures
@@ -612,7 +620,8 @@ namespace osmscout {
     virtual void DrawSymbol(const Projection& projection,
                             const MapParameter& parameter,
                             const Symbol& symbol,
-                            double x, double y) = 0;
+                            double x, double y,
+                            double scaleFactor=1.0) = 0;
 
     /**
       Draw simple line with the given style,the given color, the given width
@@ -625,17 +634,15 @@ namespace osmscout {
                           const std::vector<double>& dash,
                           LineStyle::CapStyle startCap,
                           LineStyle::CapStyle endCap,
-                          size_t transStart, size_t transEnd) = 0;
+                          const CoordBufferRange& coordRange) = 0;
 
     /**
-      Draw the given text as a contour of the given path in a style defined
-      by the given LabelStyle.
+      Draw the given Symbol on top of the contour of the given path.
      */
     virtual void DrawContourSymbol(const Projection& projection,
                                    const MapParameter& parameter,
                                    const Symbol& symbol,
-                                   double space,
-                                   size_t transStart, size_t transEnd) = 0;
+                                   const ContourSymbolData& data) = 0;
 
     /**
       Draw the given area using the given FillStyle

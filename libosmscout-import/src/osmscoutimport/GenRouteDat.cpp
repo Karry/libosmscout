@@ -227,7 +227,7 @@ namespace osmscout {
 
     if (entry==routeDataMap.end()) {
       objectVariantIndex=(uint16_t)routeDataMap.size();
-      routeDataMap.insert(std::make_pair(routeData,objectVariantIndex));
+      routeDataMap.emplace(routeData,objectVariantIndex);
     }
     else {
       objectVariantIndex=entry->second;
@@ -302,10 +302,10 @@ namespace osmscout {
 
         restriction->Read(scanner);
 
-        wayIdOffsetMap.insert(std::make_pair(restriction->GetFrom(),0));
-        wayIdOffsetMap.insert(std::make_pair(restriction->GetTo(),0));
+        wayIdOffsetMap.emplace(restriction->GetFrom(),0);
+        wayIdOffsetMap.emplace(restriction->GetTo(),0);
 
-        nodeIdMap.insert(std::make_pair(restriction->GetVia(),0));
+        nodeIdMap.emplace(restriction->GetVia(),0);
       }
 
       scanner.Close();
@@ -945,7 +945,7 @@ namespace osmscout {
       way->Read(typeConfig,
                 scanner);
 
-      waysMap[offset]=way;
+      waysMap[offset]=std::move(way);
     }
 
     scanner.SetPos(oldPos);
@@ -986,7 +986,7 @@ namespace osmscout {
       area->Read(typeConfig,
                  scanner);
 
-      areasMap[offset]=area;
+      areasMap[offset]=std::move(area);
     }
 
     scanner.SetPos(oldPos);

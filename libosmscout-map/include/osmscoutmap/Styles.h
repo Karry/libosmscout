@@ -29,6 +29,7 @@
 #include <osmscout/Pixel.h>
 #include <osmscout/util/Color.h>
 #include <osmscout/util/Projection.h>
+#include <osmscout/util/ScreenBox.h>
 
 #include <osmscoutmap/StyleDescription.h>
 
@@ -988,27 +989,15 @@ namespace osmscout {
    */
   class OSMSCOUT_MAP_API DrawPrimitive
   {
-  public:
-    enum class ProjectionMode {
-      MAP,
-      GROUND
-    };
 
   private:
-    ProjectionMode projectionMode;
     FillStyleRef   fillStyle;
     BorderStyleRef borderStyle;
 
   public:
-    DrawPrimitive(ProjectionMode projectionMode,
-                  const FillStyleRef& fillStyle,
+    DrawPrimitive(const FillStyleRef& fillStyle,
                   const BorderStyleRef& borderStyle);
     virtual ~DrawPrimitive() = default;
-
-    ProjectionMode GetProjectionMode() const
-    {
-      return projectionMode;
-    }
 
     const FillStyleRef& GetFillStyle() const
     {
@@ -1020,10 +1009,7 @@ namespace osmscout {
       return borderStyle;
     }
 
-    virtual void GetBoundingBox(double& minX,
-                                double& minY,
-                                double& maxX,
-                                double& maxY) const = 0;
+    virtual ScreenBox GetBoundingBox() const = 0;
   };
 
   using DrawPrimitiveRef = std::shared_ptr<DrawPrimitive>;
@@ -1038,8 +1024,7 @@ namespace osmscout {
     std::list<Vertex2D> coords;
 
   public:
-    PolygonPrimitive(ProjectionMode projectionMode,
-                     const FillStyleRef& fillStyle,
+    PolygonPrimitive(const FillStyleRef& fillStyle,
                      const BorderStyleRef& borderStyle);
 
     void AddCoord(const Vertex2D& coord);
@@ -1049,10 +1034,7 @@ namespace osmscout {
       return coords;
     }
 
-    void GetBoundingBox(double& minX,
-                        double& minY,
-                        double& maxX,
-                        double& maxY) const override;
+    ScreenBox GetBoundingBox() const override;
   };
 
   using PolygonPrimitiveRef = std::shared_ptr<PolygonPrimitive>;
@@ -1069,8 +1051,7 @@ namespace osmscout {
     double   height;
 
   public:
-    RectanglePrimitive(ProjectionMode projectionMode,
-                       const Vertex2D& topLeft,
+    RectanglePrimitive(const Vertex2D& topLeft,
                        double width,
                        double height,
                        const FillStyleRef& fillStyle,
@@ -1091,10 +1072,7 @@ namespace osmscout {
       return height;
     }
 
-    void GetBoundingBox(double& minX,
-                        double& minY,
-                        double& maxX,
-                        double& maxY) const override;
+    ScreenBox GetBoundingBox() const override;
   };
 
   using RectanglePrimitiveRef = std::shared_ptr<RectanglePrimitive>;
@@ -1110,8 +1088,7 @@ namespace osmscout {
     double   radius;
 
   public:
-    CirclePrimitive(ProjectionMode projectionMode,
-                    const Vertex2D& center,
+    CirclePrimitive(const Vertex2D& center,
                     double radius,
                     const FillStyleRef& fillStyle,
                     const BorderStyleRef& borderStyle);
@@ -1126,10 +1103,7 @@ namespace osmscout {
       return radius;
     }
 
-    void GetBoundingBox(double& minX,
-                        double& minY,
-                        double& maxX,
-                        double& maxY) const override;
+    ScreenBox GetBoundingBox() const override;
   };
 
   using CirclePrimitiveRef = std::shared_ptr<CirclePrimitive>;
@@ -1142,48 +1116,34 @@ namespace osmscout {
    */
   class OSMSCOUT_MAP_API Symbol CLASS_FINAL
   {
-  private:
-    std::string                 name;
-    std::list<DrawPrimitiveRef> primitives;
-
-    struct BoundingBox{
-      double minX{0};
-      double minY{0};
-      double maxX{0};
-      double maxY{0};
-
-      double GetWidth() const
-      {
-        return maxX-minX;
-      }
-
-      double GetHeight() const
-      {
-        return maxY-minY;
-      }
-
-      void Update(double minX, double minY, double maxX, double maxY)
-      {
-        this->minX = std::min(this->minX, minX);
-        this->minY = std::min(this->minY, minY);
-
-        this->maxX = std::max(this->maxX, maxX);
-        this->maxY = std::max(this->maxY, maxY);
-      }
+  public:
+    enum class ProjectionMode {
+      MAP,
+      GROUND
     };
 
-    BoundingBox mapBoundingBox;     //!< bounding box in map canvas coordinates [mm]
-    BoundingBox groundBoundingBox;  //!< bounding box in ground coordinates [m]
-    double maxBorderWidth=0;        //!< maximum border width [mm]
+  private:
+    std::string                 name;               //!< The name of the symbol for reference
+    ProjectionMode              projectionMode;     //!< Symbol is either in ground or map coordinates
+    std::list<DrawPrimitiveRef> primitives;         //!< List of drawing priitive instances that make up the symbol shape
+    ScreenBox                   mapBoundingBox;     //!< bounding box in map canvas coordinates [mm]
+    ScreenBox                   groundBoundingBox;  //!< bounding box in ground coordinates [m]
+    double                      maxBorderWidth=0;   //!< maximum border width [mm]
 
   public:
-    explicit Symbol(const std::string& name);
+    explicit Symbol(const std::string& name,
+                    ProjectionMode projectionMode);
 
     void AddPrimitive(const DrawPrimitiveRef& primitive);
 
     std::string GetName() const
     {
       return name;
+    }
+
+    Symbol::ProjectionMode GetProjectionMode() const
+    {
+      return projectionMode;
     }
 
     const std::list<DrawPrimitiveRef>& GetPrimitives() const
@@ -1194,21 +1154,20 @@ namespace osmscout {
     /**
      * bounding box in pixels for given projection
      */
-    void GetBoundingBox(const Projection &projection,
-                        double& minX,
-                        double& minY,
-                        double& maxX,
-                        double& maxY) const
+    ScreenBox GetBoundingBox(const Projection &projection) const
     {
-      minX=std::min(projection.ConvertWidthToPixel(mapBoundingBox.minX),
-                    projection.GetMeterInPixel() * groundBoundingBox.minX);
-      minY=std::min(projection.ConvertWidthToPixel(mapBoundingBox.minY),
-                    projection.GetMeterInPixel() * groundBoundingBox.minY);
-
-      maxX=std::max(projection.ConvertWidthToPixel(mapBoundingBox.maxX),
-                    projection.GetMeterInPixel() * groundBoundingBox.maxX);
-      maxY=std::max(projection.ConvertWidthToPixel(mapBoundingBox.maxY),
-                    projection.GetMeterInPixel() * groundBoundingBox.maxY);
+      if (projectionMode==ProjectionMode::GROUND) {
+        return {Vertex2D(projection.GetMeterInPixel() * groundBoundingBox.GetMinX(),
+                         projection.GetMeterInPixel() * groundBoundingBox.GetMinY()),
+                Vertex2D(projection.GetMeterInPixel() * groundBoundingBox.GetMaxX(),
+                         projection.GetMeterInPixel() * groundBoundingBox.GetMaxY())};
+      }
+      else {
+        return {Vertex2D(projection.ConvertWidthToPixel(mapBoundingBox.GetMinX()),
+                         projection.ConvertWidthToPixel(mapBoundingBox.GetMinY())),
+                Vertex2D(projection.ConvertWidthToPixel(mapBoundingBox.GetMaxX()),
+                         projection.ConvertWidthToPixel(mapBoundingBox.GetMaxY()))};
+      }
     }
 
     /**
@@ -1251,9 +1210,15 @@ namespace osmscout {
   class OSMSCOUT_MAP_API PathSymbolStyle CLASS_FINAL : public Style
   {
   public:
+    enum class RenderMode : int {
+      fixed,
+      scale
+    };
 
     enum Attribute {
       attrSymbol,
+      attrRenderMode,
+      attrScale,
       attrSymbolSpace,
       attrDisplayOffset,
       attrOffset,
@@ -1263,13 +1228,15 @@ namespace osmscout {
   private:
     std::string slot;
     SymbolRef   symbol;
-    double      symbolSpace;
-    double      displayOffset;
-    double      offset;
+    RenderMode  renderMode=RenderMode::fixed;
+    double      scale=1.0;
+    double      symbolSpace=15.0;
+    double      displayOffset=0.0;
+    double      offset=0.0;
     OffsetRel   offsetRel{OffsetRel::base};
 
   public:
-    PathSymbolStyle();
+    PathSymbolStyle() = default;
 
     void SetDoubleValue(int attribute, double value) override;
     void SetSymbolValue(int attribute, const SymbolRef& value) override;
@@ -1278,6 +1245,8 @@ namespace osmscout {
     PathSymbolStyle& SetSlot(const std::string& slot);
 
     PathSymbolStyle& SetSymbol(const SymbolRef& symbol);
+    PathSymbolStyle& SetRenderMode(RenderMode renderMode);
+    PathSymbolStyle& SetScale(double scale);
     PathSymbolStyle& SetSymbolSpace(double space);
     PathSymbolStyle& SetDisplayOffset(double value);
     PathSymbolStyle& SetOffset(double value);
@@ -1296,6 +1265,16 @@ namespace osmscout {
     const SymbolRef& GetSymbol() const
     {
       return symbol;
+    }
+
+    RenderMode GetRenderMode() const
+    {
+      return renderMode;
+    }
+
+    double GetScale() const
+    {
+      return scale;
     }
 
     double GetSymbolSpace() const
@@ -1335,6 +1314,20 @@ namespace osmscout {
   };
 
   using PathSymbolStyleRef = std::shared_ptr<PathSymbolStyle>;
+
+  class OSMSCOUT_MAP_API RenderModeEnumAttributeDescriptor CLASS_FINAL : public StyleEnumAttributeDescriptor
+  {
+  public:
+    RenderModeEnumAttributeDescriptor(const std::string& name,
+                                      int attribute)
+      : StyleEnumAttributeDescriptor(name,
+                                     attribute)
+    {
+      AddEnumValue("fixed",(int)PathSymbolStyle::RenderMode::fixed);
+      AddEnumValue("scale",(int)PathSymbolStyle::RenderMode::scale);
+    }
+  };
+
 }
 
 #endif

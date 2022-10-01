@@ -618,22 +618,19 @@ namespace osmscout {
     void MapPainterIOS::DrawContourSymbol(const Projection& projection,
                                           const MapParameter& parameter,
                                           const Symbol& symbol,
-                                          double space,
-                                          size_t transStart, size_t transEnd){
+                                          const ContourSymbolData& data){
 
-        double minX,minY,maxX,maxY;
-        symbol.GetBoundingBox(projection,minX,minY,maxX,maxY);
-
-        double width=maxX-minX;
-        double height=maxY-minY;
+        ScreenBox boundingBox=symbol.GetBoundingBox(projection);
+        double width=boundingBox.GetWidth();
+        double height=boundingBox.GetHeight();
         bool isClosed = false;
         CGAffineTransform transform=CGAffineTransformMake(1.0, 0.0, 0.0, 1.0, 0.0, 0.0);
         Vertex2D origin;
         double slope;
         double x1,y1,x2,y2,x3,y3;
         FollowPathHandle followPathHnd;
-        followPathInit(followPathHnd, origin, transStart, transEnd, isClosed, true);
-        if(!isClosed && !followPath(followPathHnd, space/2, origin)){
+        followPathInit(followPathHnd, origin, data.coordRange.GetStart(), data.coordRange.GetEnd(), isClosed, true);
+        if(!isClosed && !followPath(followPathHnd, data.symbolOffset, origin)){
             return;
         }
         bool loop = true;
@@ -653,9 +650,9 @@ namespace osmscout {
                     CGContextTranslateCTM(cg, x2, y2);
                     CGAffineTransform ct = CGAffineTransformConcat(transform, CGAffineTransformMakeRotation(slope));
                     CGContextConcatCTM(cg, ct);
-                    DrawSymbol(projection, parameter, symbol, 0, 0);
+                    DrawSymbol(projection, parameter, symbol, 0, 0, data.symbolScale);
                     CGContextRestoreGState(cg);
-                    loop = followPath(followPathHnd, space, origin);
+                    loop = followPath(followPathHnd, data.symbolSpace, origin);
                 }
             }
         }
@@ -675,8 +672,8 @@ namespace osmscout {
         assert(idx<images.size());
         assert(images[idx]);
 
-        CGFloat w = CGImageGetWidth(images[idx])/contentScale;
-        CGFloat h = CGImageGetHeight(images[idx])/contentScale;
+        CGFloat w = CGImageGetWidth(images[idx]);
+        CGFloat h = CGImageGetHeight(images[idx]);
         CGRect rect = CGRectMake(x-w/2, -h/2-y, w, h);
         CGContextSaveGState(cg);
         CGContextScaleCTM(cg, 1.0, -1.0);
@@ -688,22 +685,20 @@ namespace osmscout {
      * DrawSymbol(const Projection& projection,
      *            const MapParameter& parameter,
      *            const SymbolRef& symbol,
-     *            double x, double y)
+     *            double x, double y, double scaleFactor)
      */
     void MapPainterIOS::DrawSymbol(const Projection& projection,
                     const MapParameter& parameter,
                     const Symbol& symbol,
-                    double x, double y){
-        double minX;
-        double minY;
-        double maxX;
-        double maxY;
-        symbol.GetBoundingBox(projection,minX,minY,maxX,maxY);
-
-        double centerX=(maxX+minX)/2;
-        double centerY=(maxY+minY)/2;
+                    double x, double y,
+                    double scaleFactor){
+        ScreenBox boundingBox=symbol.GetBoundingBox(projection);
+        Vertex2D center=boundingBox.GetCenter();
 
         CGContextSaveGState(cg);
+        if (scaleFactor != 0.0) {
+            CGContextConcatCTM(cg, CGAffineTransformMakeScale(scaleFactor, scaleFactor));
+        }
         for (const auto& primitive : symbol.GetPrimitives()) {
             const DrawPrimitive *primitivePtr=primitive.get();
 
@@ -731,11 +726,11 @@ namespace osmscout {
                      pixel!=polygon->GetCoords().end();
                      ++pixel) {
                     if (pixel==polygon->GetCoords().begin()) {
-                        CGContextMoveToPoint(cg,x+projection.ConvertWidthToPixel(pixel->GetX())-centerX,
-                                             y+projection.ConvertWidthToPixel(pixel->GetY())-centerY);
+                        CGContextMoveToPoint(cg,x+projection.ConvertWidthToPixel(pixel->GetX())-center.GetX(),
+                                             y+projection.ConvertWidthToPixel(pixel->GetY())-center.GetY());
                     } else {
-                        CGContextAddLineToPoint(cg,x+projection.ConvertWidthToPixel(pixel->GetX())-centerX,
-                                                y+projection.ConvertWidthToPixel(pixel->GetY())-centerY);
+                        CGContextAddLineToPoint(cg,x+projection.ConvertWidthToPixel(pixel->GetX())-center.GetX(),
+                                                y+projection.ConvertWidthToPixel(pixel->GetY())-center.GetY());
                     }
                 }
 
@@ -757,8 +752,8 @@ namespace osmscout {
                 } else {
                     CGContextSetRGBStrokeColor(cg,0,0,0,0);
                 }
-                CGRect rect = CGRectMake(x+projection.ConvertWidthToPixel(rectangle->GetTopLeft().GetX())-centerX,
-                                         y+projection.ConvertWidthToPixel(rectangle->GetTopLeft().GetY())-centerY,
+                CGRect rect = CGRectMake(x+projection.ConvertWidthToPixel(rectangle->GetTopLeft().GetX())-center.GetX(),
+                                         y+projection.ConvertWidthToPixel(rectangle->GetTopLeft().GetY())-center.GetY(),
                                          projection.ConvertWidthToPixel(rectangle->GetWidth()),
                                          projection.ConvertWidthToPixel(rectangle->GetHeight()));
                 CGContextAddRect(cg,rect);
@@ -780,8 +775,8 @@ namespace osmscout {
                 } else {
                     CGContextSetRGBStrokeColor(cg,0,0,0,0);
                 }
-                CGRect rect = CGRectMake(x+projection.ConvertWidthToPixel(circle->GetCenter().GetX())-centerX,
-                                         y+projection.ConvertWidthToPixel(circle->GetCenter().GetY())-centerY,
+                CGRect rect = CGRectMake(x+projection.ConvertWidthToPixel(circle->GetCenter().GetX())-center.GetX(),
+                                         y+projection.ConvertWidthToPixel(circle->GetCenter().GetY())-center.GetY(),
                                          projection.ConvertWidthToPixel(circle->GetRadius()),
                                          projection.ConvertWidthToPixel(circle->GetRadius()));
                 CGContextAddEllipseInRect(cg, rect);
@@ -808,7 +803,7 @@ namespace osmscout {
                   const std::vector<double>& dash,
                   LineStyle::CapStyle startCap,
                   LineStyle::CapStyle endCap,
-                  size_t transStart, size_t transEnd){
+                  const CoordBufferRange& coordRange){
 
         CGContextSaveGState(cg);
         CGContextSetRGBStrokeColor(cg, color.GetR(), color.GetG(), color.GetB(), color.GetA());
@@ -827,22 +822,22 @@ namespace osmscout {
             CGContextSetLineCap(cg, kCGLineCapButt);
         }
         CGContextBeginPath(cg);
-        CGContextMoveToPoint(cg,coordBuffer.buffer[transStart].GetX(),coordBuffer.buffer[transStart].GetY());
-        for (size_t i=transStart+1; i<=transEnd; i++) {
+        CGContextMoveToPoint(cg,coordBuffer.buffer[coordRange.GetStart()].GetX(),coordBuffer.buffer[coordRange.GetStart()].GetY());
+        for (size_t i=coordRange.GetStart()+1; i<=coordRange.GetEnd(); i++) {
             CGContextAddLineToPoint (cg,coordBuffer.buffer[i].GetX(),coordBuffer.buffer[i].GetY());
         }
         CGContextStrokePath(cg);
         if (startCap==LineStyle::capRound) {
             CGContextSetRGBFillColor(cg, color.GetR(), color.GetG(), color.GetB(), color.GetA());
-            CGContextFillEllipseInRect(cg, CGRectMake(coordBuffer.buffer[transStart].GetX()-width/2,
-                                                     coordBuffer.buffer[transStart].GetY()-width/2,
+            CGContextFillEllipseInRect(cg, CGRectMake(coordBuffer.buffer[coordRange.GetStart()].GetX()-width/2,
+                                                     coordBuffer.buffer[coordRange.GetStart()].GetY()-width/2,
                                                      width,width));
         }
         if (endCap==LineStyle::capRound) {
             CGContextSetRGBFillColor(cg, color.GetR(), color.GetG(), color.GetB(), color.GetA());
-            CGContextFillEllipseInRect(cg, CGRectMake(coordBuffer.buffer[transEnd].GetX()-width/2,
-                                                     coordBuffer.buffer[transEnd].GetY()-width/2,
-                                                     width,width));
+            CGContextFillEllipseInRect(cg, CGRectMake(coordBuffer.buffer[coordRange.GetEnd()].GetX()-width/2,
+                                                      coordBuffer.buffer[coordRange.GetEnd()].GetY()-width/2,
+                                                      width,width));
         }
         CGContextRestoreGState(cg);
     }

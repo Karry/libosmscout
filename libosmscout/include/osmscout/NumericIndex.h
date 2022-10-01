@@ -375,7 +375,7 @@ namespace osmscout {
 
             ReadPage(offset,pageRef);
 
-            simplePageCache[level].insert(std::make_pair(startId,pageRef));
+            simplePageCache[level].emplace(startId,pageRef);
           }
           else {
             pageRef=cacheRef->second;

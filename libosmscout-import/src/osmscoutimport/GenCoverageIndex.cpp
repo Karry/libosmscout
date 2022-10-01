@@ -283,7 +283,7 @@ namespace osmscout {
 
       CellSet cells;
 
-      cells=nodeCells;
+      cells=std::move(nodeCells);
       cells.insert(wayCells.begin(),wayCells.end());
       cells.insert(areaCells.begin(),areaCells.end());
 

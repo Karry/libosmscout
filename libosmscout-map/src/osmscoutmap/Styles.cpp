@@ -43,21 +43,24 @@ namespace osmscout {
     if (turn=="left" || turn=="merge_to_left" || turn=="slight_left" || turn=="sharp_left") {
       return OffsetRel::laneForwardLeft;
     }
-    else if (turn=="through;left" || turn=="through;slight_left" || turn=="through;sharp_left") {
+
+    if (turn=="through;left" || turn=="through;slight_left" || turn=="through;sharp_left") {
       return OffsetRel::laneForwardThroughLeft;
     }
-    else if (turn=="through") {
+
+    if (turn=="through") {
       return OffsetRel::laneForwardThrough;
     }
-    else if (turn=="through;right" || turn=="through;slight_right" || turn=="through;sharp_right") {
+
+    if (turn=="through;right" || turn=="through;slight_right" || turn=="through;sharp_right") {
       return OffsetRel::laneForwardThroughRight;
     }
-    else if (turn=="right" || turn=="merge_to_right" || turn=="slight_right" || turn=="sharp_right") {
+
+    if (turn=="right" || turn=="merge_to_right" || turn=="slight_right" || turn=="sharp_right") {
       return OffsetRel::laneForwardRight;
     }
-    else {
-      return OffsetRel::base;
-    }
+
+    return OffsetRel::base;
   }
 
   OffsetRel ParseBackwardTurnStringToOffset(const std::string& turn)
@@ -65,21 +68,24 @@ namespace osmscout {
     if (turn=="left" || turn=="merge_to_left" || turn=="slight_left" || turn=="sharp_left") {
       return OffsetRel::laneBackwardLeft;
     }
-    else if (turn=="through;left" || turn=="through;slight_left" || turn=="through;sharp_left") {
+
+    if (turn=="through;left" || turn=="through;slight_left" || turn=="through;sharp_left") {
       return OffsetRel::laneBackwardThroughLeft;
     }
-    else if (turn=="through") {
+
+    if (turn=="through") {
       return OffsetRel::laneBackwardThrough;
     }
-    else if (turn=="through;right" || turn=="through;slight_right" || turn=="through;sharp_right") {
+
+    if (turn=="through;right" || turn=="through;slight_right" || turn=="through;sharp_right") {
       return OffsetRel::laneBackwardThroughRight;
     }
-    else if (turn=="right" || turn=="merge_to_right" || turn=="slight_right" || turn=="sharp_right") {
+
+    if (turn=="right" || turn=="merge_to_right" || turn=="slight_right" || turn=="sharp_right") {
       return OffsetRel::laneBackwardRight;
     }
-    else {
-      return OffsetRel::base;
-    }
+
+    return OffsetRel::base;
   }
 
 
@@ -104,7 +110,7 @@ class LineStyleDescriptor CLASS_FINAL : public StyleDescriptor
     }
   };
 
-  static StyleDescriptorRef lineStyleDescriptor=std::make_shared<LineStyleDescriptor>();
+  static const StyleDescriptorRef lineStyleDescriptor=std::make_shared<LineStyleDescriptor>();
 
   LineStyle::LineStyle()
    : lineColor(1.0,0.0,0.0,0.0),
@@ -434,7 +440,7 @@ class LineStyleDescriptor CLASS_FINAL : public StyleDescriptor
     }
   };
 
-  static StyleDescriptorRef fillStyleDescriptor=std::make_shared<FillStyleDescriptor>();
+  static const StyleDescriptorRef fillStyleDescriptor=std::make_shared<FillStyleDescriptor>();
 
   FillStyle::FillStyle()
    : fillColor(1.0,0.0,0.0,0.0),
@@ -560,7 +566,7 @@ class LineStyleDescriptor CLASS_FINAL : public StyleDescriptor
     }
   };
 
-  static StyleDescriptorRef borderStyleDescriptor=std::make_shared<BorderStyleDescriptor>();
+  static const StyleDescriptorRef borderStyleDescriptor=std::make_shared<BorderStyleDescriptor>();
 
   BorderStyle::BorderStyle()
     : color(1.0,0.0,0.0,0.0),
@@ -794,7 +800,7 @@ class LineStyleDescriptor CLASS_FINAL : public StyleDescriptor
     }
   };
 
-  static StyleDescriptorRef textStyleDescriptor=std::make_shared<TextStyleDescriptor>();
+  static const StyleDescriptorRef textStyleDescriptor=std::make_shared<TextStyleDescriptor>();
 
   TextStyle::TextStyle()
    : position(0),
@@ -1117,7 +1123,7 @@ class LineStyleDescriptor CLASS_FINAL : public StyleDescriptor
     }
   };
 
-  static StyleDescriptorRef pathShieldStyleDescriptor=std::make_shared<PathShieldStyleDescriptor>();
+  static const StyleDescriptorRef pathShieldStyleDescriptor=std::make_shared<PathShieldStyleDescriptor>();
 
   PathShieldStyle::PathShieldStyle()
    : shieldStyle(std::make_shared<ShieldStyle>()),
@@ -1293,7 +1299,7 @@ class LineStyleDescriptor CLASS_FINAL : public StyleDescriptor
     }
   };
 
-  static StyleDescriptorRef pathTextStyleDescriptor=std::make_shared<PathTextStyleDescriptor>();
+  static const StyleDescriptorRef pathTextStyleDescriptor=std::make_shared<PathTextStyleDescriptor>();
 
   PathTextStyle::PathTextStyle()
    : size(1),
@@ -1429,35 +1435,28 @@ class LineStyleDescriptor CLASS_FINAL : public StyleDescriptor
     }
   }
 
-  DrawPrimitive::DrawPrimitive(ProjectionMode projectionMode,
-                               const FillStyleRef& fillStyle,
+  DrawPrimitive::DrawPrimitive(const FillStyleRef& fillStyle,
                                const BorderStyleRef& borderStyle)
-  : projectionMode(projectionMode),
-    fillStyle(fillStyle),
+  : fillStyle(fillStyle),
     borderStyle(borderStyle)
   {
     // no code
   }
 
-  PolygonPrimitive::PolygonPrimitive(ProjectionMode projectionMode,
-                                     const FillStyleRef& fillStyle,
+  PolygonPrimitive::PolygonPrimitive(const FillStyleRef& fillStyle,
                                      const BorderStyleRef& borderStyle)
-  : DrawPrimitive(projectionMode,
-                  fillStyle,
+  : DrawPrimitive(fillStyle,
                   borderStyle)
   {
     // no code
   }
 
-  void PolygonPrimitive::GetBoundingBox(double& minX,
-                                        double& minY,
-                                        double& maxX,
-                                        double& maxY) const
+  ScreenBox PolygonPrimitive::GetBoundingBox() const
   {
-    minX=std::numeric_limits<double>::max();
-    minY=std::numeric_limits<double>::max();
-    maxX=-std::numeric_limits<double>::max();
-    maxY=-std::numeric_limits<double>::max();
+    double minX=std::numeric_limits<double>::max();
+    double minY=std::numeric_limits<double>::max();
+    double maxX=-std::numeric_limits<double>::min();
+    double maxY=-std::numeric_limits<double>::min();
 
     for (const auto& coord : coords) {
       minX=std::min(minX,coord.GetX());
@@ -1466,6 +1465,8 @@ class LineStyleDescriptor CLASS_FINAL : public StyleDescriptor
       maxX=std::max(maxX,coord.GetX());
       maxY=std::max(maxY,coord.GetY());
     }
+
+    return {Vertex2D(minX,minY),Vertex2D(maxX,maxY)};
   }
 
   void PolygonPrimitive::AddCoord(const Vertex2D& coord)
@@ -1473,14 +1474,12 @@ class LineStyleDescriptor CLASS_FINAL : public StyleDescriptor
     coords.push_back(coord);
   }
 
-  RectanglePrimitive::RectanglePrimitive(ProjectionMode projectionMode,
-                                         const Vertex2D& topLeft,
+  RectanglePrimitive::RectanglePrimitive(const Vertex2D& topLeft,
                                          double width,
                                          double height,
                                          const FillStyleRef& fillStyle,
                                          const BorderStyleRef& borderStyle)
-  : DrawPrimitive(projectionMode,
-                  fillStyle,
+  : DrawPrimitive(fillStyle,
                   borderStyle),
     topLeft(topLeft),
     width(width),
@@ -1489,25 +1488,16 @@ class LineStyleDescriptor CLASS_FINAL : public StyleDescriptor
     // no code
   }
 
-  void RectanglePrimitive::GetBoundingBox(double& minX,
-                                          double& minY,
-                                          double& maxX,
-                                          double& maxY) const
+  ScreenBox RectanglePrimitive::GetBoundingBox() const
   {
-    minX=topLeft.GetX();
-    minY=topLeft.GetY();
-
-    maxX=topLeft.GetX()+width;
-    maxY=topLeft.GetY()+height;
+    return {topLeft,Vertex2D(topLeft.GetX()+width,topLeft.GetY()+height)};
   }
 
-  CirclePrimitive::CirclePrimitive(ProjectionMode projectionMode,
-                                   const Vertex2D& center,
+  CirclePrimitive::CirclePrimitive(const Vertex2D& center,
                                    double radius,
                                    const FillStyleRef& fillStyle,
                                    const BorderStyleRef& borderStyle)
-  : DrawPrimitive(projectionMode,
-                  fillStyle,
+  : DrawPrimitive(fillStyle,
                   borderStyle),
     center(center),
     radius(radius)
@@ -1515,39 +1505,32 @@ class LineStyleDescriptor CLASS_FINAL : public StyleDescriptor
     // no code
   }
 
-  void CirclePrimitive::GetBoundingBox(double& minX,
-                                       double& minY,
-                                       double& maxX,
-                                       double& maxY) const
+  ScreenBox CirclePrimitive::GetBoundingBox() const
   {
-    minX=center.GetX()-radius;
-    minY=center.GetY()-radius;
-
-    maxX=center.GetX()+radius;
-    maxY=center.GetY()+radius;
+    return {Vertex2D(center.GetX()-radius,
+                     center.GetY()-radius),
+            Vertex2D(center.GetX()+radius,
+                     center.GetY()+radius)};
   }
 
-  Symbol::Symbol(const std::string& name)
-  : name(name)
+  Symbol::Symbol(const std::string& name,
+                 ProjectionMode projectionMode)
+  : name(name),
+    projectionMode(projectionMode)
   {
     // no code
   }
 
   void Symbol::AddPrimitive(const DrawPrimitiveRef& primitive)
   {
-    double minX;
-    double minY;
-    double maxX;
-    double maxY;
+    ScreenBox screenBox = primitive->GetBoundingBox();
 
-    primitive->GetBoundingBox(minX,minY,maxX,maxY);
-
-    switch (primitive->GetProjectionMode()){
-      case DrawPrimitive::ProjectionMode::MAP:
-        mapBoundingBox.Update(minX,minY,maxX,maxY);
+    switch (projectionMode){
+      case ProjectionMode::MAP:
+        mapBoundingBox=mapBoundingBox.Merge(screenBox);
         break;
-      case DrawPrimitive::ProjectionMode::GROUND:
-        groundBoundingBox.Update(minX,minY,maxX,maxY);
+      case ProjectionMode::GROUND:
+        groundBoundingBox=groundBoundingBox.Merge(screenBox);
         break;
       default:
         assert(false);
@@ -1573,7 +1556,7 @@ class LineStyleDescriptor CLASS_FINAL : public StyleDescriptor
     }
   };
 
-  static StyleDescriptorRef iconStyleDescriptor=std::make_shared<IconStyleDescriptor>();
+  static const StyleDescriptorRef iconStyleDescriptor=std::make_shared<IconStyleDescriptor>();
 
   IconStyle::IconStyle()
    : iconId(0),
@@ -1728,21 +1711,15 @@ class LineStyleDescriptor CLASS_FINAL : public StyleDescriptor
     PathSymbolStyleDescriptor()
     {
       AddAttribute(std::make_shared<StyleSymbolAttributeDescriptor>("symbol",PathSymbolStyle::attrSymbol));
+      AddAttribute(std::make_shared<RenderModeEnumAttributeDescriptor>("renderMode",PathSymbolStyle::attrRenderMode));
+      AddAttribute(std::make_shared<StyleUDoubleAttributeDescriptor>("scale",PathSymbolStyle::attrScale));
       AddAttribute(std::make_shared<StyleUDisplayAttributeDescriptor>("symbolSpace",PathSymbolStyle::attrSymbolSpace));
       AddAttribute(std::make_shared<StyleDisplayAttributeDescriptor>("displayOffset",PathSymbolStyle::attrDisplayOffset));
       AddAttribute(std::make_shared<StyleUMapAttributeDescriptor>("offset",PathSymbolStyle::attrOffset));
       AddAttribute(std::make_shared<OffsetRelAttributeDescriptor>("offsetRel",PathSymbolStyle::attrOffsetRel));    }
   };
 
-  static StyleDescriptorRef pathSymbolStyleDescriptor=std::make_shared<PathSymbolStyleDescriptor>();
-
-  PathSymbolStyle::PathSymbolStyle()
-  : symbolSpace(15),
-    displayOffset(0.0),
-    offset(0.0)
-  {
-    // no code
-  }
+  static const StyleDescriptorRef pathSymbolStyleDescriptor=std::make_shared<PathSymbolStyleDescriptor>();
 
   PathSymbolStyle& PathSymbolStyle::SetSlot(const std::string& slot)
   {
@@ -1754,6 +1731,20 @@ class LineStyleDescriptor CLASS_FINAL : public StyleDescriptor
   PathSymbolStyle& PathSymbolStyle::SetSymbol(const SymbolRef& symbol)
   {
     this->symbol=symbol;
+
+    return *this;
+  }
+
+  PathSymbolStyle& PathSymbolStyle::SetRenderMode(RenderMode renderMode)
+  {
+    this->renderMode=renderMode;
+
+    return *this;
+  }
+
+  PathSymbolStyle& PathSymbolStyle::SetScale(double scale)
+  {
+    this->scale=scale;
 
     return *this;
   }
@@ -1799,6 +1790,12 @@ class LineStyleDescriptor CLASS_FINAL : public StyleDescriptor
       case attrSymbol:
         symbol=other.symbol;
         break;
+      case attrRenderMode:
+        renderMode=other.renderMode;
+        break;
+      case attrScale:
+        scale=other.scale;
+        break;
       case attrSymbolSpace:
         symbolSpace=other.symbolSpace;
         break;
@@ -1809,7 +1806,7 @@ class LineStyleDescriptor CLASS_FINAL : public StyleDescriptor
         offset=other.offset;
         break;
       case attrOffsetRel:
-        offset=other.offset;
+        offsetRel=other.offsetRel;
         break;
       }
     }
@@ -1819,6 +1816,9 @@ class LineStyleDescriptor CLASS_FINAL : public StyleDescriptor
                                        double value)
   {
     switch (attribute) {
+    case attrScale:
+      SetScale(value);
+      break;
     case attrOffset:
       SetOffset(value);
       break;
@@ -1845,16 +1845,18 @@ class LineStyleDescriptor CLASS_FINAL : public StyleDescriptor
     }
   }
 
-  void PathSymbolStyle::SetIntValue(int attribute, int value)
+  void PathSymbolStyle::SetIntValue(int attribute,
+                                    int value)
   {
     switch (attribute) {
-      case attrOffsetRel:
-        SetOffsetRel((OffsetRel)value);
-        break;
-      default:
-        assert(false);
+    case attrRenderMode:
+      SetRenderMode((PathSymbolStyle::RenderMode)value);
+      break;
+    case attrOffsetRel:
+      SetOffsetRel((OffsetRel)value);
+      break;
+    default:
+      assert(false);
     }
   }
-
 }
-

@@ -241,13 +241,11 @@ void IconLookup::onLoadJobFinished(QMap<QString,QMap<osmscout::TileKey,osmscout:
       painter.setRenderHint(QPainter::TextAntialiasing, true);
       SymbolRendererQt renderer(&painter);
 
-      double minX, minY, maxX, maxY;
-      symbol->GetBoundingBox(projection,minX,minY,maxX,maxY);
-      renderer.Render(*symbol,
-                      Vertex2D((minX*-1 + margin/2) * iconImageUpscale,
-                               (minY*-1 + margin/2) * iconImageUpscale),
-                      projection.GetMeterInPixel()*iconImageUpscale,
-                      projection.ConvertWidthToPixel(iconImageUpscale));
+      ScreenBox symbolBoundingBox=symbol->GetBoundingBox(projection);
+      renderer.Render(projection,
+                      *symbol,
+                      Vertex2D((symbolBoundingBox.GetMinX()*-1 + margin/2) * iconImageUpscale,
+                               (symbolBoundingBox.GetMinY()*-1 + margin/2) * iconImageUpscale));
       painter.end();
     }
 
