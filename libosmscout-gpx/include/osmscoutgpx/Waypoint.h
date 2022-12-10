@@ -29,7 +29,8 @@
 #include <string>
 #include <optional>
 
-namespace osmscout::gpx {
+namespace osmscout {
+namespace gpx {
 
 class OSMSCOUT_GPX_API Waypoint {
 public:
@@ -49,6 +50,7 @@ public:
   std::optional<double> vdop; // meters
   std::optional<double> pdop; // meters
 };
+}
 }
 
 #endif //OSMSCOUT_GPX_WAYPOINT_H

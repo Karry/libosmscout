@@ -31,14 +31,15 @@
 #include <cstdio>
 #include <string>
 
-namespace osmscout::gpx {
-
+namespace osmscout {
+namespace gpx {
 
 extern OSMSCOUT_GPX_API bool ImportGpx(const std::string &filePath,
                                        GpxFile &output,
                                        BreakerRef breaker =nullptr,
                                        ProcessCallbackRef callback = std::make_shared<ProcessCallback>());
 
+}
 }
 
 #endif //LIBOSMSCOUT_GPX_IMPORT_H
