@@ -195,6 +195,14 @@ namespace osmscout {
     }
 
     /**
+     * Return true if latitude is in range <-90,+90> and longitude in range <-180,+180>
+     */
+    bool IsValid() const
+    {
+      return lat >= -90 && lat <= 90 && lon >= -180 && lon <= +180;
+    }
+
+    /**
      * Parse a textual representation of a geo coordinate from a string
      * to an GeoCoord instance.
      *
@@ -205,6 +213,7 @@ namespace osmscout {
      * coordinate may have one of these formats:
      *  DDD[.DDDDD]
      *  DD°[D[.DDD]'[D[.DDD]"]]
+     *  DD°[D[.DDD]
      *
      * The means:
      * * You first define the latitude, then the longitude value
