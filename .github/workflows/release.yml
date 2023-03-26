@@ -1,26 +1,25 @@
-name: Release Latest
+name: Release
 
 on:
-  push:
-    branches:
-      - master
-    paths_ignore:
-      - '.github/workflows/**'
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version'
+        required: true
 
 env:
   JAVA_VERSION: '17'
   JAVA_DISTRO: 'zulu'
 
 jobs:
-  create_latest_release:
-    name: Create latest release
+  create_release:
+    name: Create release
     runs-on: ubuntu-22.04
-    if: github.ref == 'refs/heads/master'
     steps:
       - name: Checkout
         uses: actions/checkout@v3
         with:
+          ref: master
           fetch-depth: 0
 
       - name: Install gcc compiler and Co
@@ -29,14 +28,10 @@ jobs:
       - name: Install meson and ninja via pip
         run:  "pip install meson ninja"
 
-      - name: "Define version based on current year"
-        run: |
-          echo "VERSION=$(date +%Y.%m.%d).1-latest" >> $GITHUB_OUTPUT
-        id: version
-
-      - name: Set version locally to 'latest'
+      - name: Set version
         run:  |
-          sed -i "s/^ *version: *'[0-9a-z.-]*', *$/        version: '$(date +%Y.%m.%d).1-latest',/g" meson.build
+          VERSION=${{ github.event.inputs.version }}
+          sed -i "s/^ *version: *'[0-9a-z.-]*', *$/        version: '${VERSION}',/g" meson.build
 
       - name: Initialize meson project
         run:  meson setup dist --wrap-mode nofallback
@@ -56,7 +51,7 @@ jobs:
       - name: JReleaser full-release
         uses: jreleaser/release-action@v2
         env:
-          JRELEASER_PROJECT_VERSION: ${{ steps.version.outputs.VERSION }}
+          JRELEASER_PROJECT_VERSION: ${{ github.event.inputs.version }}
           JRELEASER_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: JReleaser upload output
