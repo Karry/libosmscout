@@ -903,7 +903,7 @@ namespace osmscout {
       if (!typeInfo->HasFeature(PhoneFeature::NAME)) {
         typeInfo->AddFeature(featurePhone);
       }
-      if (!typeInfo->HasFeature(OpeningHoursFeature::NAME)) {
+      if (!typeInfo->HasFeature(OpeningHoursFeature::NAME) && fileFormatVersion >= 25) {
         typeInfo->AddFeature(featureOpeningHours);
       }
     }
