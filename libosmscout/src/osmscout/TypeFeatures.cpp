@@ -2067,7 +2067,11 @@ namespace osmscout {
 
   void EleFeatureValue::Read(FileScanner& scanner)
   {
-    ele=scanner.ReadInt16Number();
+    if (scanner.GetFileFormatVersion() < 25) {
+      ele = scanner.ReadUInt32Number();
+    } else {
+      ele = scanner.ReadInt16Number();
+    }
   }
 
   void EleFeatureValue::Write(FileWriter& writer)
