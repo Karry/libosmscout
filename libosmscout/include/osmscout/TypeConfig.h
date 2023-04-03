@@ -1037,7 +1037,7 @@ namespace osmscout {
 
   using FeatureValueBufferRef = std::shared_ptr<FeatureValueBuffer>;
 
-  static const uint32_t FILE_FORMAT_VERSION = 24;
+  static const uint32_t FILE_FORMAT_VERSION = 25;
   static const uint32_t FILE_FORMAT_MIN_VERSION = 19;
 
   // Forward declaration
@@ -1104,6 +1104,7 @@ namespace osmscout {
     FeatureRef                                  featureEmbankment;
     FeatureRef                                  featureRoundabout;
     FeatureRef                                  featureLanes;
+    FeatureRef                                  featureOpeningHours;
 
   public:
     // Internal use (only available during preprocessing)
