@@ -286,7 +286,7 @@ void DBRenderJob::Run(const osmscout::BasemapDatabaseRef& basemapDatabase,
   }
 
   // prepare data for batch
-  osmscout::MapPainterBatchQt batch(databases.size());
+  osmscout::BatchMapPainterQt batch(databases.size());
   size_t i=0;
   for (const auto &db: databases) {
     bool first = (i == 0);
@@ -328,7 +328,7 @@ void DBRenderJob::Run(const osmscout::BasemapDatabaseRef& basemapDatabase,
 
     auto *painter = db->GetPainter();
     if (painter != nullptr) {
-      batch.addData(data, painter);
+      batch.AddData(data, painter);
     } else {
       osmscout::log.Warn() << "Painter is not available for database: " << db->path.toStdString();
       success = false;
@@ -344,7 +344,7 @@ void DBRenderJob::Run(const osmscout::BasemapDatabaseRef& basemapDatabase,
     addOverlayObjectData(data, emptyStyleConfig->GetTypeConfig());
     painter=std::make_unique<osmscout::MapPainterQt>(emptyStyleConfig);
     MapPainterQt *p = painter.get();
-    batch.addData(data, p);
+    batch.AddData(data, p);
   }
 
   // draw databases
@@ -363,8 +363,7 @@ bool DBRenderJob::addBasemapData(MapDataRef data) const
   if (!waterIndex) {
     return false;
   }
-  osmscout::GeoBox boundingBox;
-  renderProjection.GetDimensions(boundingBox);
+  osmscout::GeoBox boundingBox(renderProjection.GetDimensions());
   return waterIndex->GetRegions(boundingBox,
                                 renderProjection.GetMagnification(),
                                 data->baseMapTiles);
