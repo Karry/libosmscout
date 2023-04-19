@@ -2191,7 +2191,7 @@ namespace osmscout {
     size_t      count=0;
 
     // We expect that float values use '.' as separator, but many values use ',' instead.
-    // Try try fix this if string looks reasonable
+    // Try to fix this if string looks reasonable
     for (size_t i=0; i<eleString.length() && count<=1; i++) {
       if (eleString[i]==',') {
         pos=i;
@@ -2212,11 +2212,7 @@ namespace osmscout {
         eleString.erase(eleString.length()-1);
       }
 
-      // Trim possible trailing spaces
-      while (eleString.length()>0 &&
-             eleString[eleString.length()-1]==' ') {
-        eleString.erase(eleString.length()-1);
-      }
+      eleString=Trim(eleString);
     }
 
     if (!StringToNumber(eleString,e)) {
