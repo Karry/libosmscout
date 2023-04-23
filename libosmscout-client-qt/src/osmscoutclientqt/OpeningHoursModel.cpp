@@ -58,12 +58,12 @@ QString OpeningHoursModel::dayName(OpeningHours::WeekDay weekDay) const
 QString OpeningHoursModel::shortDayName(OpeningHours::WeekDay weekDay) const
 {
   if (weekDay==OpeningHours::WeekDay::PublicHoliday) {
-    //: short variant
-    return OpeningHoursModel::tr("Public holiday");
+    //: short variant of "Public holiday"
+    return OpeningHoursModel::tr("PH");
   }
   if (weekDay==OpeningHours::WeekDay::SchoolHoliday) {
-    //: short variant
-    return OpeningHoursModel::tr("School holiday");
+    //: short variant of "School holiday"
+    return OpeningHoursModel::tr("SH");
   }
   // return calendar.standaloneWeekDayName(locale, int(weekDay)+1, QLocale::FormatType::ShortFormat);
   return locale.standaloneDayName(int(weekDay)+1, QLocale::FormatType::ShortFormat);
@@ -93,7 +93,7 @@ void OpeningHoursModel::setOpeningHours(const QString &openingHours)
   rawOpeningHours = openingHours;
   beginResetModel();
   model.clear();
-  auto result=OpeningHours::Parse(openingHours.toStdString());
+  auto result=OpeningHours::Parse(openingHours.toStdString(), true);
   if (result) {
     bool sundayFirst=locale.firstDayOfWeek()==Qt::Sunday;
     auto dayNum=[sundayFirst](const OpeningHours::WeekDay day) -> int {
@@ -118,6 +118,7 @@ QVariant OpeningHoursModel::data(const QModelIndex &index, int role) const
   if(index.row() < 0 || index.row() >= int(model.size())) {
     return QVariant();
   }
+  int dayOfTheWeek;
   auto const &rule = model[index.row()];
   switch (role) {
     case DayRole:
@@ -126,6 +127,9 @@ QVariant OpeningHoursModel::data(const QModelIndex &index, int role) const
       return shortDayName(rule.day);
     case TimeIntervalsRole:
       return intervalStrings(rule.intervals);
+    case IsTodayRole:
+      dayOfTheWeek=QDate::currentDate().dayOfWeek()-1;
+      return dayOfTheWeek>=0 && dayOfTheWeek<=int(OpeningHours::WeekDay::Sunday) && dayOfTheWeek==int(rule.day);
     default:
       return QVariant();
   }
@@ -138,6 +142,7 @@ QHash<int, QByteArray> OpeningHoursModel::roleNames() const
   roles[DayRole]="day";
   roles[ShortDayRole]="shortDay";
   roles[TimeIntervalsRole]="timeIntervals";
+  roles[IsTodayRole]="isToday";
 
   return roles;
 }
