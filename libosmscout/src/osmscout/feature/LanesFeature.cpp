@@ -67,7 +67,7 @@ std::vector<LaneTurn> ParseLaneTurns(const std::string &turnStr) {
     }
   }
   return result;
-};
+}
 }
 
   void LanesFeatureValue::Read(FileScanner& scanner)
