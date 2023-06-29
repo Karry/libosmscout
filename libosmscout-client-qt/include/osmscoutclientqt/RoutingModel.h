@@ -20,8 +20,8 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307  USA
  */
 
-#include <osmscout/Location.h>
-#include <osmscout/util/Breaker.h>
+#include <osmscout/location/Location.h>
+#include <osmscout/async/Breaker.h>
 #include <osmscout/routing/RouteDescription.h>
 
 #include <osmscoutclientqt/ClientQtImportExport.h>

@@ -22,7 +22,7 @@
 #include <thread>
 #include <vector>
 
-#include <osmscout/util/WorkQueue.h>
+#include <osmscout/async/WorkQueue.h>
 
 class Worker
 {
@@ -69,7 +69,7 @@ public:
 
     std::future<int> future=task.get_future();
 
-    queue.PushTask(task);
+    queue.PushTask(std::move(task));
 
     return future;
   }
