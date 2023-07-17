@@ -88,7 +88,7 @@ namespace osmscout {
     HANDLE       mmfHandle=0;
 #endif
 
-    uint32_t             fileFormatVersion;
+    uint32_t             fileFormatVersion=0;
 
   private:
     void AssureByteBufferSize(size_t size);
@@ -207,6 +207,7 @@ namespace osmscout {
 
     uint32_t GetFileFormatVersion() const
     {
+      assert(fileFormatVersion!=0);
       return fileFormatVersion;
     }
 
