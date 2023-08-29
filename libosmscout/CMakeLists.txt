@@ -13,7 +13,6 @@ set(HEADER_FILES_ROOT
         include/osmscout/Point.h
         include/osmscout/PublicTransport.h
         include/osmscout/Route.h
-        include/osmscout/elevation/SRTM.h
         include/osmscout/Tag.h
         include/osmscout/TypeConfig.h
         include/osmscout/TypeFeature.h
@@ -38,6 +37,7 @@ set(HEADER_FILES_ASYNC
         include/osmscout/async/Breaker.h
         include/osmscout/async/CancelableFuture.h
         include/osmscout/async/ProcessingQueue.h
+        include/osmscout/async/Signal.h
         include/osmscout/async/Thread.h
         include/osmscout/async/Worker.h
         include/osmscout/async/WorkQueue.h)
@@ -142,7 +142,7 @@ set(HEADER_FILES_POI
 
 set(HEADER_FILES_ELEVATION
         include/osmscout/elevation/ElevationService.h
-        src/osmscout/elevation/SRTM.cpp)
+        include/osmscout/elevation/SRTM.h)
 
 set(HEADER_FILES_ROUTING
         include/osmscout/routing/RouteData.h
@@ -339,6 +339,7 @@ set(SOURCE_FILES
     src/osmscout/location/LocationService.cpp
     src/osmscout/location/LocationDescriptionService.cpp
     src/osmscout/poi/POIService.cpp
+    src/osmscout/elevation/SRTM.cpp
     src/osmscout/Area.cpp
     src/osmscout/GeoCoord.cpp
     src/osmscout/GroundTile.cpp

@@ -401,6 +401,15 @@ StdByteTest = executable('StdByteTest',
              install: true,
              install_dir: testInstallDir)
 
+Signal = executable('Signal',
+             'src/Signal.cpp',
+             include_directories: [testIncDir, osmscoutIncDir],
+             link_with: [osmscout],
+             install: true,
+             install_dir: testInstallDir)
+
+test('Check signal', Signal)
+
 StringUtils = executable('StringUtils',
              'src/StringUtils.cpp',
              include_directories: [testIncDir, osmscoutIncDir],
@@ -550,6 +559,16 @@ if marisaDep.found()
            'bosyne'])
 endif
 
+Thread = executable('Thread',
+             'src/Thread.cpp',
+             include_directories: [testIncDir, osmscoutIncDir],
+             dependencies: [mathDep, threadDep, openmpDep],
+             link_with: [osmscout],
+             install: true,
+             install_dir: testInstallDir)
+
+test('Check Thread utilities', Thread)
+
 if buildImport
     ostandossEnv = environment()
     ostandossEnv.set('TESTS_TOP_DIR', meson.current_source_dir())
@@ -580,7 +599,7 @@ if buildClientQt
     ClientQtThreading = executable('ClientQtThreading',
                  'src/ClientQtThreading.cpp',
                  threadingMocs,
-                 include_directories: [testIncDir, osmscoutmapqtIncDir, osmscoutmapIncDir, osmscoutIncDir, osmscoutclientqtIncDir],
+                 include_directories: [testIncDir, osmscoutmapqtIncDir, osmscoutclientIncDir, osmscoutmapIncDir, osmscoutIncDir, osmscoutclientqtIncDir],
                  dependencies: [mathDep, threadDep, openmpDep, qtClientDep],
                  link_with: [osmscoutmapqt, osmscoutmap, osmscout, osmscoutclientqt],
                  install: true,
@@ -593,7 +612,7 @@ if buildClientQt
     QtFileDownloader = executable('QtFileDownloader',
                  'src/QtFileDownloader.cpp',
                  testMocs,
-                 include_directories: [testIncDir, osmscoutmapqtIncDir, osmscoutmapIncDir, osmscoutIncDir, osmscoutclientqtIncDir],
+                 include_directories: [testIncDir, osmscoutmapqtIncDir, osmscoutmapIncDir, osmscoutIncDir, osmscoutclientIncDir, osmscoutclientqtIncDir],
                  dependencies: [mathDep, threadDep, openmpDep, qtClientDep],
                  link_with: [osmscoutmapqt, osmscoutmap, osmscout, osmscoutclientqt],
                  install: true,

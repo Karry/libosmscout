@@ -26,11 +26,12 @@ endforeach
   osmscoutclientqt = library('osmscout_client_qt',
                              mocFiles,
                              osmscoutclientqtSrc,
-                             include_directories: [osmscoutclientqtIncDir, osmscoutmapqtIncDir, osmscoutmapIncDir, osmscoutIncDir],
+                             include_directories: [osmscoutclientqtIncDir, osmscoutclientIncDir, osmscoutmapqtIncDir, osmscoutmapIncDir, osmscoutIncDir],
                              cpp_args: cppArgs,
                              dependencies: [mathDep, threadDep, qtClientDep],
                              link_with: [osmscout, osmscoutmap, osmscoutmapqt, osmscoutclient],
                              version: libraryVersion,
                              install: true)
 
-# TODO: Generate PKG_CONFIG file
+pkg = import('pkgconfig')
+pkg.generate(osmscoutclientqt)

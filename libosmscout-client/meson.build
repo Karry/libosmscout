@@ -25,7 +25,7 @@ endif
 
 osmscoutclient = library('osmscout_client',
                          osmscoutclientSrc,
-                         include_directories: osmscoutclientIncDir,
+                         include_directories: [osmscoutclientIncDir, osmscoutIncDir],
                          cpp_args: cppArgs,
                          dependencies: [mathDep, threadDep],
                          link_args: link_args,
@@ -33,4 +33,5 @@ osmscoutclient = library('osmscout_client',
                          version: libraryVersion,
                          install: true)
 
-# TODO: Generate PKG_CONFIG file
+pkg = import('pkgconfig')
+pkg.generate(osmscoutclient)

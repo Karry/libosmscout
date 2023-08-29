@@ -30,9 +30,6 @@
 
 #include <osmscout/log/Logger.h>
 
-#include <QGuiApplication>
-#include <QScreen>
-
 namespace osmscout {
 
 DBThread::DBThread(QThread *backgroundThread,
@@ -46,20 +43,17 @@ DBThread::DBThread(QThread *backgroundThread,
     basemapLookupDirectory(basemapLookupDirectory),
     settings(settings),
     mapDpi(-1),
-    physicalDpi(-1),
     lock(QReadWriteLock::Recursive),
     iconDirectory(iconDirectory),
     daylight(true),
     customPoiTypes(customPoiTypes)
 {
-  QScreen *srn=QGuiApplication::screens().at(0);
-
-  physicalDpi = (double)srn->physicalDotsPerInch();
+  double physicalDpi = settings->GetPhysicalDPI();
   osmscout::log.Debug() << "Reported screen DPI: " << physicalDpi;
   mapDpi = settings->GetMapDPI();
   osmscout::log.Debug() << "Map DPI override: " << mapDpi;
 
-  stylesheetFilename=settings->GetStyleSheetAbsoluteFile();
+  stylesheetFilename=QString::fromStdString(settings->GetStyleSheetAbsoluteFile());
   stylesheetFlags=settings->GetStyleSheetFlags();
   osmscout::log.Debug() << "Using stylesheet: " << stylesheetFilename.toStdString();
 
@@ -67,7 +61,8 @@ DBThread::DBThread(QThread *backgroundThread,
   registerCustomPoiTypes(emptyTypeConfig);
   emptyStyleConfig=makeStyleConfig(emptyTypeConfig);
 
-  connect(settings.get(), &Settings::MapDPIChange,
+  settings->mapDPIChange.Connect(mapDpiSlot);
+  connect(this, &DBThread::mapDpiSignal,
           this, &DBThread::onMapDPIChange,
           Qt::QueuedConnection);
 
@@ -80,6 +75,8 @@ DBThread::~DBThread()
 {
   QWriteLocker locker(&lock);
   osmscout::log.Debug() << "DBThread::~DBThread()";
+
+  mapDpiSlot.Disconnect();
 
   if (basemapDatabase) {
     basemapDatabase->Close();
@@ -112,7 +109,7 @@ double DBThread::GetMapDpi() const
 
 double DBThread::GetPhysicalDpi() const
 {
-    return physicalDpi;
+    return settings->GetPhysicalDPI();
 }
 
 const DatabaseLoadedResponse DBThread::loadedResponse() const {

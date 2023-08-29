@@ -21,8 +21,11 @@
 
 #include <osmscoutmap/DataTileCache.h>
 
+#include <osmscoutclient/Settings.h>
+
 #include <osmscoutclientqt/OSMScoutQt.h>
-#include <osmscoutclientqt/Settings.h>
+#include <osmscoutclientqt/QtSettingsStorage.h>
+#include <osmscoutclientqt/QmlSettings.h>
 #include <osmscoutclientqt/DBThread.h>
 #include <osmscoutclientqt/MapWidget.h>
 #include <osmscoutclientqt/ElevationChartWidget.h>
@@ -54,6 +57,9 @@
 #include <QMetaType>
 #include <QQmlEngine>
 #include <QStandardPaths>
+#include <QGuiApplication>
+#include <QScreen>
+#include <QTemporaryFile>
 
 #include <optional>
 
@@ -82,29 +88,75 @@ bool OSMScoutQtBuilder::Init()
     return false;
   }
 
-  SettingsRef settings=std::make_shared<Settings>(settingsStorage);
+  /* Warning: Sailfish OS before version 2.0.1 reports incorrect DPI (100)
+   *
+   * Some DPI values:
+   *
+   * ~ 330 - Jolla tablet native
+   *   242.236 - Jolla phone native
+   *   130 - PC (24" FullHD)
+   *   100 - Qt default (reported by SailfishOS < 2.0.1)
+   */
+  QScreen *srn=QGuiApplication::screens().at(0);
+  double physicalDpi = (double)srn->physicalDotsPerInch();
+
+  QLocale locale;
+  QString defaultUnits;
+  switch (locale.measurementSystem()){
+    case QLocale::ImperialUSSystem:
+    case QLocale::ImperialUKSystem:
+      defaultUnits="imperial";
+      break;
+    case QLocale::MetricSystem:
+    default:
+      defaultUnits="metrics";
+  }
+
+  SettingsRef settings=std::make_shared<Settings>(std::make_shared<QtSettingsStorage>(settingsStorage), physicalDpi, defaultUnits.toStdString());
+  settingsStorage = nullptr;
+
+  // Provider files may be distributed as Qt resources. But Setting cannot read Qt resources,
+  // so we make temporary copy of resource on standard filesystem (native file).
+  std::vector<std::unique_ptr<QTemporaryFile>> resourceCopies;
+
+  auto ProviderFiles = [&resourceCopies](const QStringList &list) -> std::vector<std::string> {
+    std::vector<std::string> result;
+    for (const auto &fileName: list) {
+      QFile file(fileName);
+      if (auto tmp=QTemporaryFile::createNativeFile(file); tmp!=nullptr) {
+        resourceCopies.emplace_back(std::unique_ptr<QTemporaryFile>(tmp));
+        result.push_back(tmp->fileName().toStdString());
+      } else {
+        result.push_back(fileName.toStdString());
+      }
+    }
+    return result;
+  };
 
   // load online tile providers
   if (!onlineTileProviders.isEmpty()){
-    settings->loadOnlineTileProviders(onlineTileProviders);
+    settings->loadOnlineTileProviders(ProviderFiles(onlineTileProviders));
   }
   if (!mapProviders.isEmpty()){
-    settings->loadMapProviders(mapProviders);
+    settings->loadMapProviders(ProviderFiles(mapProviders));
   }
   if (!voiceProviders.isEmpty()){
-    settings->loadVoiceProviders(voiceProviders);
+    settings->loadVoiceProviders(ProviderFiles(voiceProviders));
   }
+
+  // delete temporary files
+  resourceCopies.clear();
 
   // setup style sheet
   if (styleSheetFileConfigured){
-    settings->SetStyleSheetFile(styleSheetFile);
+    settings->SetStyleSheetFile(styleSheetFile.toStdString());
   }
   if (styleSheetDirectoryConfigured){
-    settings->SetStyleSheetDirectory(styleSheetDirectory);
+    settings->SetStyleSheetDirectory(styleSheetDirectory.toStdString());
   }
 
   // setup voice
-  settings->SetVoiceLookupDirectory(voiceLookupDirectory);
+  settings->SetVoiceLookupDirectory(voiceLookupDirectory.toStdString());
 
   MapManagerRef mapManager=std::make_shared<MapManager>(mapLookupDirectories, settings);
 
@@ -172,6 +224,8 @@ void OSMScoutQt::RegisterQmlTypes(const char *uri,
   qRegisterMetaType<ElevationModule::ElevationPoints>("ElevationModule::ElevationPoints");
   qRegisterMetaType<std::map<int,OverlayObjectRef>>("std::map<int,OverlayObjectRef>");
   qRegisterMetaType<MapIcon>("MapIcon");
+  qRegisterMetaType<VoiceProvider>("VoiceProvider");
+  qRegisterMetaType<MapProvider>("MapProvider");
 
   // register osmscout types for usage in QML
   qmlRegisterType<AvailableMapsModel>(uri, versionMajor, versionMinor, "AvailableMapsModel");
