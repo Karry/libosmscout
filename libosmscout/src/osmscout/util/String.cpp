@@ -196,7 +196,8 @@ namespace osmscout {
   std::string NumberToString(long value, const Locale &locale)
   {
     std::stringstream ss;
-    if (std::abs(value) < 1000 || locale.GetThousandsSeparator().empty()){
+    ss.imbue(std::locale("C"));
+    if (locale.GetThousandsSeparator().empty()){
       ss << value;
     }else{
       long mag=1000;
@@ -209,6 +210,25 @@ namespace osmscout {
         value = std::abs(value % mag);
         mag/=1000;
         ss << std::setw(3) << std::setfill('0') << (value/mag);
+      }
+    }
+    return ss.str();
+  }
+
+  extern OSMSCOUT_API std::string FloatToString(double value, const Locale &locale, uint precision)
+  {
+    std::stringstream ss;
+    ss << NumberToString(static_cast<long>(value), locale);
+
+    if (precision > 0) {
+      ss << locale.GetDecimalSeparator();
+      double fractionNum = std::abs(value - std::ceil(value));
+      std::string fraction = NumberToString(std::round(fractionNum * std::pow(10, precision)), Locale());
+      for (size_t i = 0; i < fraction.size(); i++) {
+        if (i > 0 && i % 3 == 0 && i < fraction.size() - 1) {
+          ss << locale.GetThousandsSeparator();
+        }
+        ss << fraction[i];
       }
     }
     return ss.str();
@@ -329,36 +349,32 @@ namespace osmscout {
     return wordCount;
   }
 
-  std::string ByteSizeToString(FileOffset value)
+  std::string ByteSizeToString(FileOffset value, const Locale &locale)
   {
-    return ByteSizeToString((double)value);
+    return ByteSizeToString(static_cast<double>(value), locale);
   }
 
-  std::string ByteSizeToString(double value)
+  std::string ByteSizeToString(double value, const Locale &locale)
   {
     std::stringstream buffer;
 
-    buffer.setf(std::ios::fixed);
-    buffer << std::setprecision(1);
-
     if (value<1.0 && value>-1) {
-      buffer << "0 B";
+      buffer << "0" << locale.GetUnitsSeparator() << "B";
     }
-    else if (ceil(value)>=1024.0*1024*1024*1024) {
-      buffer << value/(1024.0*1024*1024*1024) << " TiB";
+    else if (ceil(value)>=std::pow(1024.0, 4.0)) {
+      buffer << FloatToString(value/std::pow(1024.0, 4.0), locale, 1) << locale.GetUnitsSeparator()  << "TiB";
     }
-    else if (ceil(value)>=1024.0*1024*1024) {
-      buffer << value/(1024.0*1024*1024) << " GiB";
+    else if (ceil(value)>=std::pow(1024.0, 3.0)) {
+      buffer << FloatToString(value/std::pow(1024.0, 3.0), locale, 1) << locale.GetUnitsSeparator() << "GiB";
     }
-    else if (ceil(value)>=1024.0*1024) {
-      buffer << value/(1024.0*1024) << " MiB";
+    else if (ceil(value)>=std::pow(1024.0, 2.0)) {
+      buffer << FloatToString(value/std::pow(1024.0, 2.0), locale, 1) << locale.GetUnitsSeparator() << "MiB";
     }
     else if (ceil(value)>=1024.0) {
-      buffer << value/1024.0 << " KiB";
+      buffer << FloatToString(value/1024.0, locale, 1) << locale.GetUnitsSeparator() << "KiB";
     }
     else {
-      buffer << std::setprecision(0);
-      buffer << value << " B";
+      buffer << FloatToString(value, locale, 0) << locale.GetUnitsSeparator() << "B";
     }
 
     return buffer.str();
