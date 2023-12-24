@@ -197,7 +197,7 @@ namespace osmscout {
   {
     std::stringstream ss;
     ss.imbue(std::locale("C"));
-    if (locale.GetThousandsSeparator().empty()){
+    if (std::abs(value) < 1000 || locale.GetThousandsSeparator().empty()){
       ss << value;
     }else{
       long mag=1000;
@@ -215,15 +215,17 @@ namespace osmscout {
     return ss.str();
   }
 
-  extern OSMSCOUT_API std::string FloatToString(double value, const Locale &locale, uint precision)
+  extern OSMSCOUT_API std::string FloatToString(double value, const Locale &locale, uint32_t precision)
   {
     std::stringstream ss;
+    double order = std::pow(10, precision);
+    value = std::round(value * order) / order;
     ss << NumberToString(static_cast<long>(value), locale);
 
     if (precision > 0) {
       ss << locale.GetDecimalSeparator();
-      double fractionNum = std::abs(value - std::ceil(value));
-      std::string fraction = NumberToString(std::round(fractionNum * std::pow(10, precision)), Locale());
+      double fractionNum = std::abs(value) - std::floor(std::abs(value));
+      std::string fraction = NumberToString(fractionNum * order, Locale());
       for (size_t i = 0; i < fraction.size(); i++) {
         if (i > 0 && i % 3 == 0 && i < fraction.size() - 1) {
           ss << locale.GetThousandsSeparator();

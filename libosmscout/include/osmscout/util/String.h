@@ -86,7 +86,7 @@ namespace osmscout {
    * @param precision
    * @return UTF-8 string
    */
-  extern OSMSCOUT_API std::string FloatToString(double value, const Locale &locale, uint precision = 3);
+  extern OSMSCOUT_API std::string FloatToString(double value, const Locale &locale, uint32_t precision = 3);
 
   /**
    * \ingroup Util
@@ -418,8 +418,8 @@ namespace osmscout {
    *
    * Returned string is locale aware, UTF-8 encoded
    */
-  extern OSMSCOUT_API std::string ByteSizeToString(FileOffset size, const Locale &locale = Locale::ByEnvironment());
-  extern OSMSCOUT_API std::string ByteSizeToString(double size, const Locale &locale = Locale::ByEnvironment());
+  extern OSMSCOUT_API std::string ByteSizeToString(FileOffset size, const Locale &locale = Locale::ByEnvironmentSafe());
+  extern OSMSCOUT_API std::string ByteSizeToString(double size, const Locale &locale = Locale::ByEnvironmentSafe());
 
   /**
    * \ingroup Util
