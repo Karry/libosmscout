@@ -1,6 +1,6 @@
 /*
  This source is part of the libosmscout library
- Copyright (C) 2024 Lukas Karas
+ Copyright (C) 2024  Jean-Luc Barriere
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -21,60 +21,140 @@
 
 #include <osmscout/async/ReadWriteLock.h>
 
+#include <osmscout/log/Logger.h>
+
 #include <cassert>
 
 namespace osmscout {
 
-#ifdef OSMSCOUT_PTHREAD
+/**
+ * The X flag is set as follows based on the locking steps
+ * Step 0 : X is released
+ * Step 1 : X is held, but waits for release of S
+ * Step 2 : X is held
+ * Step 3 : X was released and left available for one of request in wait
+ */
+constexpr int X_STEP_0 = 0;
+constexpr int X_STEP_1 = 1;
+constexpr int X_STEP_2 = 2;
+constexpr int X_STEP_3 = 3;
 
-  SharedMutex::SharedMutex()
-  {
-    pthread_rwlockattr_t attr{};
-    [[maybe_unused]] int res = pthread_rwlockattr_init(&attr);
-    assert(res==0);
+void Latch::lock() {
+  std::thread::id tid = std::this_thread::get_id();
 
-#if defined __USE_UNIX98 || defined __USE_XOPEN2K
-    res = pthread_rwlockattr_setkind_np(&attr, PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP);
-    assert(res==0);
-#endif
+  spin_lock();
 
-    pthread_rwlock_t rwlock{};
-    res = pthread_rwlock_init(&rwlock, &attr);
-    assert(res==0);
-    res = pthread_rwlockattr_destroy(&attr);
-    assert(res==0);
+  if (x_owner != tid) {
+    /* increments the count of request in wait */
+    ++x_wait;
+    for (;;) {
+      /* if flag is 0 or 3 then it hold X with no wait,
+       * in other case it have to wait for X gate
+       */
+      if (x_flag == X_STEP_0) {
+        ++x_flag;
+        --x_wait;
+        break;
+      } else if (x_flag == X_STEP_3) {
+        x_flag = X_STEP_1;
+        --x_wait;
+        break;
+      } else {
+        /* !!! pop gate first then unlock spin (reverse order for S request) */
+        std::unique_lock<std::mutex> lk(x_gate_lock);
+        spin_unlock();
+        x_gate.wait(lk);
+      }
+      spin_lock();
+    }
+
+    /* X = 1, check the releasing of S */
+    for (;;) {
+      /* if the count of S is zeroed then it finalize with no wait,
+       * in other case it have to wait for S gate */
+      if (s_count == 0) {
+        ++x_flag;
+        break;
+      } else {
+        /* !!! pop gate first then unlock spin (reverse order for notifier),
+         * the lock can be held here by itself, or by the thread is releasing
+         * the last S */
+        std::unique_lock<std::mutex> lk(s_gate_lock);
+        spin_unlock();
+        s_gate.wait(lk);
+      }
+      spin_lock();
+    }
+
+    /* X = 2, set owner */
+    x_owner = tid;
   }
 
-  SharedMutex::~SharedMutex()
-  {
-    [[maybe_unused]] int res = pthread_rwlock_destroy(&rwlock);
-    assert(res==0);
-  }
+  spin_unlock();
+}
 
-  void SharedMutex::lock()
-  {
-    [[maybe_unused]] int res = pthread_rwlock_wrlock(&rwlock);
-    assert(res==0);
+void Latch::unlock() {
+  spin_lock();
+  if (x_owner == std::this_thread::get_id()) {
+    x_owner = std::thread::id();
+    /* if X priority is enabled then hand-over to a request in wait for X */
+    x_flag = (px && x_wait > 0 ? X_STEP_3 : X_STEP_0);
+    spin_unlock();
+    x_gate.notify_all();
+  } else {
+    spin_unlock();
   }
+}
 
-  void SharedMutex::unlock()
-  {
-    [[maybe_unused]] int res = pthread_rwlock_unlock(&rwlock);
-    assert(res==0);
+void Latch::lock_shared() {
+  spin_lock();
+  if (x_owner != std::this_thread::get_id()) {
+    /* if flag is 0 or 1 then it hold S with no wait,
+     * in other case it have to wait for X gate
+     */
+    for (;;) {
+      if (x_flag.load() < X_STEP_2) {
+        break;
+      } else {
+        /* !!! unlock spin first then pop gate (reverse order for X request) */
+        spin_unlock();
+        std::unique_lock<std::mutex> lk(x_gate_lock);
+        x_gate.wait(lk);
+      }
+      spin_lock();
+    }
   }
+  ++s_count;
+  spin_unlock();
+}
 
-  void SharedMutex::lock_shared()
-  {
-    [[maybe_unused]] int res = pthread_rwlock_rdlock(&rwlock);
-    assert(res==0);
+void Latch::unlock_shared() {
+  spin_lock();
+  /* on last S, it notifies the thread in wait */
+  if (--s_count == 0 && x_flag == X_STEP_1 &&
+      x_owner != std::this_thread::get_id()) {
+    /* !!! unlock spin first then pop gate (reverse order for receiver) */
+    spin_unlock();
+    std::unique_lock<std::mutex> lk(s_gate_lock);
+    s_gate.notify_one();
+  } else {
+    spin_unlock();
   }
+}
 
-  void SharedMutex::unlock_shared()
-  {
-    [[maybe_unused]] int res = pthread_rwlock_unlock(&rwlock);
-    assert(res==0);
+bool Latch::try_lock_shared()
+{
+  spin_lock();
+  /* if X = 0 then it hold S with success,
+   * in other case fails
+   */
+  if (x_flag.load() == X_STEP_0 || x_owner == std::this_thread::get_id()) {
+    ++s_count;
+    spin_unlock();
+    return true;
   }
-
-#endif
+  spin_unlock();
+  return false;
+}
 
 }
