@@ -3,7 +3,7 @@
 
 /*
  This source is part of the libosmscout library
- Copyright (C) 2024 Lukas Karas
+ Copyright (C) 2024  Jean-Luc Barriere
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -24,48 +24,173 @@
 
 #include <osmscout/private/Config.h>
 
-#include <shared_mutex>
+#include <atomic>
+#include <thread>
 #include <mutex>
-
-#ifdef OSMSCOUT_PTHREAD
-#include <pthread.h>
-#endif
+#include <condition_variable>
 
 namespace osmscout {
 
-#ifdef OSMSCOUT_PTHREAD
+/**
+ * This implements a pure C++ Latch providing lock-S (shared) and lock-X (exclusive).
+ * The concept used here allows X requests to be prioritized faster and more smoothly
+ * than standard implementations. It uses a no-lock strategy whenever possible and
+ * reverts to lock and wait in race condition.
+ */
 
-  /** C++ std::shared_mutex may lead to writer starvation with multiple highly concurrent readers,
-   * and it doesn't provide API to configure priority. Luckily, with Pthread implementation,
-   * we may configure writer preference. It expect that write operations are rare, compared to read ones.
-   */
-  class OSMSCOUT_API SharedMutex {
-  private:
-    pthread_rwlock_t rwlock{};
+class OSMSCOUT_API Latch {
+private:
+  mutable std::atomic_flag s_spin = ATOMIC_FLAG_INIT;
 
-  public:
-    SharedMutex();
-    SharedMutex(const SharedMutex&) = delete;
-    SharedMutex(SharedMutex&&) = delete;
-    SharedMutex& operator=(const SharedMutex&) = delete;
-    SharedMutex& operator=(SharedMutex&&) = delete;
-    ~SharedMutex();
+  volatile int x_wait = 0;              /* counts requests in wait for X  */
+  volatile int s_count = 0;             /* counts held S locks            */
+  std::atomic<int> x_flag = 0;          /* X status: 0, 1, 2, or 3        */
+  std::thread::id x_owner;              /* X owner (thread id)            */
 
-    void lock();
-    void unlock();
+  std::mutex x_gate_lock;
+  std::condition_variable x_gate;       /* wait for release of X          */
+  std::mutex s_gate_lock;
+  std::condition_variable s_gate;       /* wait for release of S          */
 
-    void lock_shared();
-    void unlock_shared();
-  };
+  bool px = true;                       /* prioritize requests for X      */
 
-#else
+  void spin_lock() {
+    while (s_spin.test_and_set(std::memory_order_acquire)) {
+      std::this_thread::yield();
+    }
+  }
+  void spin_unlock() {
+    s_spin.clear(std::memory_order_release);
+  }
 
-  using SharedMutex = std::shared_mutex;
+public:
+  Latch() = default;
+  Latch(const Latch&) = delete;
+  Latch(Latch&&) = delete;
+  Latch& operator=(const Latch&) = delete;
+  Latch& operator=(Latch&&) = delete;
+  ~Latch() = default;
 
-#endif
+  void prefer_exclusive(bool yesno) { px = yesno; }
 
-  using ReadLock = std::shared_lock<SharedMutex>;
-  using WriteLock = std::unique_lock<SharedMutex>;
+  void lock();
+  void unlock();
+
+  void lock_shared();
+  void unlock_shared();
+};
+
+/*
+ * Cannot use the template std::shared_lock as Latch does not implement all the
+ * requirements of the standard
+ */
+class OSMSCOUT_API ReadLock
+{
+private:
+  Latch *p = nullptr;
+  bool owns = false;
+
+  void swap(ReadLock& rl) noexcept {
+    std::swap(p, rl.p);
+    std::swap(owns, rl.owns);
+  }
+
+public:
+
+  ReadLock() = default;
+
+  explicit ReadLock(Latch& latch) : p(&latch), owns(true) { latch.lock_shared(); }
+
+  ~ReadLock() {
+    if (owns) {
+      p->unlock_shared();
+    }
+  }
+
+  ReadLock(ReadLock const&) = delete;
+  ReadLock& operator=(ReadLock const&) = delete;
+
+  ReadLock(ReadLock&& rl) noexcept { swap(rl); }
+
+  ReadLock& operator=(ReadLock&& rl) noexcept {
+    swap(rl);
+    return *this;
+  }
+
+  bool owns_lock() const noexcept {
+    return owns;
+  }
+
+  void lock() {
+    if (!owns && p != nullptr) {
+      p->lock_shared();
+      owns = true;
+    }
+  }
+
+  void unlock() {
+    if (owns) {
+      owns = false;
+      p->unlock_shared();
+    }
+  }
+};
+
+/*
+ * Cannot use the template std::unique_lock as Latch does not implement all the
+ * requirements of the standard
+ */
+class OSMSCOUT_API WriteLock
+{
+private:
+  Latch *p = nullptr;
+  bool owns = false;
+
+  void swap(WriteLock& wl) noexcept {
+    std::swap(p, wl.p);
+    std::swap(owns, wl.owns);
+  }
+
+public:
+
+  WriteLock() = default;
+
+  explicit WriteLock(Latch& latch) : p(&latch), owns(true) { latch.lock(); }
+
+  ~WriteLock() {
+    if (owns) {
+      p->unlock();
+    }
+  }
+
+  WriteLock(WriteLock const&) = delete;
+  WriteLock& operator=(WriteLock const&) = delete;
+
+  WriteLock(WriteLock&& wl) noexcept { swap(wl); }
+
+  WriteLock& operator=(WriteLock&& wl) noexcept {
+    swap(wl);
+    return *this;
+  }
+
+  bool owns_lock() const noexcept {
+    return owns;
+  }
+
+  void lock() {
+    if (!owns && p != nullptr) {
+      p->lock();
+      owns = true;
+    }
+  }
+
+  void unlock() {
+    if (owns) {
+      owns = false;
+      p->unlock();
+    }
+  }
+};
 
 }
 
