@@ -22,10 +22,20 @@
 #include <osmscout/async/ReadWriteLock.h>
 
 #include <osmscout/log/Logger.h>
+#include <osmscout/util/String.h>
+#include <osmscout/util/StopClock.h>
 
+#include <iostream>
+#include <chrono>
 #include <cassert>
+#include <array>
+
+#include <pthread.h>
 
 namespace osmscout {
+
+thread_local int t_count = 0;
+thread_local StopClock t_stop_clock;
 
 /**
  * X flag is defined as the following:
@@ -102,6 +112,14 @@ void Latch::unlock() {
   }
 }
 
+namespace {
+  std::string GetThreadName() {
+    std::array<char,64> buff;
+    pthread_getname_np(pthread_self(), buff.data(), buff.size());
+    return std::string(buff.data());
+  }
+}
+
 void Latch::lock_shared() {
   spin_lock();
   if (x_owner != std::this_thread::get_id()) {
@@ -121,19 +139,43 @@ void Latch::lock_shared() {
     }
   }
   ++s_count;
+  if (t_count==0) {
+    t_stop_clock = StopClock();
+  }
+  ++t_count;
+  std::cout << TimestampToISO8601TimeString(std::chrono::system_clock::now())
+            << " lock_shared,   s_count: " << s_count << " t_count: " << t_count << " thread: " << GetThreadName() << std::endl;
   spin_unlock();
 }
 
 void Latch::unlock_shared() {
   spin_lock();
   /* on last S, it notifies the thread in wait (X = 1) */
+  --t_count;
+
+  auto log_unlock=[this](){
+    std::cout << TimestampToISO8601TimeString(std::chrono::system_clock::now())
+              << " unlock_shared, s_count: " << s_count << " t_count: " << t_count;
+
+    if (t_count==0) {
+      t_stop_clock.Stop();
+      std::cout << " duration: " << t_stop_clock;
+    }
+    std::cout << " thread: " << GetThreadName()
+              << std::endl;
+
+    assert(t_stop_clock.GetDuration() < std::chrono::seconds(30));
+  };
+
   if (--s_count == 0 && x_flag == 1 &&
       x_owner != std::this_thread::get_id()) {
+    log_unlock();
     /* !!! unlock spin first then pop gate (reverse order for receiver) */
     spin_unlock();
     std::unique_lock<std::mutex> lk(s_gate_lock);
     s_gate.notify_one();
   } else {
+    log_unlock();
     spin_unlock();
   }
 }
