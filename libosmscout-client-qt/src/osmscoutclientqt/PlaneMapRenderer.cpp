@@ -390,7 +390,7 @@ void PlaneMapRenderer::DrawMap()
     osmscout::GeoBox renderBox(projection.GetDimensions());
     getOverlayObjects(overlayObjects, renderBox);
 
-    bool success;
+    DBRenderJob::RunStatus status;
     {
       DBRenderJob job(renderProjection,
                       loadJob->GetAllTiles(),
@@ -400,7 +400,7 @@ void PlaneMapRenderer::DrawMap()
                       dbThread->GetEmptyStyleConfig(),
                       /*drawCanvasBackground*/ true);
       dbThread->RunJob(std::bind(&DBRenderJob::Run, &job, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-      success=job.IsSuccess();
+      status=job.Status();
     }
 
 #ifdef DRAW_DEBUG
@@ -417,10 +417,17 @@ void PlaneMapRenderer::DrawMap()
       loadJob=nullptr;
     }
 
-    if (!success)  {
+    switch (status) {
+    case DBRenderJob::RunFailed:
       osmscout::log.Error() << "*** Rendering of data has error or was interrupted";
       return;
+    case DBRenderJob::RunNotCompleted:
+      osmscout::log.Info() << "Rendering was cancelled";
+      return;
+    default:
+      break;
     }
+
     {
       QMutexLocker finishedLocker(&finishedMutex);
       std::swap(currentImage,finishedImage);

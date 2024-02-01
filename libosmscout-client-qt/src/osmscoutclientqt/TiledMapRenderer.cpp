@@ -472,7 +472,7 @@ void TiledMapRenderer::onLoadJobFinished(QMap<QString,QMap<osmscout::TileKey,osm
     getOverlayObjects(overlayObjects, renderBox);
 
     //DrawMap(p, tileVisualCenter, loadZ, canvas.width(), canvas.height());
-    bool success;
+    DBRenderJob::RunStatus status;
     {
       DBRenderJob job(projection,
                       tiles,
@@ -484,16 +484,22 @@ void TiledMapRenderer::onLoadJobFinished(QMap<QString,QMap<osmscout::TileKey,osm
                       /*renderBasemap*/ !onlineTilesEnabled,
                       offlineTilesEnabled);
       dbThread->RunJob(std::bind(&DBRenderJob::Run, &job, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-      success=job.IsSuccess();
+      status=job.Status();
     }
 
     // this slot is called from DBLoadJob, we can't delete it now
     loadJob->deleteLater();
     loadJob=nullptr;
 
-    if (!success)  {
+    switch (status) {
+    case DBRenderJob::RunFailed:
       osmscout::log.Error() << "*** Rendering of data has error or was interrupted";
       return;
+    case DBRenderJob::RunNotCompleted:
+      osmscout::log.Info() << "Rendering was cancelled";
+      return;
+    default:
+      break;
     }
 
     p.end();

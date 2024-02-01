@@ -41,12 +41,18 @@ namespace osmscout {
  */
 class OSMSCOUT_CLIENT_QT_API DBRenderJob : public QObject, public DBJob{
   Q_OBJECT
+public:
+  enum RunStatus {
+    RunNotCompleted = 0,
+    RunSucceeded    = 1,
+    RunFailed
+  };
 private:
   osmscout::MercatorProjection renderProjection;
   QMap<QString,QMap<osmscout::TileKey,osmscout::TileRef>> tiles;
   osmscout::MapParameter *drawParameter;
   QPainter *p;
-  bool success;
+  RunStatus status;
   bool drawCanvasBackground;
   bool renderBasemap;
   bool renderDatabases;
@@ -70,8 +76,8 @@ public:
            const std::list<DBInstanceRef> &allDatabases,
            ReadLock &&locker) override;
 
-  inline bool IsSuccess() const{
-    return success;
+  inline RunStatus Status() const{
+    return status;
   };
 
 private:

@@ -243,7 +243,7 @@ DBRenderJob::DBRenderJob(osmscout::MercatorProjection renderProjection,
   tiles(tiles),
   drawParameter(drawParameter),
   p(p),
-  success(false),
+  status(RunNotCompleted),
   drawCanvasBackground(drawCanvasBackground),
   renderBasemap(renderBasemap),
   renderDatabases(renderDatabases),
@@ -262,7 +262,7 @@ void DBRenderJob::Run(const osmscout::BasemapDatabaseRef& basemapDatabase,
   }
   DBJob::Run(basemapDatabase,databases,std::move(locker));
 
-  success=true;
+  bool success = true;
 
   // draw background
   if (drawCanvasBackground){
@@ -369,6 +369,7 @@ void DBRenderJob::Run(const osmscout::BasemapDatabaseRef& basemapDatabase,
   success &= batch.paint(renderProjection,
                          *drawParameter,
                          p);
+  status = (success ? RunSucceeded : RunFailed);
   Close();
 }
 

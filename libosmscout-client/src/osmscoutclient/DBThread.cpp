@@ -508,7 +508,13 @@ CancelableFuture<bool> DBThread::FlushCaches(const std::chrono::milliseconds &id
 
 void DBThread::RunJob(AsynchronousDBJob job)
 {
-  ReadLock locker(latch);
+  // try lock shared, else cancel
+  if (!latch.try_lock_shared()) {
+    return;
+  }
+  // keep the shared lock before handing over
+  ReadLock locker(latch, std::adopt_lock);
+
   if (!isInitializedInternal()){
     locker.unlock();
     osmscout::log.Warn() << "ignore request, dbs is not initialized";
