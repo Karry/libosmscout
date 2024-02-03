@@ -37,6 +37,9 @@ osmscout_test_project(NAME CoordinateEncoding SOURCES src/CoordinateEncoding.cpp
 #---- Latch
 osmscout_test_project(NAME Latch SOURCES src/Latch.cpp)
 
+#---- RwLockWriterPrecedence
+osmscout_test_project(NAME RwLockWriterPrecedence SOURCES src/RwLockWriterPrecedence.cpp)
+
 #---- LocationLookup
 osmscout_test_project(NAME LocationLookupTest SOURCES src/LocationServiceTest.cpp src/SearchForLocationByStringTest.cpp src/SearchForLocationByFormTest.cpp src/SearchForPOIByFormTest.cpp TARGET OSMScout::Test OSMScout::Import)
 set_source_files_properties(src/SearchForLocationByStringTest.cpp src/SearchForLocationByFormTest.cpp src/SearchForPOIByFormTest.cpp src/LocationServiceTest.cpp PROPERTIES SKIP_UNITY_BUILD_INCLUSION TRUE)

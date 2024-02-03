@@ -235,6 +235,16 @@ Latch = executable('Latch',
 
 test('Check latch consistency', Latch)
 
+RwLockWriterPrecedence = executable('RwLockWriterPrecedence',
+             'src/RwLockWriterPrecedence.cpp',
+             include_directories: [testIncDir, osmscoutIncDir],
+             dependencies: [mathDep, threadDep, openmpDep],
+             link_with: [osmscout],
+             install: true,
+             install_dir: testInstallDir)
+
+test('Check RWLock writer precedence', RwLockWriterPrecedence)
+
 if buildImport
     LocationServiceTest = executable('LocationServiceTest',
                  [
