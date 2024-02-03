@@ -24,6 +24,7 @@
 
 #include <osmscout/private/Config.h>
 
+#include <array>
 #include <atomic>
 #include <thread>
 #include <mutex>
@@ -44,6 +45,7 @@ private:
 
   volatile int x_wait = 0;              /* counts requests in wait for X  */
   volatile int s_count = 0;             /* counts held S locks            */
+  std::array<int,64> s_thread_count{};
   volatile int x_flag = 0;              /* X status: 0, 1, 2, or 3        */
   std::thread::id x_owner;              /* X owner (thread id)            */
 

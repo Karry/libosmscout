@@ -111,14 +111,20 @@ void Latch::unlock() {
   }
 }
 
+namespace {
+static std::hash<std::thread::id> thread_hash;
+}
+
 void Latch::lock_shared() {
   spin_lock();
-  if (x_owner != std::this_thread::get_id()) {
+  std::thread::id tid=std::this_thread::get_id();
+  if (x_owner != tid) {
     /* if flag is 0 or 1 then it hold S with no wait,
      * in other case it have to wait for X gate
      */
     for (;;) {
-      if (x_flag < X_STEP_2) {
+      if (x_flag == X_STEP_0 ||
+         (x_flag == X_STEP_1 && s_thread_count[thread_hash(tid) % s_thread_count.size()] > 0)) {
         break;
       } else {
         /* !!! unlock spin first then pop gate (reverse order for X request) */
@@ -129,15 +135,19 @@ void Latch::lock_shared() {
       spin_lock();
     }
   }
+  s_thread_count[thread_hash(tid) % s_thread_count.size()]++;
   ++s_count;
   spin_unlock();
 }
 
 void Latch::unlock_shared() {
   spin_lock();
+  std::thread::id tid=std::this_thread::get_id();
+  assert(s_thread_count[thread_hash(tid) % s_thread_count.size()] > 0);
+  s_thread_count[thread_hash(tid) % s_thread_count.size()]--;
   /* on last S, finalize X request in wait, and notify */
   if (--s_count == 0 && x_flag == X_STEP_1 &&
-      x_owner != std::this_thread::get_id()) {
+      x_owner != tid) {
     x_flag = X_STEP_2;
     /* !!! unlock spin first then pop gate (reverse order for receiver) */
     spin_unlock();
