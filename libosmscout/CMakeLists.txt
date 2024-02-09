@@ -217,6 +217,7 @@ set(SOURCE_FILES
     src/osmscout/async/AsyncWorker.cpp
     src/osmscout/async/ReadWriteLock.cpp
     src/osmscout/async/Breaker.cpp
+    src/osmscout/async/ReadWriteLock.cpp
     src/osmscout/async/Thread.cpp
     src/osmscout/async/Worker.cpp
     src/osmscout/async/WorkQueue.cpp
