@@ -278,6 +278,7 @@ TYPES
   TYPE highway_street_lamp
      // Too many for mobile offline map?
     = NODE ("highway"=="street_lamp")
+      {Brand, Operator, MaxStay, ChargingStation}
 
   // Since rendering of speed cameras is not allowed everywhere, it is disabled by default
   TYPE speed_camera
@@ -977,7 +978,7 @@ TYPES
 
   TYPE amenity_charging_station
     = NODE ("amenity"=="charging_station")
-      {Operator}
+      {Name, Location, Address, Brand, Operator, ChargingStation, OpeningHours, MaxStay, Fee}
       GROUP amenity
 
   TYPE amenity_clock
@@ -1067,7 +1068,7 @@ TYPES
 
   TYPE amenity_parking_building
     = AREA ("amenity"=="parking" AND EXISTS "building" AND !("building" IN ["no","false","0"]))
-      {Name, NameAlt}
+      {Name, NameAlt, Fee, OpeningHours}
       ADDRESS POI
       GROUP amenity, building, routingPOI
 
@@ -1083,7 +1084,7 @@ TYPES
 
   TYPE amenity_parking
     = NODE AREA ("amenity"=="parking")
-      {Name, NameAlt}
+      {Name, NameAlt, Fee, OpeningHours}
       ADDRESS POI
       GROUP amenity
 
@@ -1948,6 +1949,11 @@ TYPES
   // Do not delete the following types, they are required by the GenCityStreet import step
   TYPE place_millioncity
     = NODE AREA ("place"=="city" AND EXISTS "population" AND "population">1000000)
+      {Name, NameAlt, IsIn}
+      ADMIN_REGION
+
+  TYPE place_halfmillioncity
+    = NODE AREA ("place"=="city" AND EXISTS "population" AND "population">500000)
       {Name, NameAlt, IsIn}
       ADMIN_REGION
 

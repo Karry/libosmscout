@@ -621,7 +621,7 @@ namespace osmscout {
 
           Id id=node.GetId();
 
-          if (nodeIds.find(id)==nodeIds.end()) {
+          if (!nodeIds.contains(id)) {
             nodeUseMap.SetNodeUsed(id);
             nodeIds.insert(id);
           }
@@ -670,7 +670,7 @@ namespace osmscout {
 
           Id id=node.GetId();
 
-          if (nodeIds.find(id)==nodeIds.end()) {
+          if (!nodeIds.contains(id)) {
             nodeUseMap.SetNodeUsed(id);
 
             nodeIds.insert(id);
@@ -733,14 +733,14 @@ namespace osmscout {
 
         std::unordered_set<Id> nodeIds;
 
-        for (auto& node : way.nodes) {
+        for (const auto& node : way.nodes) {
           if (!node.IsRelevant()) {
             continue;
           }
 
           Id id=node.GetId();
 
-          if (nodeIds.find(id)==nodeIds.end()) {
+          if (!nodeIds.contains(id)) {
             if (nodeUseMap.IsNodeUsedAtLeastTwice(id)) {
               nodeObjectsMap[id].push_back(way.GetObjectFileRef());
               junctionWayCount++;
@@ -786,14 +786,14 @@ namespace osmscout {
 
         std::unordered_set<Id> nodeIds;
 
-        for (auto& node : area.rings.front().nodes) {
+        for (const auto& node : area.rings.front().nodes) {
           if (!node.IsRelevant()) {
             continue;
           }
 
           Id id=node.GetId();
 
-          if (nodeIds.find(id)==nodeIds.end()) {
+          if (!nodeIds.contains(id)) {
             if (nodeUseMap.IsNodeUsedAtLeastTwice(id)) {
               nodeObjectsMap[id].push_back(area.GetObjectFileRef());
               junctionAreaCount++;
@@ -1105,7 +1105,7 @@ namespace osmscout {
                                   ring.nodes[nextNode].GetCoord());
 
     while (nextNode!=currentNode &&
-           routeNodeIdSet.find(ring.GetId(nextNode))==routeNodeIdSet.end()) {
+           !routeNodeIdSet.contains(ring.GetId(nextNode))) {
       size_t lastNode=nextNode;
 
       nextNode++;
@@ -1150,7 +1150,7 @@ namespace osmscout {
                                   ring.nodes[prevNode].GetCoord());
 
     while (prevNode!=currentNode &&
-           routeNodeIdSet.find(ring.GetId(prevNode))==routeNodeIdSet.end()) {
+           !routeNodeIdSet.contains(ring.GetId(prevNode))) {
       size_t lastNode=prevNode;
 
       if (prevNode==0) {
@@ -1210,7 +1210,7 @@ namespace osmscout {
                                     way.GetCoord(nextNode));
 
       while (nextNode!=currentNode &&
-             routeNodeIdSet.find(way.GetId(nextNode))==routeNodeIdSet.end()) {
+             !routeNodeIdSet.contains(way.GetId(nextNode))) {
         size_t lastNode=nextNode;
 
         nextNode++;
@@ -1256,7 +1256,7 @@ namespace osmscout {
                                     way.nodes[prevNode].GetCoord());
 
       while (prevNode!=currentNode &&
-             routeNodeIdSet.find(way.GetId(prevNode))==routeNodeIdSet.end()) {
+             !routeNodeIdSet.contains(way.GetId(prevNode))) {
         size_t lastNode=prevNode;
 
         if (prevNode==0) {
@@ -1308,7 +1308,7 @@ namespace osmscout {
 
       // Search for previous routing node on way
       while (j>=0) {
-        if (routeNodeIdSet.find(way.GetId(j))!=routeNodeIdSet.end()) {
+        if (routeNodeIdSet.contains(way.GetId(j))) {
           break;
         }
 
@@ -1342,7 +1342,7 @@ namespace osmscout {
 
       // Search for next routing node on way
       while (j<way.nodes.size()) {
-        if (routeNodeIdSet.find(way.GetId(j))!=routeNodeIdSet.end()) {
+        if (routeNodeIdSet.contains(way.GetId(j))) {
           break;
         }
 
