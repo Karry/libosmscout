@@ -1211,7 +1211,8 @@
       scanner.Open(AppendFileToDir(directory,
                                    "types.dat"),
                    FileScanner::Sequential,
-                   true);
+                   true,
+                   FILE_FORMAT_VERSION);
 
       uint32_t fileFormatVersion=scanner.ReadUInt32();
 
