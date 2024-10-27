@@ -187,7 +187,7 @@ endmacro(osmscout_demo_project)
 macro(osmscout_test_project)
 	set(_name)
 	set(_sources)
-	set(_targets OSMScout::OSMScout)
+	set(_targets OSMScout::OSMScout Catch2::Catch2WithMain)
 	set(_includes
 		include
 		${PROJECT_SOURCE_DIR}/include
