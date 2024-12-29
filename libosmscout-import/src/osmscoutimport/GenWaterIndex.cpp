@@ -406,7 +406,7 @@ namespace osmscout {
 
         projection.Set(GeoCoord(0.0,0.0),magnification,72,640,480);
 
-        progress.SetAction("Building tiles for level "+std::to_string(level.level));
+        progress.SetAction("Building tiles for level {}",level.level);
 
         if (!coastlines.empty()) {
           WaterIndexProcessor::Data data;

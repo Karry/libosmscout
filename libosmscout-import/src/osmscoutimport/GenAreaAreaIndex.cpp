@@ -887,7 +887,7 @@ namespace osmscout {
                    parameter.GetWayDataMemoryMaped(),
                    osmscout::FILE_FORMAT_VERSION);
 
-      progress.SetAction("Building in memory area index from '"+scanner.GetFilename()+"'");
+      progress.SetAction("Building in memory area index from '{}'",scanner.GetFilename());
 
       levels.resize(parameter.GetAreaAreaIndexMaxMag()+1);
 
@@ -944,8 +944,7 @@ namespace osmscout {
 
       mapWriter.Write(overallDataCount);
 
-      progress.SetAction("Writing files '"+indexWriter.GetFilename()+"', '"+dataWriter.GetFilename()+"' and '"+
-                         mapWriter.GetFilename()+"'");
+      progress.SetAction("Writing files '{}', '{}' and '{}'",indexWriter.GetFilename(),dataWriter.GetFilename(),mapWriter.GetFilename());
 
       if (!WriteCell(*typeConfig,
                      progress,

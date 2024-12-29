@@ -531,7 +531,7 @@ namespace osmscout
         typesToProcess.Remove(loadedTypes);
 
         for (const auto& type : loadedTypes) {
-          progress.SetAction("Optimizing type "+ type->GetName());
+          progress.SetAction("Optimizing type {}",type->GetName());
 
           for (MagnificationLevel level=parameter.GetOptimizationMinMag();
                level<=parameter.GetOptimizationMaxMag();
@@ -549,7 +549,8 @@ namespace osmscout
                           parameter.GetOptimizationWayMethod());
 
             if (optimizedAreas.empty()) {
-              progress.Debug("Empty optimization result for level "+level+", no index generated");
+              progress.Debug("Empty optimization result for level {}, no index generated",
+                             magnification.GetLevel());
 
               TypeData typeData;
 

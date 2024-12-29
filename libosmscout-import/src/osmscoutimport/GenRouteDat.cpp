@@ -1802,7 +1802,7 @@ namespace osmscout {
       entry.second.sort(ObjectFileRefByFileOffsetComparator());
     }
 
-    progress.SetAction(std::string("Writing intersection file '")+RoutingService::FILENAME_INTERSECTIONS_DAT+"'");
+    progress.SetAction("Writing intersection file '{}'",RoutingService::FILENAME_INTERSECTIONS_DAT);
 
     if (!WriteIntersections(parameter,
                             progress,
