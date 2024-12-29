@@ -318,7 +318,8 @@ set(SOURCE_FILES
     src/osmscout/util/OpeningHours.cpp
     src/osmscout/util/Parsing.cpp
     src/osmscout/util/PolygonCenter.cpp
-    src/osmscout/util/Progress.cpp
+    # gcc 10 doesn't support C++20 <format> library
+    # src/osmscout/util/Progress.cpp
     src/osmscout/util/ScreenBox.cpp
     src/osmscout/util/StopClock.cpp
     src/osmscout/util/String.cpp
