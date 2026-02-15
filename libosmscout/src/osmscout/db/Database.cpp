@@ -201,11 +201,12 @@ namespace osmscout {
     return FILE_FORMAT_VERSION;
   }
 
-  bool Database::Open(const std::string& path)
+  bool Database::Open(const std::string& path, bool basemap)
   {
     assert(!path.empty());
 
     this->path=path;
+    this->basemap=basemap;
 
     typeConfig=std::make_shared<TypeConfig>();
 
@@ -222,6 +223,11 @@ namespace osmscout {
   bool Database::IsOpen() const
   {
     return isOpen;
+  }
+
+  bool Database::IsBasemap() const
+  {
+    return basemap;
   }
 
   void Database::Close()
@@ -297,7 +303,7 @@ namespace osmscout {
   {
     std::lock_guard guard(boundingBoxDataFileMutex);
 
-    if (!IsOpen()) {
+    if (!IsOpen() || !boundingBoxDataFileExists) {
       return nullptr;
     }
 
@@ -310,6 +316,8 @@ namespace osmscout {
 
       if (!boundingBoxDataFile->Load(path,typeConfig->GetFileFormatVersion())) {
         log.Error() << "Cannot open '" << BoundingBoxDataFile::BOUNDINGBOX_DAT << "'!";
+        boundingBoxDataFileExists=false;
+        boundingBoxDataFile=nullptr;
         return nullptr;
       }
 
@@ -355,7 +363,7 @@ namespace osmscout {
   {
     std::scoped_lock<std::mutex> guard(areaDataFileMutex);
 
-    if (!IsOpen()) {
+    if (!IsOpen() || !areaDataFileExists) {
       return nullptr;
     }
 
@@ -370,6 +378,8 @@ namespace osmscout {
                               path,
                               parameter.GetAreasDataMMap())) {
         log.Error() << "Cannot open 'areas.dat'!";
+        areaDataFileExists=false;
+        areaDataFile=nullptr;
         return nullptr;
       }
 
@@ -385,7 +395,7 @@ namespace osmscout {
   {
     std::scoped_lock<std::mutex> guard(wayDataFileMutex);
 
-    if (!IsOpen()) {
+    if (!IsOpen() || !wayDataFileExists) {
       return nullptr;
     }
 
@@ -400,6 +410,8 @@ namespace osmscout {
                              path,
                              parameter.GetWaysDataMMap())) {
         log.Error() << "Cannot open 'ways.dat'!";
+        wayDataFileExists=false;
+        wayDataFile=nullptr;
         return nullptr;
       }
 
@@ -415,7 +427,7 @@ namespace osmscout {
   {
     std::scoped_lock<std::mutex> guard(routeDataFileMutex);
 
-    if (!IsOpen()) {
+    if (!IsOpen() || !routeDataFileExists) {
       return nullptr;
     }
 
@@ -431,6 +443,8 @@ namespace osmscout {
                                  path,
                                  parameter.GetRoutesDataMMap())) {
           log.Error() << "Cannot open 'routes.dat'!";
+          routeDataFileExists=false;
+          routeDataFile=nullptr;
           return nullptr;
         }
       }
@@ -447,7 +461,7 @@ namespace osmscout {
   {
     std::scoped_lock<std::mutex> guard(areaNodeIndexMutex);
 
-    if (!IsOpen()) {
+    if (!IsOpen() || !areaNodeIndexExists) {
       return nullptr;
     }
 
@@ -460,8 +474,8 @@ namespace osmscout {
                                parameter.GetIndexMMap(),
                                typeConfig->GetFileFormatVersion())) {
         log.Error() << "Cannot load area node index!";
+        areaNodeIndexExists=false;
         areaNodeIndex=nullptr;
-
         return nullptr;
       }
 
@@ -477,7 +491,7 @@ namespace osmscout {
   {
     std::scoped_lock<std::mutex> guard(areaAreaIndexMutex);
 
-    if (!IsOpen()) {
+    if (!IsOpen() || !areaAreaIndexExists) {
       return nullptr;
     }
 
@@ -491,8 +505,8 @@ namespace osmscout {
                                typeConfig->GetFileFormatVersion())) {
 
         log.Error() << "Cannot load area area index!";
+        areaAreaIndexExists=false;
         areaAreaIndex=nullptr;
-
         return nullptr;
       }
 
@@ -508,7 +522,7 @@ namespace osmscout {
   {
     std::scoped_lock<std::mutex> guard(areaWayIndexMutex);
 
-    if (!IsOpen()) {
+    if (!IsOpen() || !areaWayIndexExists) {
       return nullptr;
     }
 
@@ -521,8 +535,8 @@ namespace osmscout {
                               path,
                               parameter.GetIndexMMap())) {
         log.Error() << "Cannot load area way index!";
+        areaWayIndexExists=false;
         areaWayIndex=nullptr;
-
         return nullptr;
       }
 
@@ -538,7 +552,7 @@ namespace osmscout {
   {
     std::scoped_lock<std::mutex> guard(areaRouteIndexMutex);
 
-    if (!IsOpen()) {
+    if (!IsOpen() || !areaRouteIndexExists) {
       return nullptr;
     }
 
@@ -551,8 +565,8 @@ namespace osmscout {
                                 path,
                                 parameter.GetIndexMMap())) {
         log.Error() << "Cannot load area way index!";
+        areaRouteIndexExists=false;
         areaRouteIndex=nullptr;
-
         return nullptr;
       }
 
@@ -568,7 +582,7 @@ namespace osmscout {
   {
     std::scoped_lock<std::mutex> guard(locationIndexMutex);
 
-    if (!IsOpen()) {
+    if (!IsOpen() || !locationIndexExists) {
       return nullptr;
     }
 
@@ -582,8 +596,8 @@ namespace osmscout {
                                GetTypeConfig()->GetFileFormatVersion())) {
 
         log.Error() << "Cannot load location index!";
+        locationIndexExists=false;
         locationIndex=nullptr;
-
         return nullptr;
       }
 
@@ -599,7 +613,7 @@ namespace osmscout {
   {
     std::scoped_lock<std::mutex> guard(waterIndexMutex);
 
-    if (!IsOpen()) {
+    if (!IsOpen() || !waterIndexExists) {
       return nullptr;
     }
 
@@ -613,8 +627,8 @@ namespace osmscout {
                             GetTypeConfig()->GetFileFormatVersion())) {
 
         log.Error() << "Cannot load water index!";
+        waterIndexExists=false;
         waterIndex=nullptr;
-
         return nullptr;
       }
 
