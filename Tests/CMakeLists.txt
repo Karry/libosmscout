@@ -48,6 +48,11 @@ set_source_files_properties(src/SearchForLocationByStringTest.cpp src/SearchForL
 set_tests_properties(LocationLookupTest PROPERTIES ENVIRONMENT "TESTS_TOP_DIR=${CMAKE_CURRENT_SOURCE_DIR};TESTS_TMP_DIR=${CMAKE_CURRENT_BINARY_DIR}")
 set_tests_properties(LocationLookupTest PROPERTIES UNITY_BUILD FALSE)
 
+#---- LocationDescription
+osmscout_test_project(NAME LocationDescriptionServiceTest SOURCES src/LocationDescriptionServiceTest.cpp)
+set_tests_properties(LocationDescriptionServiceTest PROPERTIES ENVIRONMENT "TESTS_TOP_DIR=${CMAKE_CURRENT_SOURCE_DIR};TESTS_TMP_DIR=${CMAKE_CURRENT_BINARY_DIR}")
+set_tests_properties(LocationDescriptionServiceTest PROPERTIES UNITY_BUILD FALSE)
+
 #---- NumberSetPerformance
 osmscout_test_project(NAME NumberSetPerformanceTest SOURCES src/NumberSetPerformanceTest.cpp)
 
@@ -114,6 +119,9 @@ osmscout_test_project(NAME GeometryTest SOURCES src/GeometryTest.cpp)
 
 #---- HeaderCheck
 osmscout_test_project(NAME HeaderCheckTest SOURCES src/HeaderCheckTest.cpp)
+
+#---- HighwayMilestoneFeature
+osmscout_test_project(NAME HighwayMilestoneFeatureTest SOURCES src/HighwayMilestoneFeatureTest.cpp)
 set_tests_properties(HeaderCheckTest PROPERTIES ENVIRONMENT "SOURCE_ROOT=${CMAKE_SOURCE_DIR}")
 
 #---- WaterIndex
