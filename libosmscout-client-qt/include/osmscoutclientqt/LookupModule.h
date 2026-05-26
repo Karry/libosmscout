@@ -58,7 +58,7 @@ public:
    * Note that levels may have different meaning in various countries...
    * https://wiki.openstreetmap.org/wiki/Tag:boundary%3Dadministrative
    */
-  enum AdminRegionLevel {
+  enum class AdminRegionLevel {
     NA1              = 1,
     Country          = 2,
     Territory        = 3,

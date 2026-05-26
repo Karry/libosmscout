@@ -277,7 +277,7 @@ void LocationListModel::onLocationAdminRegions(const osmscout::GeoCoord location
     bool first=true;
     for (const auto &info:adminRegionList){
       // adminRegionList is sorted by decreasing admin level
-      if (first || (info->adminLevel >= LookupModule::Town && defaultRegion!=info)){
+      if (first || (info->adminLevel >= static_cast<int>(LookupModule::AdminRegionLevel::Town) && defaultRegion!=info)){
         defaultRegion=info;
         first=false;
       }
