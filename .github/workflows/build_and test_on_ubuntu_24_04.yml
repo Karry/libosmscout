@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Update package list
         run:  sudo apt-get update
       - name: Install software-properties-common
@@ -31,6 +31,7 @@ jobs:
               catch2
               libxml2-dev 
               libprotobuf-dev protobuf-compiler liblzma-dev
+              libpng-dev
               libagg-dev
               libfreetype6-dev libcairo2-dev libpangocairo-1.0-0 libpango1.0-dev
               qtdeclarative5-dev libqt5svg5-dev qtlocation5-dev qtpositioning5-dev qttools5-dev-tools
@@ -52,7 +53,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Install software-properties-common
         run:  sudo apt-get install software-properties-common
       - name: Install gcc compiler and Co
@@ -64,6 +65,7 @@ jobs:
                catch2
                libxml2-dev
                libprotobuf-dev protobuf-compiler liblzma-dev
+               libpng-dev
                libagg-dev
                libfreetype6-dev libcairo2-dev libpangocairo-1.0-0 libpango1.0-dev
                qtdeclarative5-dev libqt5svg5-dev qtlocation5-dev qtpositioning5-dev qttools5-dev-tools
@@ -82,7 +84,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Install software-properties-common
         run:  sudo apt-get install software-properties-common
       - name: Install gcc compiler, cmake and ninja
@@ -92,6 +94,7 @@ jobs:
                catch2
                libxml2-dev
                libprotobuf-dev protobuf-compiler liblzma-dev
+               libpng-dev
                libagg-dev
                libfreetype6-dev libcairo2-dev libpangocairo-1.0-0 libpango1.0-dev
                qtdeclarative5-dev libqt5svg5-dev qtlocation5-dev qtpositioning5-dev qttools5-dev-tools
@@ -116,7 +119,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Install software-properties-common
         run:  sudo apt-get install software-properties-common
       - name: Install gcc compiler and Co
@@ -127,6 +130,7 @@ jobs:
         run:  "sudo apt-get update && sudo apt-get install -y
                catch2
                libprotobuf-dev protobuf-compiler liblzma-dev
+               libpng-dev
                libfreetype6-dev libcairo2-dev libpangocairo-1.0-0 libpango1.0-dev
                qmake6 libqt6svg6-dev libqt6core5compat6-dev qt6-declarative-dev qt6-positioning-dev qt6-tools-dev-tools
                qt6-l10n-tools qt6-tools-dev qt6-multimedia-dev
@@ -143,7 +147,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Install software-properties-common
         run:  sudo apt-get install software-properties-common
       - name: Install gcc compiler, cmake and ninja
@@ -152,6 +156,7 @@ jobs:
         run:  "sudo apt-get update && sudo apt-get install -y
                catch2
                libprotobuf-dev protobuf-compiler liblzma-dev
+               libpng-dev
                qmake6 libqt6svg6-dev libqt6core5compat6-dev qt6-declarative-dev qt6-positioning-dev qt6-tools-dev-tools
                qt6-l10n-tools qt6-tools-dev qt6-multimedia-dev"
       - name: Configure build project

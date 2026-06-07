@@ -19,11 +19,85 @@
 
 #include <osmscout/feature/HighwayMilestoneFeature.h>
 
+#include <cctype>
+#include <cstring>
+#include <limits>
 #include <sstream>
 
 #include <osmscout/util/String.h>
 
 namespace osmscout {
+
+  namespace {
+    /**
+     * Unit definition for distance value parsing.
+     * Add new entries here to support additional units.
+     */
+    struct DistanceUnit {
+      const char* suffix;
+      double factorToMeters;
+    };
+
+    static constexpr DistanceUnit distanceUnits[] = {
+      {"km", 1000.0},
+      {"mi", 1609.344}
+    };
+
+    /**
+     * Check if string ends with given suffix, ensuring suffix is
+     * preceded by non-alpha character (to avoid e.g. "nmi" matching "mi").
+     */
+    bool EndsWithUnitSuffix(const std::string& str, const char* suffix)
+    {
+      size_t suffixLen = std::strlen(suffix);
+      if (str.size() < suffixLen) {
+        return false;
+      }
+      if (str.compare(str.size() - suffixLen, suffixLen, suffix) != 0) {
+        return false;
+      }
+      size_t pos = str.size() - suffixLen;
+      // Suffix must be preceded by start of string or non-alpha character
+      return pos == 0 || !std::isalpha(static_cast<unsigned char>(str[pos - 1]));
+    }
+
+    /**
+     * Try to parse distance string with a known unit suffix.
+     * Returns true if parsed and value was set.
+     */
+    bool ParseWithUnit(const std::string& distanceString,
+                       const TagMap& tags,
+                       TagErrorReporter& errorReporter,
+                       const ObjectOSMRef& object,
+                       HighwayMilestoneFeatureValue* value)
+    {
+      for (const auto& unit : distanceUnits) {
+        if (!EndsWithUnitSuffix(distanceString, unit.suffix)) {
+          continue;
+        }
+        size_t suffixLen = std::strlen(unit.suffix);
+        std::string prefix = distanceString.substr(0, distanceString.size() - suffixLen);
+        prefix = Trim(prefix);
+
+        double d;
+        if (!StringToNumber(prefix, d)) {
+          errorReporter.ReportTag(object, tags,
+                                  std::string("HighwayMilestone distance tag value '") +
+                                  distanceString + "' is not a valid number!");
+          return true;
+        }
+        if (d < 0 || d > (std::numeric_limits<uint32_t>::max() / unit.factorToMeters)) {
+          errorReporter.ReportTag(object, tags,
+                                  std::string("HighwayMilestone distance tag value '") +
+                                  distanceString + "' is out of range!");
+          return true;
+        }
+        value->SetDistance(static_cast<uint32_t>(d * unit.factorToMeters));
+        return true;
+      }
+      return false;
+    }
+  }
 
   void HighwayMilestoneFeatureValue::Read(FileScanner& scanner)
   {
@@ -111,31 +185,29 @@ namespace osmscout {
                                       const TagMap& tags,
                                       FeatureValueBuffer& buffer) const
   {
-    auto distanceTag=tags.find(tagDistance);
-    auto refTag=tags.find(tagRef);
-
-    if (distanceTag==tags.end() || refTag==tags.end()) {
-      return;
-    }
-
-    std::string distanceString=distanceTag->second;
-    double      d;
-
-    if (!StringToNumber(distanceString,d)) {
-      errorReporter.ReportTag(object,tags,std::string("HighwayMilestone distance tag value '")+distanceTag->second+"' is not a valid number!");
-      return;
-    }
-
-    // OSM distance is in km; multiply by 1000 for internal meter storage. Range check prevents overflow after multiplication.
-    if (d<0 || d>(std::numeric_limits<uint32_t>::max()/1000.0)) {
-      errorReporter.ReportTag(object,tags,std::string("HighwayMilestone distance tag value '")+distanceTag->second+"' is out of range!");
-      return;
-    }
-
     auto* value=static_cast<HighwayMilestoneFeatureValue*>(buffer.AllocateValue(feature.GetIndex()));
 
-    value->SetDistance(static_cast<uint32_t>(d * 1000.0));
-    value->SetRef(refTag->second);
+    auto distanceTag=tags.find(tagDistance);
+    if (distanceTag!=tags.end()) {
+      std::string distanceString=Trim(distanceTag->second);
+      double      d;
+
+      // Try parsing with known unit suffix first
+      if (ParseWithUnit(distanceString, tags, errorReporter, object, value)) {
+        // Distance was set (or error reported), nothing more to do
+      } else if (!StringToNumber(distanceString,d)) {
+        errorReporter.ReportTag(object,tags,std::string("HighwayMilestone distance tag value '")+distanceTag->second+"' is not a valid number!");
+      } else if (d<0 || d>(std::numeric_limits<uint32_t>::max()/1000.0)) {
+        errorReporter.ReportTag(object,tags,std::string("HighwayMilestone distance tag value '")+distanceTag->second+"' is out of range!");
+      } else {
+        value->SetDistance(static_cast<uint32_t>(d * 1000.0));
+      }
+    }
+
+    auto refTag=tags.find(tagRef);
+    if (refTag!=tags.end()) {
+      value->SetRef(refTag->second);
+    }
 
     auto carriagewayRefTag=tags.find(tagCarriagewayRef);
     if (carriagewayRefTag!=tags.end()) {

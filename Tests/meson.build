@@ -15,7 +15,7 @@ test('Check parsing of access rights', AccessParseTest)
 AsyncProcessingTest =  executable('AsyncProcessingTest',
              'src/AsyncProcessingTest.cpp',
              include_directories: [osmscoutIncDir],
-             dependencies: [mathDep, threadDep, openmpDep],
+             dependencies: [mathDep, threadDep, openmpDep, catch2MainDep],
              link_with: [osmscout],
              install: true,
              install_dir: testInstallDir)
@@ -564,6 +564,18 @@ StringUtilsTest = executable('StringUtilsTest',
 
 test('Check string utils', StringUtilsTest)
 
+if buildMapSVG
+  SymbolRendererSVGTest = executable('SymbolRendererSVGTest',
+                               'src/SymbolRendererSVGTest.cpp',
+                               include_directories: [testIncDir, osmscoutIncDir, osmscoutmapIncDir, osmscoutmapsvgIncDir],
+                               dependencies: [mathDep, openmpDep, catch2MainDep],
+                               link_with: [osmscout, osmscoutmap, osmscoutmapsvg],
+                               install: true,
+                               install_dir: testInstallDir)
+
+  test('Check SymbolRenderer SVG backend', SymbolRendererSVGTest)
+endif
+
 SunriseSunsetTest = executable('SunriseSunsetTest',
                            'src/SunriseSunsetTest.cpp',
                            include_directories: [testIncDir, osmscoutIncDir],
@@ -670,7 +682,7 @@ test('Check water index import code', WaterIndexTest)
 WorkQueueTest = executable('WorkQueueTest',
              'src/WorkQueueTest.cpp',
              include_directories: [osmscoutIncDir],
-             dependencies: [mathDep, threadDep, openmpDep],
+             dependencies: [mathDep, openmpDep, catch2MainDep],
              link_with: [osmscout],
              install: true,
              install_dir: testInstallDir)

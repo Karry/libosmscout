@@ -47,8 +47,15 @@ namespace osmscout {
     glewExperimental = GL_TRUE;
     GLenum res = glewInit();
     if (res != GLEW_OK) {
-      log.Error() << "Glew init error: " << glewGetErrorString(res);
-      return;
+      if (res == GLEW_ERROR_NO_GLX_DISPLAY) {
+        // Expected on native Wayland with standard GLEW.
+        // Clear any spurious GL error triggered during init.
+        while (glGetError() != GL_NO_ERROR) {}
+      }
+      else {
+        log.Error() << "Glew init error: " << res << " - " << glewGetErrorString(res);
+        return;
+      }
     }
 
     if (std::string projectionSource;
@@ -98,6 +105,7 @@ namespace osmscout {
       return;
     }
 
+    textRenderer.SetVerticesSize(11);
     if (!textRenderer.InitContext(shaderDir,
                                   "TextVertexShader.vert",
                                   "TextFragmentShader.frag",
@@ -1217,6 +1225,7 @@ namespace osmscout {
     imageRenderer.SetView(lookX, lookY);
     imageRenderer.Draw();
 
+    glDisable(GL_DEPTH_TEST);
     textRenderer.BindBuffers();
     textRenderer.LoadTextures();
     textRenderer.UseProgram();
@@ -1232,8 +1241,14 @@ namespace osmscout {
 
     textRenderer.SetMapProjection(mapProjection);
     textRenderer.AddUniform("textureHeight", textRenderer.GetTextureHeight());
-    textRenderer.AddUniform("textureWidthSum", textRenderer.GetTextureWidth());
+    long tw = textRenderer.GetTextureWidth();
+    log.Debug() << "textRenderer textureWidth=" << tw
+                << " height=" << textRenderer.GetTextureHeight()
+                << " elements=" << textRenderer.GetElementCount();
+    textRenderer.AddUniform("textureWidthSum", (float)tw);
     textRenderer.AddUniform("z", 0.001);
+    // sampler tex bound to unit 0 in LoadTextures
+    // sampler uniform "tex" bound to unit 0 in LoadTextures
 
     textRenderer.SetProjection(mapProjection.GetWidth(), mapProjection.GetHeight());
     textRenderer.SetModel();

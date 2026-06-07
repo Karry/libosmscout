@@ -1,11 +1,13 @@
 project('libosmscout',
         'cpp',
         version: 'latest',
-        meson_version: '>=0.63.0',
+        meson_version: '>=1.9.0',
         default_options: ['cpp_std=c++20', 'buildtype=debugoptimized', 'warning_level=3'],
         license: 'LGPL')
 
 libraryVersion='1.1.1'
+
+# Additional programming languages
 
 if build_machine.system()=='darwin'
   add_languages('objcpp', native: false, required: true)
@@ -13,6 +15,8 @@ if build_machine.system()=='darwin'
   add_project_arguments(['-fobjc-arc', '-std=c++20'], language: 'objcpp')
   add_project_link_arguments(['-dynamiclib'], language: 'objcpp')
 endif
+
+javaSupport = add_languages('java', native: true, required: false)
 
 compiler = meson.get_compiler('cpp')
 
@@ -59,8 +63,6 @@ endif
 # Check for headers
 fcntlAvailable = compiler.has_header('fcntl.h')
 statAvailable = compiler.has_header('sys/stat.h')
-codecvtAvailable = compiler.has_header('codecvt')
-jniAvailable = compiler.has_header('jni.h')
 
 # Check for header symbols
 sharedMutexAvailable = compiler.has_header_symbol('shared_mutex','shared_mutex', prefix: 'using namespace std;')
@@ -97,8 +99,8 @@ if stdExecutionAvailable
 endif
 
 # Testing
-catch2Dep = dependency('catch2', version: '>=3.0.0', required: false)
-catch2MainDep = dependency('catch2-with-main', version: '>=3.0.0', required: false)
+catch2Dep = dependency('catch2', version: '>=3.0.0', required: false, fallback: ['catch2','catch2_dep'])
+catch2MainDep = dependency('catch2-with-main', version: '>=3.0.0', required: false, fallback: ['catch2','catch2_with_main_dep'])
 
 # Optional
 marisaDep = dependency('marisa', required : false)
@@ -108,12 +110,12 @@ zlibDep = dependency('zlib', required : false, fallback: ['zlib','zlib_dep'])
 lzmaDep = dependency('liblzma', required : false, fallback: ['liblzma','lzma_dep'])
 
 if get_option('enableXML')
-  xml2Dep = dependency('libxml-2.0', version: '>= 2.6.0', required : false, fallback: ['libxml2','xml2lib_dep'])
+  xml2Dep = dependency('libxml-2.0', version: '>= 2.6.0', required : false, fallback: ['libxml2','libxml-2.0_dep'])
 else
   xml2Dep = dependency('', required: false)
 endif
 
-protobufDep = dependency('protobuf', required : false, fallback: ['protobuf','protoc_dep'])
+protobufDep = dependency('protobuf', required : false, fallback: ['protobuf','protobuf_dep'])
 wsock32Dep=compiler.find_library('wsock32', required: false)
 
 protocCmd = find_program('protoc', required: false)
@@ -158,7 +160,7 @@ cairoDep = dependency('cairo', required : false)
 pangoDep = dependency('pango', required : false)
 pangocairoDep = dependency('pangocairo', required : false)
 pangoft2Dep = dependency('pangoft2', required : false)
-pngDep = dependency('libpng', required: false)
+pngDep = dependency('libpng', required: false, fallback: ['libpng','libpng_dep'])
 gobjectDep = dependency('gobject-2.0',required: false)
 
 # DirectX
@@ -190,7 +192,17 @@ haveQt6ClientDep=haveQt6MapDep and qt6ClientDep.found() and qt6ClientDep.version
 buildMapQt=false
 buildClientQt=false
 
-if get_option('qtVersion') == 5 and haveQt5MapDep
+if get_option('qtVersion') == 6 and haveQt6MapDep
+    message('Qt6 version : @0@ (required >= 6.0)'.format(qt6MapDep.version()))
+    buildMapQt=true
+    qtMapDep=qt6MapDep
+    qt=qt6
+
+    if haveQt6ClientDep
+      qtClientDep=qt6ClientDep
+      buildClientQt=true
+    endif
+elif haveQt5MapDep
     message('Qt5 version : @0@ (required >= 5.6)'.format(qt5MapDep.version()))
     buildMapQt=true
     qtMapDep=qt5MapDep
@@ -200,16 +212,6 @@ if get_option('qtVersion') == 5 and haveQt5MapDep
       qtClientDep=qt5ClientDep
       buildClientQt=true
     endif
-elif haveQt6MapDep
-    message('Qt6 version : @0@ (required >= 6.0)'.format(qt6MapDep.version()))
-    buildMapQt=true
-    qtMapDep=qt6MapDep
-    qt=qt6
-
-    if haveQt6ClientDep
-      qtClientDep=qt6ClientDep
-      buildClientQt=true
-  endif
 endif
 
 # OpenGL
@@ -228,6 +230,9 @@ httpLibAvailable=compiler.has_header('httplib.h', required: false)
 
 # nlohmann_json
 jsonDep = dependency('nlohmann_json', required: false)
+
+# JNI support
+jniDep = dependency('jni', version: '>= 17', required: false)
 
 if openGLDep.found() and glmDep.found() and glewDep.found() and ftDep.found() and get_option('enableMapOpenGL')
   buildMapOpenGL=true
@@ -312,7 +317,16 @@ else
   buildBinding=false
 endif
 
+# Allways build the client lbrary since it does not have additional dependencies
 buildClient=true
+
+if javaSupport and jniDep.found()
+  buildJava = true
+  java = import('java')
+  javaCompiler = meson.get_compiler('java')
+else
+  buildJava = false
+endif
 
 buildOSMScout2=buildGpx and buildMapQt and buildClientQt
 buildStyleEditor=buildMapQt and buildClientQt
@@ -416,6 +430,7 @@ summary({
   'Host CPU': build_machine.cpu(),
   'Target OS': target_machine.system(),
   'Target CPU': build_machine.cpu(),
+  'Java support': javaSupport,
   }, section: 'OS')
 
 summary({
@@ -423,7 +438,7 @@ summary({
   'Compiler arg. syntax': compiler.get_argument_syntax(),
   'OpenMP support': openmpDep.found(),
   'C++17 execution support': stdExecutionAvailable,
-  }, section: 'Compiler')
+  }, section: 'C++ Compiler')
 
 summary({
   'Meson backend': meson.backend(),
@@ -446,6 +461,13 @@ summary({
   'Qt map dependency': qtMapDep.version(),
   'Qt client dependency': qtClientDep.version(),
   }, section: 'Qt dependencies')
+
+if buildJava
+  summary({
+            'Compiler id': javaCompiler.get_id(),
+            'Compiler version': javaCompiler.version(),
+          }, section: 'Java')
+endif
 
 summary({
   'libosmscout': true,
