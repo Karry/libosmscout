@@ -28,7 +28,7 @@
 
 #include <QGuiApplication>
 #include <QScreen>
-#include <QtCore>
+#include <QtMath>
 #include <QOpenGLContext>
 #include <QOpenGLFunctions>
 

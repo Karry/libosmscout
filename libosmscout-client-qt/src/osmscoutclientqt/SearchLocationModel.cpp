@@ -22,9 +22,10 @@
 
 #include <osmscoutclientqt/SearchLocationModel.h>
 #include <osmscoutclientqt/OSMScoutQt.h>
+#include <osmscoutclientqt/QQmlEngineHelper.h>
 
-#include <QtQml>
 #include <QElapsedTimer>
+#include <QQmlEngine>
 
 #include <iostream>
 

@@ -58,6 +58,8 @@ set(HEADER_FILES
     include/osmscoutclientqt/VoiceCorePlayerImpl.h
     include/osmscoutclientqt/AvailableVoicesModel.h
     include/osmscoutclientqt/InstalledVoicesModel.h
+
+    include/osmscoutclientqt/QQmlEngineHelper.h
 )
 
 set(SOURCE_FILES
@@ -114,6 +116,14 @@ set(SOURCE_FILES
     src/osmscoutclientqt/VoicePlayer.cpp
     src/osmscoutclientqt/AvailableVoicesModel.cpp
     src/osmscoutclientqt/InstalledVoicesModel.cpp
+
+    src/osmscoutclientqt/QQmlEngineHelper.cpp
+)
+
+# workaround for Qt 5.6 incompatibility with C++20, see https://forum.sailfishos.org/t/qt-5-6-issue-with-gcc-13-and-std-c-20-sailfish-os-5-1/29763
+set_source_files_properties(
+    src/osmscoutclientqt/QQmlEngineHelper.cpp
+    PROPERTIES COMPILE_OPTIONS "-std=gnu++17"
 )
 
 if (QT_VERSION_MAJOR EQUAL 6)
