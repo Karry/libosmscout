@@ -25,6 +25,8 @@
 
 #include <osmscoutclientqt/Router.h>
 #include <osmscoutclientqt/VoicePlayer.h>
+#include <osmscoutclientqt/TTSMessageGeneratorQt.h>
+#include <osmscoutclientqt/TTSEngine.h>
 
 #include <osmscout/navigation/Navigation.h>
 #include <osmscout/navigation/Engine.h>
@@ -106,7 +108,9 @@ public slots:
 public:
   NavigationModule(QThread *thread,
                    SettingsRef settings,
-                   DBThreadRef dbThread);
+                   DBThreadRef dbThread,
+                   const QString &translationDir,
+                   const QString &espeakDataDir);
 
   bool loadRoutableObjects(const GeoBox &box,
                            const Vehicle &vehicle,
@@ -117,23 +121,30 @@ public:
 
 private:
   void InitPlayer();
+  void EnsureTTSEngine();
   void ProcessMessages(const std::list<osmscout::NavigationMessageRef>& messages);
-  QString sampleFile(osmscout::VoiceInstructionMessage::VoiceSample sample) const;
+  QString sampleFile(osmscout::SampleVoiceInstructionMessage::VoiceSample sample) const;
 
 private:
   QThread     *thread;
   SettingsRef settings;
   DistanceUnitSystem units{Locale::ByEnvironmentSafe().GetDistanceUnits()}; // TODO: make possible to override
   DBThreadRef dbThread;
+  QString     translationDir;
+  QString     espeakDataDir;
   QTimer      timer;
   std::optional<Bearing> lastBearing;
 
   // voice route instructions
-  QString voiceDir;
+  Voice voice;
   // player should be created in module thread, not in UI thread (constructor)
-  // we setup QObject parents, objects are cleaned after Module destruction
+  // we setup QObject parents, objects are cleaned after Module destruction (Qt's parent)
   VoiceCorePlayer *mediaPlayer{nullptr};
-  std::vector<osmscout::VoiceInstructionMessage::VoiceSample> nextMessage;
+  std::vector<osmscout::SampleVoiceInstructionMessage::VoiceSample> nextMessage;
+
+  // text-to-speech (TTS) voice instructions
+  // engine runs in its own background thread, created lazily on the first TTS message
+  TTSEngine *ttsEngine{nullptr};
 
   osmscout::RouteDescriptionRef routeDescription;
 
@@ -145,7 +156,7 @@ private:
       std::make_shared<PositionAgent>(),
       std::make_shared<BearingAgent>(),
       std::make_shared<RouteInstructionAgent<RouteStep, RouteDescriptionBuilder>>(),
-      std::make_shared<VoiceInstructionAgent>(units),
+      std::make_shared<VoiceInstructionAgent>(units, std::make_shared<TTSMessageGeneratorQt>(translationDir)),
       std::make_shared<RouteStateAgent>(),
       std::make_shared<ArrivalEstimateAgent>(),
       std::make_shared<SpeedAgent>(),

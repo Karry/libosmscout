@@ -18,6 +18,11 @@
  */
 
 #include <osmscoutclientqt/NavigationModule.h>
+#include <osmscoutclientqt/Voice.h>
+#include <osmscoutclientqt/ClientQtFeatures.h>
+#ifdef OSMSCOUT_HAVE_LIB_PIPER
+#include <osmscoutclientqt/PiperTTSEngine.h>
+#endif
 
 #include <osmscout/log/Logger.h>
 
@@ -26,12 +31,15 @@
 #include <QDir>
 #include <QDebug>
 
+
 namespace osmscout {
 
 NavigationModule::NavigationModule(QThread *thread,
                                    SettingsRef settings,
-                                   DBThreadRef dbThread):
-  thread(thread), settings(settings), dbThread(dbThread)
+                                   DBThreadRef dbThread,
+                                   const QString &translationDir,
+                                   const QString &espeakDataDir):
+  thread(thread), settings(settings), dbThread(dbThread), translationDir(translationDir), espeakDataDir(espeakDataDir)
 {
   assert(settings);
   assert(dbThread);
@@ -49,6 +57,11 @@ NavigationModule::~NavigationModule()
     qWarning() << "Destroy" << this << "from incorrect thread;" << thread << "!=" << QThread::currentThread();
   }
   qDebug() << "~NavigationModule";
+  if (ttsEngine!=nullptr){
+    // engine lives in its own thread, delete it there
+    ttsEngine->deleteLater();
+    ttsEngine=nullptr;
+  }
   if (thread!=nullptr){
     thread->quit();
   }
@@ -63,6 +76,33 @@ void NavigationModule::InitPlayer()
   if (mediaPlayer==nullptr){
     mediaPlayer = new VoiceCorePlayer(this);
     connect(mediaPlayer, SIGNAL(playbackStateChanged(VoicePlayer::PlaybackState)), this, SLOT(playerStateChanged(VoicePlayer::PlaybackState)));
+  }
+}
+
+void NavigationModule::EnsureTTSEngine()
+{
+  if (thread!=QThread::currentThread()){
+    qWarning() << "TTS engine initialised from incorrect thread;" << thread << "!=" << QThread::currentThread();
+  }
+
+  if (ttsEngine==nullptr){
+#ifdef OSMSCOUT_HAVE_LIB_PIPER
+    InitPlayer(); // TTS engine plays synthesized messages through the media player
+    ttsEngine = new PiperTTSEngine(mediaPlayer, espeakDataDir);
+#else
+    // library was built without any TTS engine, keep ttsEngine unset
+    log.Warn() << "No text-to-speech engine available (built without libpiper)";
+    return;
+#endif
+  }
+
+  // (re)initialize the engine when the selected voice changed
+  if (!ttsEngine->getVoice().isValid() || ttsEngine->getVoice().getDir() != voice.getDir()){
+    auto ttsVoice = voice;
+    TTSEngine *engine = ttsEngine;
+    QMetaObject::invokeMethod(engine, [engine, ttsVoice]() {
+      engine->initVoice(ttsVoice);
+    }, Qt::QueuedConnection);
   }
 }
 
@@ -102,7 +142,7 @@ void NavigationModule::ProcessMessages(const std::list<osmscout::NavigationMessa
              nextInstruction != nullptr) {
 
       if (!nextInstruction->nextRouteInstruction.shortDescription.isEmpty()) {
-        log.Debug() << "In " << nextInstruction->nextRouteInstruction.distanceTo.AsMeter() << " m: "
+        log.Debug() << "In " << qRound(nextInstruction->nextRouteInstruction.distanceTo.AsMeter()) << " m: "
                     << nextInstruction->nextRouteInstruction.shortDescription.toStdString();
       }
       emit updateNext(nextInstruction->nextRouteInstruction);
@@ -123,14 +163,40 @@ void NavigationModule::ProcessMessages(const std::list<osmscout::NavigationMessa
              maxSpeedMessage != nullptr) {
 
       emit maxAllowedSpeed(maxSpeedMessage->maxAllowedSpeed);
-    } else if (auto voiceInstructionMessage = dynamic_cast<osmscout::VoiceInstructionMessage*>(message.get());
+    } else if (auto voiceInstructionMessage = dynamic_cast<osmscout::SampleVoiceInstructionMessage*>(message.get());
                voiceInstructionMessage != nullptr) {
 
-      if (!voiceDir.isEmpty()) {
+      if (voice.isValid()) {
         nextMessage = voiceInstructionMessage->message;
         InitPlayer();
         assert(mediaPlayer);
         playerStateChanged(mediaPlayer->playbackState());
+      }
+    } else if (auto ttsPrepareMessage = dynamic_cast<osmscout::TTSVoiceInstructionPrepareMessage*>(message.get());
+               ttsPrepareMessage != nullptr) {
+
+      if (voice.isValid()) {
+        EnsureTTSEngine();
+        if (ttsEngine!=nullptr) {
+          TTSEngine *engine = ttsEngine;
+          QString msg = QString::fromStdString(ttsPrepareMessage->message);
+          QMetaObject::invokeMethod(engine, [engine, msg]() {
+            engine->prepareMessage(msg);
+          }, Qt::QueuedConnection);
+        }
+      }
+    } else if (auto ttsMessage = dynamic_cast<osmscout::TTSVoiceInstructionMessage*>(message.get());
+               ttsMessage != nullptr) {
+
+      if (voice.isValid()) {
+        EnsureTTSEngine();
+        if (ttsEngine!=nullptr) {
+          TTSEngine *engine = ttsEngine;
+          QString msg = QString::fromStdString(ttsMessage->message);
+          QMetaObject::invokeMethod(engine, [engine, msg]() {
+            engine->playMessage(msg);
+          }, Qt::QueuedConnection);
+        }
       }
     } else if (auto* laneMessage = dynamic_cast<osmscout::LaneAgent::LaneMessage*>(message.get());
                laneMessage != nullptr) {
@@ -236,15 +302,32 @@ void NavigationModule::onTimeout()
 void NavigationModule::onVoiceChanged(const QString dir)
 {
   qDebug() << "Voice dir changed to:" << dir;
-  voiceDir = dir;
-  if (!QDir(voiceDir).exists()){
-    voiceDir.clear(); // disable voice
+  if (!QDir(dir).exists()){
+    voice = Voice(); // disable voice
+  } else {
+    voice = Voice(dir);
+  }
+
+  auto now = std::chrono::system_clock::now();
+  if (!voice.isValid()) {
+    ProcessMessages(engine.Process(std::make_shared<VoiceSetupMessage>(now,NavigationVoiceType::None, "")));
+  } else {
+    NavigationVoiceType type = NavigationVoiceType::None;
+
+    if (voice.getType() == VoiceTypePiper) {
+      type = NavigationVoiceType::TextToSpeech;
+    } else if (voice.getType() == VoiceTypeVoiceOfMarble) {
+      type = NavigationVoiceType::VoiceOfMarble;
+    } else {
+      qWarning() << "Unknown voice type:" << voice.getType();
+    }
+    ProcessMessages(engine.Process(std::make_shared<VoiceSetupMessage>(now, type, voice.getLangCode().toStdString())));
   }
 }
 
-QString NavigationModule::sampleFile(osmscout::VoiceInstructionMessage::VoiceSample sample) const
+QString NavigationModule::sampleFile(osmscout::SampleVoiceInstructionMessage::VoiceSample sample) const
 {
-  using VoiceSample = osmscout::VoiceInstructionMessage::VoiceSample;
+  using VoiceSample = osmscout::SampleVoiceInstructionMessage::VoiceSample;
   switch(sample){
     case VoiceSample::After: return "After.ogg";
     case VoiceSample::AhExitLeft: return "AhExitLeft.ogg";
@@ -317,21 +400,22 @@ QString NavigationModule::sampleFile(osmscout::VoiceInstructionMessage::VoiceSam
   }
 }
 
-  void NavigationModule::playerStateChanged(VoicePlayer::PlaybackState state)
-  {
-    if (thread!=QThread::currentThread()){
-      qWarning() << "Player state changed from incorrect thread;" << thread << "!=" << QThread::currentThread();
-    }
+void NavigationModule::playerStateChanged(VoicePlayer::PlaybackState state)
+{
+  if (thread!=QThread::currentThread()){
+    qWarning() << "Player state changed from incorrect thread;" << thread << "!=" << QThread::currentThread();
+  }
 
   qDebug() << "Voice player state:" << mediaPlayer->playbackState() << "(" << mediaPlayer->index() << "/" << mediaPlayer->queueCount() << ")";
-  if (!voiceDir.isEmpty() &&
+  if (voice.isValid() &&
+      voice.getType() == VoiceTypeVoiceOfMarble &&
       !nextMessage.empty() &&
       state == VoicePlayer::StoppedState) {
 
     mediaPlayer->clearQueue();
 
     for (const auto& sample : nextMessage){
-      auto sampleUrl = QUrl::fromLocalFile(voiceDir + QDir::separator() + sampleFile(sample));
+      auto sampleUrl = QUrl::fromLocalFile(voice.getDir().filePath(sampleFile(sample)));
       qDebug() << "Adding to playlist:" << sampleUrl;
       mediaPlayer->addToQueue(sampleUrl);
     }

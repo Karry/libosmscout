@@ -16,7 +16,7 @@ if build_machine.system()=='darwin'
   add_project_link_arguments(['-dynamiclib'], language: 'objcpp')
 endif
 
-javaSupport = add_languages('java', native: true, required: false)
+javaSupport = add_languages('java', native: false, required: false)
 
 compiler = meson.get_compiler('cpp')
 
@@ -105,6 +105,58 @@ catch2MainDep = dependency('catch2-with-main', version: '>=3.0.0', required: fal
 # Optional
 marisaDep = dependency('marisa', required : false)
 
+# Piper TTS (libpiper). Upstream ships neither a pkg-config nor a CMake config
+# file, so locate the library (and the onnxruntime it depends on) and the header
+# manually. Honour the PIPER_ROOT / PIPER_HOME environment variables plus a few
+# common install locations (e.g. /opt/piper).
+piperDep = dependency('', required: false)
+if get_option('enablePiper')
+  fs = import('fs')
+
+  # Default install prefixes to probe, in addition to the user-provided piperRoot.
+  # The Unix-style paths are only meaningful (and only absolute) on non-Windows
+  # systems; on Windows they would be rejected as search directories.
+  piperRoots = [get_option('piperRoot')]
+  if host_machine.system() != 'windows'
+    piperRoots += ['/opt/piper', '/usr/local']
+  endif
+
+  piperSearchDirs = []
+  piperIncCandidates = []
+  foreach root : piperRoots
+    if root != '' and fs.is_absolute(root)
+      piperSearchDirs += [root, root / 'lib', root / 'lib64']
+      piperIncCandidates += [root / 'include', root]
+    endif
+  endforeach
+
+  piperLib = compiler.find_library('piper', dirs: piperSearchDirs, required: false)
+  # libpiper is linked against onnxruntime, which upstream ships alongside it but
+  # which is usually not on the default library search path.
+  onnxLib = compiler.find_library('onnxruntime', dirs: piperSearchDirs, required: false)
+
+  piperIncArgs = []
+  piperHeaderFound = compiler.has_header('piper.h', required: false)
+  if not piperHeaderFound
+    foreach incDir : piperIncCandidates
+      if not piperHeaderFound and fs.is_file(incDir / 'piper.h')
+        piperIncArgs = ['-I' + incDir]
+        piperHeaderFound = true
+      endif
+    endforeach
+  endif
+
+  if piperLib.found() and piperHeaderFound
+    piperLibs = [piperLib]
+    if onnxLib.found()
+      piperLibs += onnxLib
+    endif
+    piperDep = declare_dependency(dependencies: piperLibs,
+                                  compile_args: piperIncArgs)
+  endif
+endif
+
+
 # Import
 zlibDep = dependency('zlib', required : false, fallback: ['zlib','zlib_dep'])
 lzmaDep = dependency('liblzma', required : false, fallback: ['liblzma','lzma_dep'])
@@ -162,6 +214,70 @@ pangocairoDep = dependency('pangocairo', required : false)
 pangoft2Dep = dependency('pangoft2', required : false)
 pngDep = dependency('libpng', required: false, fallback: ['libpng','libpng_dep'])
 gobjectDep = dependency('gobject-2.0',required: false)
+
+# Skia
+skiaDep = dependency('skia', required : false)
+if not skiaDep.found()
+  # Manual fallback: check for SkCanvas.h and libskia
+  skiaHeader = compiler.has_header('core/SkCanvas.h')
+  if skiaHeader
+    skiaLib = compiler.find_library('skia', required: false)
+    if skiaLib.found()
+      skiaDep = declare_dependency(
+        dependencies: skiaLib,
+        include_directories: include_directories('/usr')
+      )
+    endif
+  endif
+endif
+
+# Some Skia packages (e.g. MSYS2 mingw) install headers under
+# <prefix>/include/skia/include/core/ (nested include/ dir).
+# The pkg-config file may point to <prefix>/include/skia which
+# misses the inner include/. Detect and fix.
+if skiaDep.found() and not compiler.has_header('core/SkCanvas.h', dependencies: skiaDep)
+  # Try to get the include dir from pkg-config and append /include
+  incDir = ''
+  if skiaDep.type_name() == 'pkgconfig'
+    incDir = skiaDep.get_variable(pkgconfig : 'includedir', default_value : '')
+  endif
+  foreach candidate : [incDir + '/include', incDir]
+    if candidate != '' and compiler.has_header('core/SkCanvas.h', args : '-I' + candidate)
+      skiaDep = declare_dependency(
+        dependencies: skiaDep,
+        include_directories: include_directories(candidate)
+      )
+      break
+    endif
+  endforeach
+endif
+
+# Verify Skia actually works at runtime. Some packages are compiled with
+# CPU instructions not available on every runner, which only shows up once
+# real rendering code is executed.
+if skiaDep.found()
+  skiaRuntimeCheck = compiler.run('''
+#include <core/SkBitmap.h>
+#include <core/SkCanvas.h>
+#include <core/SkColor.h>
+#include <core/SkImageInfo.h>
+#include <core/SkPaint.h>
+#include <core/SkSurface.h>
+int main() {
+  auto info = SkImageInfo::Make(8, 8, kRGBA_8888_SkColorType, kPremul_SkAlphaType);
+  auto surface = SkSurfaces::Raster(info);
+  if (!surface) { return 1; }
+  SkPaint paint;
+  paint.setColor(SK_ColorRED);
+  surface->getCanvas()->drawPaint(paint);
+  return 0;
+}
+''', name: 'Skia runtime check', dependencies: skiaDep)
+  if not skiaRuntimeCheck.compiled() or skiaRuntimeCheck.returncode() != 0
+    warning('Skia runtime check failed — disabling Skia backend')
+    skiaDep = disabler()
+  endif
+endif
 
 # DirectX
 d2d1Dep = compiler.find_library('d2d1', required: false)
@@ -309,20 +425,26 @@ else
     buildMapSVG=false
 endif
 
-# Binding
+# Skia
+if skiaDep.found() and get_option('enableMapSkia')
+  buildMapSkia=true
+else
+  buildMapSkia=false
+endif
 
+# Allways build the client lbrary since it does not have additional dependencies
+buildClient=true
+
+# Binding
 if swigExe.found()
   buildBinding=true
 else
   buildBinding=false
 endif
 
-# Allways build the client lbrary since it does not have additional dependencies
-buildClient=true
-
 if javaSupport and jniDep.found()
   buildJava = true
-  java = import('java')
+  javaModule = import('java')
   javaCompiler = meson.get_compiler('java')
 else
   buildJava = false
@@ -368,6 +490,10 @@ endif
 
 if buildMapSVG
     subdir('libosmscout-map-svg')
+endif
+
+if buildMapSkia
+    subdir('libosmscout-map-skia')
 endif
 
 subdir('libosmscout-client')
@@ -418,6 +544,11 @@ endif
 #  subdir('libosmscout-binding')
 #endif
 
+if buildJava
+  subdir('libosmscout-client-java')
+  # JavaScout now uses Maven — see JavaScout/pom.xml
+  # subdir('JavaScout')
+endif
 
 run_target('cppcheck', command : ['scripts/cppcheck.sh',
   meson.current_build_dir(),
@@ -439,6 +570,11 @@ summary({
   'OpenMP support': openmpDep.found(),
   'C++17 execution support': stdExecutionAvailable,
   }, section: 'C++ Compiler')
+
+summary({
+  'Piper TTS (libpiper)': piperDep.found(),
+  }, section: 'Optional dependencies')
+
 
 summary({
   'Meson backend': meson.backend(),
@@ -466,6 +602,7 @@ if buildJava
   summary({
             'Compiler id': javaCompiler.get_id(),
             'Compiler version': javaCompiler.version(),
+            'JNI dependency': jniDep,
           }, section: 'Java')
 endif
 
@@ -482,9 +619,11 @@ summary({
   'libosmscout-map-opengl': buildMapOpenGL,
   'libosmscout-map-qt': buildMapQt,
   'libosmscout-map-svg': buildMapSVG,
+  'libosmscout-map-skia': buildMapSkia,
   'libosmscout-gpx': buildGpx,
   'libosmscout-client': buildClient,
   'libosmscout-client-qt': buildClientQt,
+  'libosmscout-client-java': buildJava,
   'libosmscout-binding': buildBinding
 }, section: 'Libraries')
 

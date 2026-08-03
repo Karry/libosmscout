@@ -18,6 +18,7 @@
 */
 
 #include <osmscoutclientqt/AvailableVoicesModel.h>
+#include <osmscoutclientqt/ClientQtFeatures.h>
 #include <osmscoutclientqt/PersistentCookieJar.h>
 #include <osmscoutclientqt/OSMScoutQt.h>
 
@@ -108,6 +109,12 @@ bool availableVoiceItemLessThan(const AvailableVoice *i1, const AvailableVoice *
   }
   return i1->getName().localeAwareCompare(i2->getName()) < 0;
 }
+
+#ifdef OSMSCOUT_HAVE_LIB_PIPER
+constexpr bool piperAvailable=true;
+#else
+constexpr bool piperAvailable=false;
+#endif
 }
 
 void AvailableVoicesModel::listDownloaded(const VoiceProvider &provider, QNetworkReply* reply)
@@ -127,35 +134,85 @@ void AvailableVoicesModel::listDownloaded(const VoiceProvider &provider, QNetwor
         continue;
       QJsonObject obj=ref.toObject();
 
-      auto lang=obj.value("lang");
-      auto gender=obj.value("gender");
-      auto name=obj.value("name");
-      auto license=obj.value("license");
-      auto dir=obj.value("dir");
-      auto author=obj.value("author");
-      auto description=obj.value("description");
+      QString type=obj.value("type").toString(VoiceTypeVoiceOfMarble);
 
-      if (!lang.isString() ||
-          !gender.isString() ||
-          !name.isString() ||
-          !license.isString() ||
-          !dir.isString() ||
-          !author.isString() ||
-          !description.isString()) {
+      if (type == VoiceTypePiper) {
+        if constexpr (!piperAvailable) {
+          qDebug() << "Piper voice found but libpiper is not available, skipping:" << obj;
+          continue;
+        }
+        // Piper TTS voice: onnx model + json config.
+        auto lang=obj.value("lang");
+        auto langCode=obj.value("lang_code");
+        auto name=obj.value("name");
+        auto license=obj.value("license");
+        auto dir=obj.value("dir");
+        auto model=obj.value("model");
+        auto metadataPath=obj.value("metadata");
 
-        qWarning() << "Invalid item:" << obj;
-        continue;
+        if (!lang.isString() ||
+            !langCode.isString() ||
+            !name.isString() ||
+            !license.isString() ||
+            !dir.isString() ||
+            !model.isString() ||
+            !metadataPath.isString()) {
+
+          qWarning() << "Invalid Piper item:" << obj;
+          continue;
+        }
+
+        items.append(new AvailableVoice(
+            provider,
+            type,
+            lang.toString(),
+            langCode.toString(),
+            /*gender*/ "",
+            name.toString(),
+            license.toString(),
+            dir.toString(),
+            /*author*/ "",
+            /*description*/ "",
+            model.toString(),
+            metadataPath.toString()));
+      } else if (type == VoiceTypeVoiceOfMarble) {
+        // "Voice of Marble" ogg sample pack
+        auto lang=obj.value("lang");
+        auto gender=obj.value("gender");
+        auto name=obj.value("name");
+        auto license=obj.value("license");
+        auto dir=obj.value("dir");
+        auto author=obj.value("author");
+        auto description=obj.value("description");
+
+        if (!lang.isString() ||
+            !gender.isString() ||
+            !name.isString() ||
+            !license.isString() ||
+            !dir.isString() ||
+            !author.isString() ||
+            !description.isString()) {
+
+          qWarning() << "Invalid item:" << obj;
+          continue;
+            }
+
+        items.append(new AvailableVoice(
+            provider,
+            type,
+            lang.toString(),
+            /*langCode*/ "",
+            gender.toString(),
+            name.toString(),
+            license.toString(),
+            dir.toString(),
+            author.toString(),
+            description.toString(),
+            /*model*/ "",
+            /*metadataPath*/ ""));
+      } else {
+        qWarning() << "Unknown voice type:" << type;
       }
-
-      items.append(new AvailableVoice(
-          provider,
-          lang.toString(),
-          gender.toString(),
-          name.toString(),
-          license.toString(),
-          dir.toString(),
-          author.toString(),
-          description.toString()));
     }
   }
 
@@ -200,8 +257,12 @@ QVariant AvailableVoicesModel::data(const QModelIndex &index, int role) const
     case Qt::DisplayRole:
     case NameRole:
       return item->getName();
+    case TypeRole:
+      return item->getType();
     case LangRole:
       return item->getLang();
+    case LangCodeRole:
+      return item->getLangCode();
     case GenderRole:
       return item->getGender();
     case LicenseRole:
@@ -276,6 +337,8 @@ QHash<int, QByteArray> AvailableVoicesModel::roleNames() const
 
   roles[NameRole]="name";
   roles[LangRole]="lang";
+  roles[LangCodeRole]="langCode";
+  roles[TypeRole]="type";
   roles[GenderRole]="gender";
   roles[LicenseRole]="license";
   roles[DirectoryRole]="directory";
