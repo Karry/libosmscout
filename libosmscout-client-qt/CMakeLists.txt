@@ -58,13 +58,9 @@ set(HEADER_FILES
     include/osmscoutclientqt/VoiceCorePlayerImpl.h
     include/osmscoutclientqt/AvailableVoicesModel.h
     include/osmscoutclientqt/InstalledVoicesModel.h
-<<<<<<< HEAD
-
     include/osmscoutclientqt/QQmlEngineHelper.h
-=======
     include/osmscoutclientqt/TTSMessageGeneratorQt.h
     include/osmscoutclientqt/TTSEngine.h
->>>>>>> origin/piper-tts
 )
 
 set(SOURCE_FILES
