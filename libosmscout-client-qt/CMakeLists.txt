@@ -58,8 +58,9 @@ set(HEADER_FILES
     include/osmscoutclientqt/VoiceCorePlayerImpl.h
     include/osmscoutclientqt/AvailableVoicesModel.h
     include/osmscoutclientqt/InstalledVoicesModel.h
-
     include/osmscoutclientqt/QQmlEngineHelper.h
+    include/osmscoutclientqt/TTSMessageGeneratorQt.h
+    include/osmscoutclientqt/TTSEngine.h
 )
 
 set(SOURCE_FILES
@@ -116,8 +117,9 @@ set(SOURCE_FILES
     src/osmscoutclientqt/VoicePlayer.cpp
     src/osmscoutclientqt/AvailableVoicesModel.cpp
     src/osmscoutclientqt/InstalledVoicesModel.cpp
-
     src/osmscoutclientqt/QQmlEngineHelper.cpp
+    src/osmscoutclientqt/TTSMessageGeneratorQt.cpp
+    src/osmscoutclientqt/TTSEngine.cpp
 )
 
 # workaround for Qt 5.6 incompatibility with C++20, see https://forum.sailfishos.org/t/qt-5-6-issue-with-gcc-13-and-std-c-20-sailfish-os-5-1/29763
@@ -125,6 +127,12 @@ set_source_files_properties(
     src/osmscoutclientqt/QQmlEngineHelper.cpp
     PROPERTIES COMPILE_OPTIONS "-std=gnu++17"
 )
+
+# Piper TTS engine is optional, build it only when libpiper is available
+if(TARGET Piper::Piper)
+    list(APPEND HEADER_FILES include/osmscoutclientqt/PiperTTSEngine.h)
+    list(APPEND SOURCE_FILES src/osmscoutclientqt/PiperTTSEngine.cpp)
+endif()
 
 if (QT_VERSION_MAJOR EQUAL 6)
           osmscout_library_project(
@@ -153,6 +161,10 @@ endif ()
 if(MARISA_FOUND)
     target_include_directories(OSMScoutClientQt PUBLIC ${MARISA_INCLUDE_DIRS})
     target_link_libraries(OSMScoutClientQt ${MARISA_LIBRARIES})
+endif()
+
+if(TARGET Piper::Piper)
+    target_link_libraries(OSMScoutClientQt Piper::Piper)
 endif()
 
 if(APPLE AND OSMSCOUT_BUILD_FRAMEWORKS)

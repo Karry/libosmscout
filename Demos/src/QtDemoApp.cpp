@@ -23,6 +23,7 @@
 
 #include <QGuiApplication>
 #include <QApplication>
+#include <QDir>
 #include <QQmlApplicationEngine>
 #include <QStandardPaths>
 #include <QTranslator>
@@ -80,6 +81,13 @@ void QtDemoApp::Arguments::AddOptions(osmscout::CmdLineParser &argParser)
                       }),
                       "translations",
                       "Directory with translation files (*.qm)",
+                      false);
+
+  argParser.AddOption(osmscout::CmdLineStringOption([this](const std::string& value) {
+                        espeakDataDir=QString::fromStdString(value);
+                      }),
+                      "espeak-data",
+                      "Directory with espeak-ng data (used by Piper text-to-speech)",
                       false);
 }
 
@@ -172,6 +180,8 @@ int QtDemoApp::Run(const Arguments &args, const QUrl &qmlFileUrl)
       .AddOnlineTileProviders(":/resources/online-tile-providers.json")
       .AddMapProviders(":/resources/map-providers.json")
       .AddVoiceProviders(":/resources/voice-providers.json")
+      .WithNavigationTranslationDir(translationDir)
+      .WithEspeakDataDir(args.espeakDataDir)
       .WithUserAgent(QApplication::applicationName(), QApplication::applicationVersion());
 
   if (!builder.Init()){
