@@ -1,5 +1,7 @@
 package com.framstag.libosmscout.client;
 
+import java.util.List;
+
 /**
  * Client object for libosmscout.
  *
@@ -66,14 +68,98 @@ public class OSMScoutClient {
      * Search for locations matching a free-text query.
      * <p>
      * Uses the core {@code LocationService::SearchForLocationByString()} to find
-     * admin regions, locations, POIs, and addresses matching the query.
+     * admin regions, locations, POIs, and addresses matching the query, and the
+     * text search index for free-text hits on named objects.
      * Results are sorted by relevance (type priority, distance, match quality).
      *
-     * @param query free-text search string (e.g. "Berlin", "Dortmund Hbf")
+     * @param query         free-text search string (e.g. "Berlin", "Dortmund Hbf")
+     * @param limit         maximum number of results to return
+     * @param defaultRegion optional region name to scope the search, or null
+     * @param cancel        if true, cancel any in-progress search and return empty
+     * @return array of matching LocationEntry objects, or empty array if none found
+     */
+    public native LocationEntry[] searchLocations(String query, int limit, String defaultRegion, boolean cancel);
+
+    /**
+     * Search for locations matching a free-text query without region context.
+     * <p>
+     * Convenience overload of
+     * {@link #searchLocations(String, int, String, boolean)}.
+     *
+     * @param query free-text search string
      * @param limit maximum number of results to return
      * @return array of matching LocationEntry objects, or empty array if none found
      */
-    public native LocationEntry[] searchLocations(String query, int limit);
+    public LocationEntry[] searchLocations(String query, int limit) {
+        return searchLocations(query, limit, null, false);
+    }
+
+    /**
+     * Cancel the currently running location search, if any.
+     * <p>
+     * A new search cancels the previously running one automatically; this
+     * method allows explicit cancellation (e.g. from a cancel button).
+     */
+    public native void cancelSearch();
+
+    /**
+     * Search for POIs of the given OSM types within a radius around a coordinate.
+     * <p>
+     * Resolves the type names against the loaded databases' type configs and
+     * calls the native POI service ({@code POIService::GetPOIsInRadius}).
+     * Results are sorted by distance from the search center (nearest first).
+     *
+     * @param typeNames    OSM type names (e.g. "tourism_hotel", "shop")
+     * @param lat          center latitude in degrees
+     * @param lon          center longitude in degrees
+     * @param radiusMeters search radius in meters
+     * @param limit        maximum number of results to return
+     * @return array of matching PoiEntry objects, or empty array if none found
+     */
+    public native PoiEntry[] searchPOIsByTypes(String[] typeNames,
+                                               double lat,
+                                               double lon,
+                                               double radiusMeters,
+                                               int limit);
+
+    /**
+     * Search for POIs of the given category within a radius around a coordinate.
+     * <p>
+     * Resolves the category to its hardcoded OSM type names via
+     * {@link PoiCategories} and delegates to
+     * {@link #searchPOIsByTypes(String[], double, double, double, int)}.
+     *
+     * @param category     category id (see {@link PoiCategories#HOTELS},
+     *                     {@link PoiCategories#RESTAURANTS}, {@link PoiCategories#GROCERY})
+     * @param lat          center latitude in degrees
+     * @param lon          center longitude in degrees
+     * @param radiusMeters search radius in meters
+     * @param limit        maximum number of results to return
+     * @return array of matching PoiEntry objects, or empty array if none found
+     */
+    public PoiEntry[] searchPOIs(String category,
+                                 double lat,
+                                 double lon,
+                                 double radiusMeters,
+                                 int limit) {
+        String[] typeNames = PoiCategories.getTypeNames(category);
+        if (typeNames == null || typeNames.length == 0 || radiusMeters <= 0) {
+            return new PoiEntry[0];
+        }
+        return searchPOIsByTypes(typeNames, lat, lon, radiusMeters, limit);
+    }
+
+    /**
+     * Get the name of the admin region containing the given coordinate.
+     * <p>
+     * Reverse lookup via {@code LocationDescriptionService::ReverseLookupRegion}.
+     * Used to scope location searches to the current map region.
+     *
+     * @param lat latitude in degrees
+     * @param lon longitude in degrees
+     * @return admin region name, or null if no region found
+     */
+    public native String getRegion(double lat, double lon);
 
     /**
      * Get a structured description of the most reasonable visible object
@@ -88,6 +174,23 @@ public class OSMScoutClient {
      * @return ObjectDescription with entries, or empty description if no object found
      */
     public native ObjectDescription getDescription(double lat, double lon);
+
+    /**
+     * Get a list of structured descriptions of all reasonable visible objects
+     * at the given geographic coordinate.
+     * <p>
+     * Queries objects in a small bounding box around the coordinate, ranks
+     * them by (has description data, visible at the given magnification,
+     * proximity), and returns one {@link ObjectDescription} per ranked
+     * candidate, each carrying its object identity (ref type, type name,
+     * file offset).
+     *
+     * @param lat          latitude in degrees
+     * @param lon          longitude in degrees
+     * @param magnification current map magnification (0 = world, higher = more zoomed in)
+     * @return ranked list of candidate descriptions, or empty list if no object found
+     */
+    public native List<ObjectDescription> getDescriptionCandidates(double lat, double lon, int magnification);
 
     /**
      * Calculate a route between two coordinates asynchronously with a routing profile.

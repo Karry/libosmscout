@@ -6,6 +6,7 @@
 #include <osmscoutclient/json/json.hpp>
 
 #include <atomic>
+#include <algorithm>
 #include <cstdarg>
 #include <cmath>
 #include <condition_variable>
@@ -18,10 +19,15 @@
 #include <mutex>
 #include <optional>
 #include <queue>
+#include <regex>
+#include <set>
 #include <sstream>
 #include <string>
 #include <thread>
+#include <type_traits>
 #include <vector>
+
+#include <osmscout/lib/CoreFeatures.h>
 
 #include <osmscout/async/Breaker.h>
 #include <osmscout/async/CancelableFuture.h>
@@ -32,6 +38,7 @@
 #include <osmscoutclient/Settings.h>
 
 #include <osmscoutmap/MapData.h>
+#include <osmscoutmap/MapPainter.h>
 #include <osmscoutmap/MapParameter.h>
 #include <osmscoutmap/MapService.h>
 
@@ -46,8 +53,18 @@
 #include <osmscout/util/StringMatcher.h>
 
 #include <osmscout/db/Database.h>
+#ifdef OSMSCOUT_HAVE_LIB_MARISA
+#include <osmscout/db/TextSearchIndex.h>
+#endif
+#include <osmscout/feature/NameFeature.h>
+#include <osmscout/feature/LayerFeature.h>
+#include <osmscout/feature/OperatorFeature.h>
+#include <osmscout/feature/RefFeature.h>
+
+#include <osmscout/poi/POIService.h>
 
 #include <osmscout/description/DescriptionService.h>
+#include <osmscout/location/LocationDescriptionService.h>
 
 #include <osmscout/log/Logger.h>
 #include <osmscout/routing/MultiDBRoutingService.h>
@@ -58,6 +75,129 @@
 
 #include <osmscout/navigation/Navigation.h>
 #include <osmscout/navigation/Engine.h>
+
+// A basemap database may also appear in the regular databases list (e.g. when
+// the basemap directory is located inside the maps lookup directory). In that
+// case IsBasemap() is false, so detect it via its basemap-specific types.
+bool IsBasemapDatabase(const osmscout::DBInstanceRef& db)
+{
+  auto database = db->GetDatabase();
+  if (!database) {
+    return false;
+  }
+  if (database->IsBasemap()) {
+    return true;
+  }
+  auto typeConfig = database->GetTypeConfig();
+  if (!typeConfig) {
+    return false;
+  }
+  return typeConfig->GetTypeInfo("basemap_boundary_country") != nullptr;
+}
+
+// Search state shared across JNI search calls so that a new query or an
+// explicit cancel aborts the currently running search (matching OSMScout2's
+// Breaker support).
+namespace {
+  std::mutex           g_searchMutex;
+  osmscout::BreakerRef g_currentBreaker;
+
+#ifdef OSMSCOUT_HAVE_LIB_MARISA
+  // A fully resolved free-text search hit (name, coordinates, type) ready to
+  // be serialized into a Java LocationEntry.
+  struct FreeTextEntry {
+    std::string label;
+    std::string objectType;
+    std::string objectTypeName;
+    double      lat{0.0};
+    double      lon{0.0};
+    long long   objectFileOffset{0};
+    std::string refType;
+  };
+
+  // Look up a free-text hit in the database and fill a FreeTextEntry.
+  // Returns false if the object cannot be loaded.
+  bool BuildFreeTextEntry(const osmscout::DBInstanceRef& db,
+                          const osmscout::ObjectFileRef& ref,
+                          const std::string& searchKey,
+                          FreeTextEntry& entry)
+  {
+    auto database = db->GetDatabase();
+    if (!database) {
+      return false;
+    }
+    auto typeConfig = database->GetTypeConfig();
+    if (!typeConfig) {
+      return false;
+    }
+
+    osmscout::NameFeatureValueReader nameReader(*typeConfig);
+    entry.objectFileOffset = static_cast<long long>(ref.GetFileOffset());
+
+    if (ref.GetType() == osmscout::RefType::refNode) {
+      osmscout::NodeRef node;
+      if (!database->GetNodeByOffset(ref.GetFileOffset(), node)) {
+        return false;
+      }
+      entry.lat = node->GetCoords().GetLat();
+      entry.lon = node->GetCoords().GetLon();
+      entry.objectType = node->GetType()->GetName();
+      if (auto val = nameReader.GetValue(node->GetFeatureValueBuffer())) {
+        entry.label = val->GetName();
+      }
+      entry.refType = "node";
+    } else if (ref.GetType() == osmscout::RefType::refArea) {
+      osmscout::AreaRef area;
+      if (!database->GetAreaByOffset(ref.GetFileOffset(), area)) {
+        return false;
+      }
+      entry.lat = area->GetBoundingBox().GetCenter().GetLat();
+      entry.lon = area->GetBoundingBox().GetCenter().GetLon();
+      entry.objectType = area->GetType()->GetName();
+      if (auto val = nameReader.GetValue(area->GetFeatureValueBuffer())) {
+        entry.label = val->GetName();
+      }
+      entry.refType = "area";
+    } else if (ref.GetType() == osmscout::RefType::refWay) {
+      osmscout::WayRef way;
+      if (!database->GetWayByOffset(ref.GetFileOffset(), way)) {
+        return false;
+      }
+      entry.lat = way->GetBoundingBox().GetCenter().GetLat();
+      entry.lon = way->GetBoundingBox().GetCenter().GetLon();
+      entry.objectType = way->GetType()->GetName();
+      if (auto val = nameReader.GetValue(way->GetFeatureValueBuffer())) {
+        entry.label = val->GetName();
+      }
+      entry.refType = "way";
+    }
+
+    if (entry.label.empty()) {
+      entry.label = searchKey;
+    }
+    entry.objectTypeName = entry.objectType;
+    return true;
+  }
+#endif
+
+  // Parse a query like "51.5, 7.4" / "51.5 7.4" / "51.5;7.4" as a coordinate.
+  // Returns false if the text is not a valid lat/lon pair.
+  bool ParseCoordinate(const std::string& text, double& lat, double& lon)
+  {
+    static const std::regex re(R"(^\s*([-+]?\d+(?:\.\d+)?)\s*[,;\s]\s*([-+]?\d+(?:\.\d+)?)\s*$)");
+    std::smatch m;
+    if (!std::regex_match(text, m, re)) {
+      return false;
+    }
+    try {
+      lat = std::stod(m[1].str());
+      lon = std::stod(m[2].str());
+    } catch (const std::exception&) {
+      return false;
+    }
+    return lat >= -90.0 && lat <= 90.0 && lon >= -180.0 && lon <= 180.0;
+  }
+} // namespace
 #include <osmscout/navigation/Agents.h>
 #include <osmscout/navigation/DataAgent.h>
 #include <osmscout/navigation/PositionAgent.h>
@@ -767,7 +907,7 @@ Java_com_framstag_libosmscout_client_OSMScoutClient_renderWithRouteAndPois(JNIEn
         // When a basemap is present, let it provide the global sea/land background;
         // regional ground tiles would otherwise draw unknown/water over basemap land.
         if (params.GetRenderSeaLand()) {
-          if (db->GetDatabase()->IsBasemap()) {
+          if (IsBasemapDatabase(db)) {
             db->GetMapService()->GetGroundTiles(projection,
                                                 mapData.baseMapTiles);
           } else if (!basemapDatabase) {
@@ -839,6 +979,20 @@ Java_com_framstag_libosmscout_client_OSMScoutClient_renderWithRouteAndPois(JNIEn
             osmscout::TypeInfoRef routeType = typeConfig->GetTypeInfo("_route");
             if (routeType) {
               routeWay->SetType(routeType);
+
+              // Stack the active route above all map ways (bridges, tunnels):
+              // set the layer feature value on the route way. The renderer is
+              // generic and just honors the layer of each way.
+              osmscout::FeatureValueBuffer routeFeatures;
+              routeFeatures.SetType(routeType);
+              size_t featureIndex;
+              if (routeType->GetFeature(osmscout::LayerFeature::NAME,
+                                        featureIndex)) {
+                auto* value=static_cast<osmscout::LayerFeatureValue*>(routeFeatures.AllocateValue(featureIndex));
+                value->SetLayer(osmscout::MapPainter::routeLayer);
+              }
+              routeWay->SetFeatures(routeFeatures);
+
               batch.back().poiWays.push_back(routeWay);
             }
 
@@ -1935,7 +2089,9 @@ private:
 extern "C" JNIEXPORT jobjectArray JNICALL
 Java_com_framstag_libosmscout_client_OSMScoutClient_searchLocations(JNIEnv *env, jobject self,
                                                                     jstring queryJStr,
-                                                                    jint limit)
+                                                                    jint limit,
+                                                                    jstring defaultRegionJStr,
+                                                                    jboolean cancel)
 {
   ClientData *data = getClientData(env, self);
   if (data == nullptr || data->dbThread == nullptr) {
@@ -1955,12 +2111,68 @@ Java_com_framstag_libosmscout_client_OSMScoutClient_searchLocations(JNIEnv *env,
     return env->NewObjectArray(0, entryCls, nullptr);
   }
 
+  // A query that is a coordinate pair (e.g. "51.5, 7.4") yields a coordinate
+  // result that ranks first, matching OSMScout2.
+  double coordLat = 0.0;
+  double coordLon = 0.0;
+  const bool hasCoordinate = ParseCoordinate(query, coordLat, coordLon);
+
+  // Optional admin region context (e.g. current map region)
+  std::string defaultRegion;
+  if (defaultRegionJStr != nullptr) {
+    const char *regionCStr = env->GetStringUTFChars(defaultRegionJStr, nullptr);
+    if (regionCStr != nullptr) {
+      defaultRegion = regionCStr;
+      env->ReleaseStringUTFChars(defaultRegionJStr, regionCStr);
+    }
+  }
+
+  // A new query cancels the previously running search; cancel=true requests
+  // explicit cancellation of the current search.
+  {
+    std::lock_guard<std::mutex> guard(g_searchMutex);
+    if (g_currentBreaker) {
+      g_currentBreaker->Break();
+      g_currentBreaker = nullptr;
+    }
+    if (!cancel) {
+      g_currentBreaker = std::make_shared<osmscout::ThreadedBreaker>();
+    }
+  }
+
   std::vector<osmscout::LocationSearchResult::Entry> results;
+#ifdef OSMSCOUT_HAVE_LIB_MARISA
+  std::vector<FreeTextEntry> freeTextEntries;
+  std::set<osmscout::FileOffset> seenOffsets;
+#endif
   bool limitReached = false;
 
   data->dbThread->RunSynchronousJob(
     [&](const std::list<osmscout::DBInstanceRef> &databases) {
+      osmscout::BreakerRef breaker;
+      {
+        std::lock_guard<std::mutex> guard(g_searchMutex);
+        breaker = g_currentBreaker;
+      }
+
+      const auto limitReachedTotal = [&]() {
+#ifdef OSMSCOUT_HAVE_LIB_MARISA
+        return results.size() + freeTextEntries.size() >= static_cast<size_t>(limit);
+#else
+        return results.size() >= static_cast<size_t>(limit);
+#endif
+      };
+
       for (const auto &db : databases) {
+        if (breaker && breaker->IsAborted()) {
+          break;
+        }
+        // The basemap is a low-zoom background map; it is not searched (its
+        // index files may be absent or incomplete).
+        if (IsBasemapDatabase(db)) {
+          continue;
+        }
+
         osmscout::LocationServiceRef locationService = db->GetLocationService();
         if (!locationService) {
           continue;
@@ -1970,6 +2182,24 @@ Java_com_framstag_libosmscout_client_OSMScoutClient_searchLocations(JNIEnv *env,
         param.SetLimit(static_cast<size_t>(limit));
         param.SetStringMatcherFactory(
             std::make_shared<osmscout::StringMatcherTransliterateFactory>());
+        if (breaker) {
+          param.SetBreaker(breaker);
+        }
+
+        // Resolve the default admin region by name and scope the search to it
+        if (!defaultRegion.empty()) {
+          osmscout::LocationStringSearchParameter regionParam(defaultRegion);
+          regionParam.SetLimit(1);
+          regionParam.SetAdminRegionOnlyMatch(true);
+          regionParam.SetStringMatcherFactory(
+              std::make_shared<osmscout::StringMatcherTransliterateFactory>());
+          osmscout::LocationSearchResult regionResult;
+          if (locationService->SearchForLocationByString(regionParam, regionResult) &&
+              !regionResult.results.empty() &&
+              regionResult.results.front().adminRegion) {
+            param.SetDefaultAdminRegion(regionResult.results.front().adminRegion);
+          }
+        }
 
         osmscout::LocationSearchResult searchResult;
         if (locationService->SearchForLocationByString(param, searchResult)) {
@@ -1981,17 +2211,88 @@ Java_com_framstag_libosmscout_client_OSMScoutClient_searchLocations(JNIEnv *env,
           }
         }
 
-        // Stop if we have enough results
-        if (results.size() >= static_cast<size_t>(limit)) {
+#ifdef OSMSCOUT_HAVE_LIB_MARISA
+        // Free-text search over the text index (optional; index may be missing)
+        osmscout::TextSearchIndex textSearch;
+        if (!textSearch.Load(db->path)) {
+          if (IsBasemapDatabase(db)) {
+            // just debug, basemap may omit text indexes to save space
+            osmscout::log.Debug() << "Failed to load text index files (basemap) " << db->path;
+          } else {
+            osmscout::log.Warn() << "Failed to load text index files, search only for locations with db " << db->path;
+          }
+        } else {
+          osmscout::TextSearchIndex::ResultsMap resultsTxt;
+          textSearch.Search(query,
+                            /*searchPOIs*/ true, /*searchLocations*/ true,
+                            /*searchRegions*/ true, /*searchOther*/ true,
+                            /*transliterate*/ true,
+                            resultsTxt);
+          for (const auto &e : resultsTxt) {
+            if (limitReachedTotal()) {
+              break;
+            }
+            for (const auto &fref : e.second) {
+              if (limitReachedTotal()) {
+                break;
+              }
+              if (seenOffsets.count(fref.GetFileOffset()) != 0) {
+                continue;
+              }
+              seenOffsets.insert(fref.GetFileOffset());
+              FreeTextEntry entry;
+              if (BuildFreeTextEntry(db, fref, e.first, entry)) {
+                freeTextEntries.push_back(entry);
+              }
+            }
+          }
+        }
+#endif
+
+        if (limitReachedTotal()) {
           break;
         }
       }
     }
   );
 
-  // Truncate to limit
-  if (results.size() > static_cast<size_t>(limit)) {
+#ifdef OSMSCOUT_HAVE_LIB_MARISA
+  // Record offsets of structured results so free-text hits of the same object
+  // are not returned twice.
+  for (const auto &entry : results) {
+    osmscout::ObjectFileRef ref;
+    if (entry.address) {
+      ref = entry.address->object;
+    } else if (entry.poi) {
+      ref = entry.poi->object;
+    } else if (entry.location && !entry.location->objects.empty()) {
+      ref = entry.location->objects.front();
+    } else if (entry.adminRegion) {
+      ref = entry.adminRegion->object;
+    }
+    if (ref.Valid()) {
+      seenOffsets.insert(ref.GetFileOffset());
+    }
+  }
+  // Drop free-text hits that duplicate structured results.
+  freeTextEntries.erase(
+      std::remove_if(freeTextEntries.begin(), freeTextEntries.end(),
+                     [&](const FreeTextEntry &e) {
+                       return seenOffsets.count(static_cast<osmscout::FileOffset>(e.objectFileOffset)) != 0;
+                     }),
+      freeTextEntries.end());
+#endif
+
+  // Truncate to limit: structured results first, free-text fills the rest
+  if (results.size() >= static_cast<size_t>(limit)) {
     results.resize(static_cast<size_t>(limit));
+#ifdef OSMSCOUT_HAVE_LIB_MARISA
+    freeTextEntries.clear();
+#endif
+  } else {
+#ifdef OSMSCOUT_HAVE_LIB_MARISA
+    freeTextEntries.resize(static_cast<size_t>(limit) - results.size());
+#endif
   }
 
   // Build Java LocationEntry[]
@@ -2018,13 +2319,35 @@ Java_com_framstag_libosmscout_client_OSMScoutClient_searchLocations(JNIEnv *env,
   jfieldID matchQualityField = env->GetFieldID(entryCls, "matchQuality", "Ljava/lang/String;");
   jfieldID refTypeField = env->GetFieldID(entryCls, "refType", "Ljava/lang/String;");
 
-  jsize count = static_cast<jsize>(results.size());
+  jsize count = static_cast<jsize>((hasCoordinate ? 1 : 0) + results.size()
+#ifdef OSMSCOUT_HAVE_LIB_MARISA
+                                  + freeTextEntries.size()
+#endif
+                                  );
   jobjectArray resultArray = env->NewObjectArray(count, entryCls, nullptr);
   if (resultArray == nullptr) {
     return nullptr;
   }
 
-  for (jsize i = 0; i < count; i++) {
+  jsize idx = 0;
+
+  // Coordinate result first (ranks above all object results, matching OSMScout2)
+  if (hasCoordinate) {
+    jobject jEntry = env->NewObject(entryCls, entryCtor);
+    env->SetObjectField(jEntry, labelField, env->NewStringUTF(query.c_str()));
+    env->SetObjectField(jEntry, typeField, env->NewStringUTF("coordinate"));
+    env->SetDoubleField(jEntry, latField, coordLat);
+    env->SetDoubleField(jEntry, lonField, coordLon);
+    env->SetObjectField(jEntry, matchQualityField, env->NewStringUTF("match"));
+    env->SetObjectField(jEntry, regionField,
+                        env->NewObjectArray(0, env->FindClass("java/lang/String"), nullptr));
+    env->SetObjectArrayElement(resultArray, idx++, jEntry);
+    env->DeleteLocalRef(jEntry);
+  }
+
+  // Serialize structured results; free-text hits follow (see loop below)
+  const jsize structuredCount = static_cast<jsize>(results.size());
+  for (jsize i = 0; i < structuredCount; i++) {
     const auto &entry = results[static_cast<size_t>(i)];
     jobject jEntry = env->NewObject(entryCls, entryCtor);
 
@@ -2080,6 +2403,9 @@ Java_com_framstag_libosmscout_client_OSMScoutClient_searchLocations(JNIEnv *env,
       data->dbThread->RunSynchronousJob(
         [&](const std::list<osmscout::DBInstanceRef> &databases) {
           for (const auto &db : databases) {
+            if (IsBasemapDatabase(db)) {
+              continue;
+            }
             auto database = db->GetDatabase();
             if (objRef.GetType() == osmscout::RefType::refNode) {
               osmscout::NodeRef node;
@@ -2166,6 +2492,9 @@ Java_com_framstag_libosmscout_client_OSMScoutClient_searchLocations(JNIEnv *env,
       data->dbThread->RunSynchronousJob(
         [&](const std::list<osmscout::DBInstanceRef> &databases) {
           for (const auto &db : databases) {
+            if (IsBasemapDatabase(db)) {
+              continue;
+            }
             auto locationService = db->GetLocationService();
             if (locationService) {
               locationService->ResolveAdminRegionHierachie(entry.adminRegion, adminRegionMap);
@@ -2184,39 +2513,222 @@ Java_com_framstag_libosmscout_client_OSMScoutClient_searchLocations(JNIEnv *env,
     }
     env->SetObjectField(jEntry, adminRegionHierarchyField, env->NewStringUTF(hierarchyPath.c_str()));
 
-    env->SetObjectArrayElement(resultArray, i, jEntry);
+    env->SetObjectArrayElement(resultArray, idx++, jEntry);
     env->DeleteLocalRef(jEntry);
   }
+
+#ifdef OSMSCOUT_HAVE_LIB_MARISA
+  // Free-text search hits (POIs, named objects via the text index)
+  for (jsize i = 0; i < static_cast<jsize>(freeTextEntries.size()); i++) {
+    const auto &entry = freeTextEntries[static_cast<size_t>(i)];
+    jobject jEntry = env->NewObject(entryCls, entryCtor);
+
+    env->SetObjectField(jEntry, labelField, env->NewStringUTF(entry.label.c_str()));
+    env->SetObjectField(jEntry, typeField, env->NewStringUTF("object"));
+    env->SetObjectField(jEntry, objectTypeField, env->NewStringUTF(entry.objectType.c_str()));
+    env->SetDoubleField(jEntry, latField, entry.lat);
+    env->SetDoubleField(jEntry, lonField, entry.lon);
+    env->SetObjectField(jEntry, objectTypeNameField, env->NewStringUTF(entry.objectTypeName.c_str()));
+    env->SetLongField(jEntry, objectFileOffsetField, entry.objectFileOffset);
+    env->SetObjectField(jEntry, matchQualityField, env->NewStringUTF("match"));
+    if (!entry.refType.empty()) {
+      env->SetObjectField(jEntry, refTypeField, env->NewStringUTF(entry.refType.c_str()));
+    }
+    // No region/postal area information for free-text hits
+    env->SetObjectField(jEntry, regionField,
+                        env->NewObjectArray(0, env->FindClass("java/lang/String"), nullptr));
+
+    env->SetObjectArrayElement(resultArray, idx++, jEntry);
+    env->DeleteLocalRef(jEntry);
+  }
+#endif
 
   return resultArray;
 }
 
 // --------------------------------------------------------------------------
-// OSMScoutClient::getDescription(double lat, double lon)
+// OSMScoutClient::cancelSearch()
 // --------------------------------------------------------------------------
 
-extern "C" JNIEXPORT jobject JNICALL
-Java_com_framstag_libosmscout_client_OSMScoutClient_getDescription(JNIEnv *env, jobject self,
-                                                                     jdouble lat, jdouble lon)
+extern "C" JNIEXPORT void JNICALL
+Java_com_framstag_libosmscout_client_OSMScoutClient_cancelSearch(JNIEnv */*env*/, jobject /*self*/)
 {
-  osmscout::log.Debug() << "[JNI] getDescription(" << lat << ", " << lon << ")";
+  std::lock_guard<std::mutex> guard(g_searchMutex);
+  if (g_currentBreaker) {
+    g_currentBreaker->Break();
+    g_currentBreaker = nullptr;
+  }
+}
 
+// --------------------------------------------------------------------------
+// OSMScoutClient::getRegion(double lat, double lon)
+// --------------------------------------------------------------------------
+// Reverse lookup of the admin region containing the given coordinate. Used to
+// scope location searches to the current map region (matching OSMScout2).
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_framstag_libosmscout_client_OSMScoutClient_getRegion(JNIEnv *env, jobject self,
+                                                              jdouble lat, jdouble lon)
+{
   ClientData *data = getClientData(env, self);
   if (data == nullptr || data->dbThread == nullptr) {
-    osmscout::log.Warn() << "[JNI] getDescription: client data or dbThread is null";
-    // Return empty description
-    jclass descCls = env->FindClass("com/framstag/libosmscout/client/ObjectDescription");
-    jmethodID descCtor = env->GetMethodID(descCls, "<init>", "(Ljava/util/List;)V");
-    jobject emptyList = env->NewObject(env->FindClass("java/util/ArrayList"),
-                                        env->GetMethodID(env->FindClass("java/util/ArrayList"), "<init>", "()V"));
-    return env->NewObject(descCls, descCtor, emptyList);
+    return nullptr;
   }
 
-  osmscout::log.Debug() << "[JNI] getDescription: client data OK, running sync job";
+  std::string regionName;
+  data->dbThread->RunSynchronousJob(
+    [&](const std::list<osmscout::DBInstanceRef> &databases) {
+      osmscout::GeoCoord coord(lat, lon);
+      for (const auto &db : databases) {
+        if (IsBasemapDatabase(db)) {
+          continue;
+        }
+        auto descriptionService = db->GetLocationDescriptionService();
+        if (!descriptionService) {
+          continue;
+        }
+        std::list<osmscout::LocationDescriptionService::ReverseLookupResult> result;
+        if (descriptionService->ReverseLookupRegion(coord, result)) {
+          for (const auto &entry : result) {
+            if (entry.adminRegion) {
+              regionName = entry.adminRegion->name;
+              return;
+            }
+          }
+        }
+      }
+    }
+  );
+
+  if (regionName.empty()) {
+    return nullptr;
+  }
+  return env->NewStringUTF(regionName.c_str());
+}
+
+// --------------------------------------------------------------------------
+// OSMScoutClient::getDescription(double lat, double lon) and
+// OSMScoutClient::getDescriptionCandidates(double lat, double lon)
+// --------------------------------------------------------------------------
+
+namespace {
+
+// Maximum number of candidate objects returned for a long-press lookup
+const size_t MAX_DESCRIPTION_CANDIDATES = 10;
+
+// One ranked candidate object found at a coordinate, with its description
+// and identity (ref type, OSM type name, file offset).
+struct RankedDescriptionCandidate {
+  osmscout::ObjectDescription description;
+  std::string refType;   // "area", "way" or "node"
+  std::string typeName;  // e.g. "building", "highway_residential"
+  int64_t fileOffset;    // file offset of the object in the database
+};
+
+// Create an empty Java ObjectDescription (zero entries, no identity)
+jobject NewEmptyObjectDescription(JNIEnv *env)
+{
+  jclass descCls = env->FindClass("com/framstag/libosmscout/client/ObjectDescription");
+  jmethodID descCtor = env->GetMethodID(descCls, "<init>", "(Ljava/util/List;)V");
+  jclass arrayListCls = env->FindClass("java/util/ArrayList");
+  jmethodID arrayListCtor = env->GetMethodID(arrayListCls, "<init>", "()V");
+  jobject emptyList = env->NewObject(arrayListCls, arrayListCtor);
+  return env->NewObject(descCls, descCtor, emptyList);
+}
+
+// Create an empty Java list
+jobject NewEmptyJavaList(JNIEnv *env)
+{
+  jclass arrayListCls = env->FindClass("java/util/ArrayList");
+  jmethodID arrayListCtor = env->GetMethodID(arrayListCls, "<init>", "()V");
+  return env->NewObject(arrayListCls, arrayListCtor);
+}
+
+// Marshal an ObjectDescription with its identity into a Java ObjectDescription
+jobject MarshalObjectDescription(JNIEnv *env,
+                                 const osmscout::ObjectDescription &description,
+                                 const std::string &refType,
+                                 const std::string &typeName,
+                                 int64_t fileOffset)
+{
+  jclass descCls = env->FindClass("com/framstag/libosmscout/client/ObjectDescription");
+  jmethodID descCtor = env->GetMethodID(descCls, "<init>",
+    "(Ljava/util/List;DDLjava/lang/String;Ljava/lang/String;J)V");
+
+  jclass entryCls = env->FindClass("com/framstag/libosmscout/client/DescriptionEntry");
+  jmethodID entryCtor = env->GetMethodID(entryCls, "<init>", "()V");
+
+  jfieldID sectionKeyField = env->GetFieldID(entryCls, "sectionKey", "Ljava/lang/String;");
+  jfieldID subsectionKeyField = env->GetFieldID(entryCls, "subsectionKey", "Ljava/lang/String;");
+  jfieldID hasIndexField = env->GetFieldID(entryCls, "hasIndex", "Z");
+  jfieldID indexField = env->GetFieldID(entryCls, "index", "I");
+  jfieldID labelKeyField = env->GetFieldID(entryCls, "labelKey", "Ljava/lang/String;");
+  jfieldID valueField = env->GetFieldID(entryCls, "value", "Ljava/lang/String;");
+
+  jclass arrayListCls = env->FindClass("java/util/ArrayList");
+  jmethodID arrayListCtor = env->GetMethodID(arrayListCls, "<init>", "()V");
+  jmethodID arrayListAdd = env->GetMethodID(arrayListCls, "add", "(Ljava/lang/Object;)Z");
+
+  jobject entryList = env->NewObject(arrayListCls, arrayListCtor);
+
+  for (const auto &entry : description.GetEntries()) {
+    jobject jEntry = env->NewObject(entryCls, entryCtor);
+
+    env->SetObjectField(jEntry, sectionKeyField,
+                        env->NewStringUTF(entry.GetSectionKey().c_str()));
+
+    env->SetObjectField(jEntry, subsectionKeyField,
+                        env->NewStringUTF(entry.GetSubsectionKey().c_str()));
+
+    env->SetBooleanField(jEntry, hasIndexField,
+                         static_cast<jboolean>(entry.HasIndex()));
+
+    env->SetIntField(jEntry, indexField,
+                     static_cast<jint>(entry.GetIndex()));
+
+    env->SetObjectField(jEntry, labelKeyField,
+                        env->NewStringUTF(entry.GetLabelKey().c_str()));
+
+    env->SetObjectField(jEntry, valueField,
+                        env->NewStringUTF(entry.GetValue().c_str()));
+
+    env->CallBooleanMethod(entryList, arrayListAdd, jEntry);
+    env->DeleteLocalRef(jEntry);
+  }
+
+  double nan = std::numeric_limits<double>::quiet_NaN();
+  return env->NewObject(descCls, descCtor, entryList,
+                        static_cast<jdouble>(nan),
+                        static_cast<jdouble>(nan),
+                        env->NewStringUTF(refType.c_str()),
+                        env->NewStringUTF(typeName.c_str()),
+                        static_cast<jlong>(fileOffset));
+}
+
+// Collect all reasonable objects with description data at the given coordinate.
+// Candidates are ranked by (1) has description data, (2) visible at the given
+// magnification (areas smaller than ~1px on screen are not visible), (3) way/node
+// very close to the coordinate, (4) small area containing the coordinate,
+// (5) type rank (area < way < node), (6) proximity. When several databases cover
+// the coordinate, candidates from a coarser database (whose bounding box contains
+// a finer database's box, e.g. a world basemap) are dropped in favor of the
+// finer map. The result is capped at MAX_DESCRIPTION_CANDIDATES and only
+// contains candidates with description data.
+std::vector<RankedDescriptionCandidate> CollectDescriptionCandidates(ClientData *data,
+                                                                     double lat, double lon,
+                                                                     int magnification)
+{
+  std::vector<RankedDescriptionCandidate> result;
 
   osmscout::GeoCoord coord(lat, lon);
-  osmscout::ObjectDescription bestDescription;
-  bool found = false;
+
+  // Candidates per database, so overlapping databases (e.g. a world basemap
+  // plus a regional map) can be merged with the finer map preferred.
+  struct DbCandidates {
+    osmscout::GeoBox box;
+    std::vector<RankedDescriptionCandidate> items;
+  };
+  std::vector<DbCandidates> perDb;
 
   data->dbThread->RunSynchronousJob(
     [&](const std::list<osmscout::DBInstanceRef> &databases) {
@@ -2249,6 +2761,14 @@ Java_com_framstag_libosmscout_client_OSMScoutClient_getDescription(JNIEnv *env, 
           int typeRank;     // 0=area, 1=way, 2=node (lower = better)
           bool contains;    // true if area contains the click point
           double areaSize;  // bounding box area in sq meters (0 for ways/nodes)
+          osmscout::ObjectDescription description;
+          bool hasData;             // description service produced entries
+          bool veryClose;           // way/node within VERY_CLOSE meters
+          bool effectiveContains;   // small area containing the point
+          bool visible;             // object large enough to be visible at the zoom
+          std::string refType;      // "area", "way" or "node"
+          std::string typeName;     // OSM type name of the object
+          int64_t fileOffset;       // file offset of the object in the database
         };
         std::vector<Candidate> candidates;
 
@@ -2256,10 +2776,15 @@ Java_com_framstag_libosmscout_client_OSMScoutClient_getDescription(JNIEnv *env, 
         try {
           auto areaResults = database->LoadAreasInRadius(coord, areaTypes, radius);
           for (const auto &entry : areaResults.GetAreaResults()) {
-            osmscout::GeoBox box = entry.GetArea()->GetBoundingBox();
+            const auto &area = entry.GetArea();
+            osmscout::GeoBox box = area->GetBoundingBox();
             double size = box.GetWidth() * box.GetHeight();
-            candidates.push_back({entry.GetArea()->GetFeatureValueBuffer(),
-                                  entry.GetDistance(), 0, entry.IsInArea(), size});
+            candidates.push_back({area->GetFeatureValueBuffer(),
+                                  entry.GetDistance(), 0, entry.IsInArea(), size,
+                                  osmscout::ObjectDescription(), false, false, false, false,
+                                  "area",
+                                  area->GetFeatureValueBuffer().GetType()->GetName(),
+                                  static_cast<int64_t>(area->GetFileOffset())});
           }
         } catch (const std::exception &e) {
           osmscout::log.Warn() << "[JNI] LoadAreasInRadius exception: " << e.what();
@@ -2269,8 +2794,13 @@ Java_com_framstag_libosmscout_client_OSMScoutClient_getDescription(JNIEnv *env, 
         try {
           auto wayResults = database->LoadWaysInRadius(coord, wayTypes, radius);
           for (const auto &entry : wayResults.GetWayResults()) {
-            candidates.push_back({entry.GetWay()->GetFeatureValueBuffer(),
-                                  entry.GetDistance(), 1, false, 0});
+            const auto &way = entry.GetWay();
+            candidates.push_back({way->GetFeatureValueBuffer(),
+                                  entry.GetDistance(), 1, false, 0,
+                                  osmscout::ObjectDescription(), false, false, false, false,
+                                  "way",
+                                  way->GetFeatureValueBuffer().GetType()->GetName(),
+                                  static_cast<int64_t>(way->GetFileOffset())});
           }
         } catch (const std::exception &e) {
           osmscout::log.Warn() << "[JNI] LoadWaysInRadius exception: " << e.what();
@@ -2280,8 +2810,13 @@ Java_com_framstag_libosmscout_client_OSMScoutClient_getDescription(JNIEnv *env, 
         try {
           auto nodeResults = database->LoadNodesInRadius(coord, nodeTypes, radius);
           for (const auto &entry : nodeResults.GetNodeResults()) {
-            candidates.push_back({entry.GetNode()->GetFeatureValueBuffer(),
-                                  entry.GetDistance(), 2, false, 0});
+            const auto &node = entry.GetNode();
+            candidates.push_back({node->GetFeatureValueBuffer(),
+                                  entry.GetDistance(), 2, false, 0,
+                                  osmscout::ObjectDescription(), false, false, false, false,
+                                  "node",
+                                  node->GetFeatureValueBuffer().GetType()->GetName(),
+                                  static_cast<int64_t>(node->GetFileOffset())});
           }
         } catch (const std::exception &e) {
           osmscout::log.Warn() << "[JNI] LoadNodesInRadius exception: " << e.what();
@@ -2293,9 +2828,6 @@ Java_com_framstag_libosmscout_client_OSMScoutClient_getDescription(JNIEnv *env, 
           continue;
         }
 
-        // Areas larger than this (sq meters) are considered "large" —
-        // they won't get the contains bonus over nearby ways/nodes.
-        // ~100m x 100m = buildings and small plots.
         // Distance threshold (meters) for "very close" — ways/nodes within
         // this distance beat any containing area.
         static const double VERY_CLOSE_METERS = 5.0;
@@ -2304,137 +2836,165 @@ Java_com_framstag_libosmscout_client_OSMScoutClient_getDescription(JNIEnv *env, 
 
         // Areas larger than this (sq meters) are considered "large" —
         // they won't get the contains bonus over nearby ways/nodes.
+        // ~100m x 100m = buildings and small plots.
         static const double MAX_SMALL_AREA_SIZE = 10000.0;
 
-        // Rank: (1) has data, (2) very close way/node beats containing area,
-        //       (3) small area contains point, (4) type rank, (5) distance
-        int bestIdx = -1;
-        bool bestHasData = false;
-        bool bestVeryClose = false;
-        bool bestContains = false;
-        double bestAreaSize = std::numeric_limits<double>::max();
-        int bestTypeRank = 999;
-        osmscout::Distance bestDistance = osmscout::Distance::Of<osmscout::Meter>(999999);
+        // Approximate ground resolution at the given magnification
+        // (Web Mercator: world circumference / (256 px * 2^mag) at the equator).
+        double metersPerPixel = 40075016.686 / (256.0 * std::pow(2.0, magnification));
 
-        for (size_t i = 0; i < candidates.size(); i++) {
-          const auto &c = candidates[i];
+        // Compute ranking metadata and description for each candidate
+        for (auto &c : candidates) {
           osmscout::ObjectDescription desc = data->descriptionService.GetDescription(c.buffer);
-          bool hasData = !desc.GetEntries().empty();
-
-          bool veryClose = c.typeRank > 0 && c.distance < VERY_CLOSE;
-          bool effectiveContains = c.contains && c.areaSize < MAX_SMALL_AREA_SIZE;
-
-          bool better = false;
-          if (bestIdx < 0) {
-            better = true;
-          } else if (hasData && !bestHasData) {
-            better = true;
-          } else if (hasData == bestHasData) {
-            if (veryClose && !bestVeryClose) {
-              // Way/node very close to click — more likely what user wants
-              better = true;
-            } else if (veryClose == bestVeryClose) {
-              if (effectiveContains && !bestContains) {
-                better = true;
-              } else if (effectiveContains && bestContains && c.areaSize < bestAreaSize) {
-                better = true;
-              } else if (effectiveContains == bestContains) {
-                if (c.typeRank < bestTypeRank) {
-                  better = true;
-                } else if (c.typeRank == bestTypeRank &&
-                           c.distance < bestDistance) {
-                  better = true;
-                }
-              }
-            }
-          }
-
-          if (better) {
-            bestIdx = static_cast<int>(i);
-            bestHasData = hasData;
-            bestVeryClose = veryClose;
-            bestContains = effectiveContains;
-            bestAreaSize = c.areaSize;
-            bestTypeRank = c.typeRank;
-            bestDistance = c.distance;
-            if (hasData) {
-              bestDescription = std::move(desc);
-            }
+          c.hasData = !desc.GetEntries().empty();
+          c.veryClose = c.typeRank > 0 && c.distance < VERY_CLOSE;
+          c.effectiveContains = c.contains && c.areaSize < MAX_SMALL_AREA_SIZE;
+          // Areas smaller than ~1px on screen are not visible at this zoom;
+          // ways and nodes have no size information and are always considered.
+          c.visible = c.typeRank > 0 || std::sqrt(c.areaSize) / metersPerPixel >= 1.0;
+          if (c.hasData) {
+            c.description = std::move(desc);
           }
         }
 
-        if (bestIdx >= 0) {
-          osmscout::log.Debug() << "[JNI] best candidate idx=" << bestIdx
-                                << " hasData=" << bestHasData
-                                << " entries=" << bestDescription.GetEntries().size();
-          found = true;
-          break; // Use first database that has a match
+        // Strict weak ordering: true if `a` ranks better than `b`.
+        // Mirrors the previous single-best ranking:
+        // (1) has description data, (2) visible at the zoom, (3) very close
+        // way/node, (4) small area contains the point, (5) type rank,
+        // (6) proximity.
+        auto isBetter = [](const Candidate &a, const Candidate &b) {
+          if (a.hasData != b.hasData) {
+            return a.hasData;
+          }
+          if (a.visible != b.visible) {
+            return a.visible;
+          }
+          if (a.veryClose != b.veryClose) {
+            return a.veryClose;
+          }
+          if (a.effectiveContains != b.effectiveContains) {
+            return a.effectiveContains;
+          }
+          if (a.effectiveContains && b.effectiveContains && a.areaSize != b.areaSize) {
+            return a.areaSize < b.areaSize;
+          }
+          if (a.typeRank != b.typeRank) {
+            return a.typeRank < b.typeRank;
+          }
+          return a.distance < b.distance;
+        };
+
+        std::stable_sort(candidates.begin(), candidates.end(), isBetter);
+
+        // Keep only candidates with description data
+        std::vector<RankedDescriptionCandidate> items;
+        for (const auto &c : candidates) {
+          if (!c.hasData) {
+            continue;
+          }
+          items.push_back({c.description, c.refType, c.typeName, c.fileOffset});
+        }
+
+        if (!items.empty()) {
+          perDb.push_back({dbBox, std::move(items)});
         }
       }
     }
   );
 
-  if (!found) {
-    osmscout::log.Debug() << "[JNI] no candidate found, returning empty description";
-    // Return empty description
-    jclass descCls = env->FindClass("com/framstag/libosmscout/client/ObjectDescription");
-    jmethodID descCtor = env->GetMethodID(descCls, "<init>", "(Ljava/util/List;)V");
-    jclass arrayListCls = env->FindClass("java/util/ArrayList");
-    jmethodID arrayListCtor = env->GetMethodID(arrayListCls, "<init>", "()V");
-    jobject emptyList = env->NewObject(arrayListCls, arrayListCtor);
-    return env->NewObject(descCls, descCtor, emptyList);
+  // Prefer the finer-grained map: drop candidates from a database whose
+  // bounding box contains the bounding box of another database that also
+  // has candidates (e.g. world basemap vs. regional map).
+  for (size_t i = 0; i < perDb.size(); i++) {
+    bool coveredByFiner = false;
+    for (size_t j = 0; j < perDb.size(); j++) {
+      if (i == j) {
+        continue;
+      }
+      if (perDb[i].box.Includes(perDb[j].box.GetMinCoord()) &&
+          perDb[i].box.Includes(perDb[j].box.GetMaxCoord())) {
+        coveredByFiner = true;
+        break;
+      }
+    }
+    if (coveredByFiner) {
+      continue;
+    }
+    for (const auto &c : perDb[i].items) {
+      result.push_back(c);
+      if (result.size() >= MAX_DESCRIPTION_CANDIDATES) {
+        return result;
+      }
+    }
   }
 
-  osmscout::log.Debug() << "[JNI] marshaling " << bestDescription.GetEntries().size() << " entries to Java";
+  return result;
+}
 
-  // Marshal ObjectDescription to Java
-  jclass descCls = env->FindClass("com/framstag/libosmscout/client/ObjectDescription");
-  jmethodID descCtor = env->GetMethodID(descCls, "<init>", "(Ljava/util/List;)V");
+}  // namespace
 
-  jclass entryCls = env->FindClass("com/framstag/libosmscout/client/DescriptionEntry");
-  jmethodID entryCtor = env->GetMethodID(entryCls, "<init>", "()V");
+extern "C" JNIEXPORT jobject JNICALL
+Java_com_framstag_libosmscout_client_OSMScoutClient_getDescription(JNIEnv *env, jobject self,
+                                                                     jdouble lat, jdouble lon)
+{
+  osmscout::log.Debug() << "[JNI] getDescription(" << lat << ", " << lon << ")";
 
-  jfieldID sectionKeyField = env->GetFieldID(entryCls, "sectionKey", "Ljava/lang/String;");
-  jfieldID subsectionKeyField = env->GetFieldID(entryCls, "subsectionKey", "Ljava/lang/String;");
-  jfieldID hasIndexField = env->GetFieldID(entryCls, "hasIndex", "Z");
-  jfieldID indexField = env->GetFieldID(entryCls, "index", "I");
-  jfieldID labelKeyField = env->GetFieldID(entryCls, "labelKey", "Ljava/lang/String;");
-  jfieldID valueField = env->GetFieldID(entryCls, "value", "Ljava/lang/String;");
+  ClientData *data = getClientData(env, self);
+  if (data == nullptr || data->dbThread == nullptr) {
+    osmscout::log.Warn() << "[JNI] getDescription: client data or dbThread is null";
+    return NewEmptyObjectDescription(env);
+  }
+
+  std::vector<RankedDescriptionCandidate> candidates =
+      CollectDescriptionCandidates(data, lat, lon, 18);  // street-level zoom: everything visible
+
+  if (candidates.empty()) {
+    osmscout::log.Debug() << "[JNI] no candidate found, returning empty description";
+    return NewEmptyObjectDescription(env);
+  }
+
+  const RankedDescriptionCandidate &best = candidates.front();
+  osmscout::log.Debug() << "[JNI] getDescription returning with "
+                        << best.description.GetEntries().size() << " entries";
+
+  return MarshalObjectDescription(env, best.description, best.refType,
+                                  best.typeName, best.fileOffset);
+}
+
+extern "C" JNIEXPORT jobject JNICALL
+Java_com_framstag_libosmscout_client_OSMScoutClient_getDescriptionCandidates(JNIEnv *env, jobject self,
+                                                                              jdouble lat, jdouble lon,
+                                                                              jint magnification)
+{
+  osmscout::log.Debug() << "[JNI] getDescriptionCandidates(" << lat << ", " << lon
+                        << ", mag=" << magnification << ")";
+
+  ClientData *data = getClientData(env, self);
+  if (data == nullptr || data->dbThread == nullptr) {
+    osmscout::log.Warn() << "[JNI] getDescriptionCandidates: client data or dbThread is null";
+    return NewEmptyJavaList(env);
+  }
+
+  std::vector<RankedDescriptionCandidate> candidates =
+      CollectDescriptionCandidates(data, lat, lon, magnification);
+
+  osmscout::log.Debug() << "[JNI] getDescriptionCandidates returning "
+                        << candidates.size() << " candidates";
 
   jclass arrayListCls = env->FindClass("java/util/ArrayList");
   jmethodID arrayListCtor = env->GetMethodID(arrayListCls, "<init>", "()V");
   jmethodID arrayListAdd = env->GetMethodID(arrayListCls, "add", "(Ljava/lang/Object;)Z");
 
-  jobject entryList = env->NewObject(arrayListCls, arrayListCtor);
+  jobject list = env->NewObject(arrayListCls, arrayListCtor);
 
-  for (const auto &entry : bestDescription.GetEntries()) {
-    jobject jEntry = env->NewObject(entryCls, entryCtor);
-
-    env->SetObjectField(jEntry, sectionKeyField,
-                        env->NewStringUTF(entry.GetSectionKey().c_str()));
-
-    env->SetObjectField(jEntry, subsectionKeyField,
-                        env->NewStringUTF(entry.GetSubsectionKey().c_str()));
-
-    env->SetBooleanField(jEntry, hasIndexField,
-                         static_cast<jboolean>(entry.HasIndex()));
-
-    env->SetIntField(jEntry, indexField,
-                     static_cast<jint>(entry.GetIndex()));
-
-    env->SetObjectField(jEntry, labelKeyField,
-                        env->NewStringUTF(entry.GetLabelKey().c_str()));
-
-    env->SetObjectField(jEntry, valueField,
-                        env->NewStringUTF(entry.GetValue().c_str()));
-
-    env->CallBooleanMethod(entryList, arrayListAdd, jEntry);
-    env->DeleteLocalRef(jEntry);
+  for (const auto &c : candidates) {
+    jobject jDesc = MarshalObjectDescription(env, c.description, c.refType,
+                                             c.typeName, c.fileOffset);
+    env->CallBooleanMethod(list, arrayListAdd, jDesc);
+    env->DeleteLocalRef(jDesc);
   }
 
-  osmscout::log.Debug() << "[JNI] getDescription returning with " << bestDescription.GetEntries().size() << " entries";
-
-  return env->NewObject(descCls, descCtor, entryList);
+  return list;
 }
 
 // --------------------------------------------------------------------------
@@ -2898,10 +3458,15 @@ Java_com_framstag_libosmscout_client_OSMScoutClient_calculateRouteWithObjectsWit
             }
 
             std::vector<osmscout::RoutingProfileRef> profiles;
-            if (!dbsForPost.empty()) {
-              auto tc = dbsForPost.front()->GetTypeConfig();
+            profiles.reserve(dbsForPost.size());
+            for (const auto& db : dbsForPost) {
+              auto tc = db->GetTypeConfig();
               if (tc) {
                 profiles.push_back(CreateRoutingProfile(tc, vehicle, avoidTolls, avoidFerries, avoidUnpaved));
+              } else {
+                // keep index alignment with dbsForPost; a database without type
+                // config would have failed routing service open already
+                profiles.push_back(nullptr);
               }
             }
 
@@ -3452,8 +4017,9 @@ Java_com_framstag_libosmscout_client_OSMScoutClient_calculateRouteWithObjectsAsy
             }
 
             std::vector<osmscout::RoutingProfileRef> profiles;
-            if (!dbsForPost.empty()) {
-              auto tc = dbsForPost.front()->GetTypeConfig();
+            profiles.reserve(dbsForPost.size());
+            for (const auto& db : dbsForPost) {
+              auto tc = db->GetTypeConfig();
               if (tc) {
                 auto postProfile = std::make_shared<osmscout::FastestPathRoutingProfile>(tc);
                 std::map<std::string,double> postSpeedMap;
@@ -3478,6 +4044,10 @@ Java_com_framstag_libosmscout_client_OSMScoutClient_calculateRouteWithObjectsAsy
                 postSpeedMap["highway_service"]=30.0;
                 postProfile->ParametrizeForCar(*tc, postSpeedMap, 120.0);
                 profiles.push_back(postProfile);
+              } else {
+                // keep index alignment with dbsForPost; a database without type
+                // config would have failed routing service open already
+                profiles.push_back(nullptr);
               }
             }
 
@@ -4674,4 +5244,240 @@ Java_com_framstag_libosmscout_client_MapDownloadManager_nativeDeleteMap(
   }
 
   return result ? JNI_TRUE : JNI_FALSE;
+}
+
+// --------------------------------------------------------------------------
+// OSMScoutClient::searchPOIsByTypes(String[] typeNames, double lat, double lon,
+//                                   double radiusMeters, int limit)
+// --------------------------------------------------------------------------
+
+namespace {
+  // A single POI search result ready to be serialized into a Java PoiEntry.
+  struct PoiEntry {
+    std::string label;
+    std::string objectType;
+    double      lat{0.0};
+    double      lon{0.0};
+    double      distance{0.0};
+  };
+
+  // Fill a PoiEntry from a node/way/area object. The label falls back from
+  // the name feature to the operator and ref features (same as POILookupModule).
+  template<class T>
+  bool BuildPoiEntry(const T& obj, const osmscout::GeoCoord& center, PoiEntry& entry)
+  {
+    if (!obj) {
+      return false;
+    }
+
+    entry.objectType = obj->GetType()->GetName();
+
+    const osmscout::FeatureValueBuffer& features = obj->GetFeatureValueBuffer();
+    if (const auto* name = features.findValue<osmscout::NameFeatureValue>(); name != nullptr) {
+      entry.label = name->GetLabel(osmscout::Locale(), 0);
+    } else if (const auto* op = features.findValue<osmscout::OperatorFeatureValue>(); op != nullptr) {
+      entry.label = op->GetLabel(osmscout::Locale(), 0);
+    } else if (const auto* ref = features.findValue<osmscout::RefFeatureValue>(); ref != nullptr) {
+      entry.label = ref->GetLabel(osmscout::Locale(), 0);
+    }
+
+    osmscout::GeoCoord coord;
+    if constexpr (std::is_same_v<T, osmscout::NodeRef>) {
+      coord = obj->GetCoords();
+    } else {
+      coord = obj->GetBoundingBox().GetCenter();
+    }
+
+    entry.lat = coord.GetLat();
+    entry.lon = coord.GetLon();
+    entry.distance = center.GetDistance(coord).AsMeter();
+    return true;
+  }
+}
+
+extern "C" JNIEXPORT jobjectArray JNICALL
+Java_com_framstag_libosmscout_client_OSMScoutClient_searchPOIsByTypes(JNIEnv *env, jobject self,
+                                                                      jobjectArray typeNamesJArray,
+                                                                      jdouble lat, jdouble lon,
+                                                                      jdouble radiusMeters, jint limit)
+{
+  jclass entryCls = env->FindClass("com/framstag/libosmscout/client/PoiEntry");
+  if (entryCls == nullptr) {
+    return nullptr;
+  }
+
+  auto emptyResult = [&]() -> jobjectArray {
+    return env->NewObjectArray(0, entryCls, nullptr);
+  };
+
+  ClientData *data = getClientData(env, self);
+  if (data == nullptr || data->dbThread == nullptr) {
+    return emptyResult();
+  }
+
+  if (typeNamesJArray == nullptr || radiusMeters <= 0.0 || limit <= 0) {
+    return emptyResult();
+  }
+
+  std::vector<std::string> typeNames;
+  jsize typeCount = env->GetArrayLength(typeNamesJArray);
+  for (jsize i = 0; i < typeCount; i++) {
+    jstring typeJStr = (jstring)env->GetObjectArrayElement(typeNamesJArray, i);
+    if (typeJStr == nullptr) {
+      continue;
+    }
+    const char *typeCStr = env->GetStringUTFChars(typeJStr, nullptr);
+    if (typeCStr != nullptr) {
+      typeNames.emplace_back(typeCStr);
+      env->ReleaseStringUTFChars(typeJStr, typeCStr);
+    }
+    env->DeleteLocalRef(typeJStr);
+  }
+
+  if (typeNames.empty()) {
+    return emptyResult();
+  }
+
+  // A new search cancels the previously running search (same as searchLocations)
+  {
+    std::lock_guard<std::mutex> guard(g_searchMutex);
+    if (g_currentBreaker) {
+      g_currentBreaker->Break();
+      g_currentBreaker = nullptr;
+    }
+    g_currentBreaker = std::make_shared<osmscout::ThreadedBreaker>();
+  }
+
+  std::vector<PoiEntry> entries;
+  const osmscout::GeoCoord center(lat, lon);
+
+  data->dbThread->RunSynchronousJob(
+    [&](const std::list<osmscout::DBInstanceRef>& databases) {
+      osmscout::BreakerRef breaker;
+      {
+        std::lock_guard<std::mutex> guard(g_searchMutex);
+        breaker = g_currentBreaker;
+      }
+
+      for (const auto& db : databases) {
+        if (breaker && breaker->IsAborted()) {
+          break;
+        }
+        // The basemap is a low-zoom background map; it is not searched.
+        if (IsBasemapDatabase(db)) {
+          continue;
+        }
+
+        auto database = db->GetDatabase();
+        if (!database) {
+          continue;
+        }
+        auto typeConfig = database->GetTypeConfig();
+        if (!typeConfig) {
+          continue;
+        }
+
+        osmscout::TypeInfoSet nodeTypes;
+        osmscout::TypeInfoSet wayTypes;
+        osmscout::TypeInfoSet areaTypes;
+
+        for (const auto& typeName : typeNames) {
+          osmscout::TypeInfoRef typeInfo = typeConfig->GetTypeInfo(typeName);
+          if (!typeInfo) {
+            osmscout::log.Warn() << "There is no type " << typeName
+                                 << " in database " << db->path;
+            continue;
+          }
+          if (typeInfo->CanBeArea()) {
+            areaTypes.Set(typeInfo);
+          }
+          if (typeInfo->CanBeWay()) {
+            wayTypes.Set(typeInfo);
+          }
+          if (typeInfo->CanBeNode()) {
+            nodeTypes.Set(typeInfo);
+          }
+        }
+
+        if (nodeTypes.Empty() && wayTypes.Empty() && areaTypes.Empty()) {
+          continue;
+        }
+
+        std::vector<osmscout::NodeRef> nodes;
+        std::vector<osmscout::WayRef> ways;
+        std::vector<osmscout::AreaRef> areas;
+
+        try {
+          osmscout::POIService poiService(database);
+          poiService.GetPOIsInRadius(center,
+                                     osmscout::Distance::Of<osmscout::Meter>(radiusMeters),
+                                     nodeTypes, nodes,
+                                     wayTypes, ways,
+                                     areaTypes, areas);
+        } catch (const std::exception& e) {
+          osmscout::log.Error() << "Failed to load POIs in radius: " << e.what();
+          continue;
+        }
+
+        for (const auto& area : areas) {
+          PoiEntry entry;
+          if (BuildPoiEntry(area, center, entry)) {
+            entries.push_back(std::move(entry));
+          }
+        }
+        for (const auto& way : ways) {
+          PoiEntry entry;
+          if (BuildPoiEntry(way, center, entry)) {
+            entries.push_back(std::move(entry));
+          }
+        }
+        for (const auto& node : nodes) {
+          PoiEntry entry;
+          if (BuildPoiEntry(node, center, entry)) {
+            entries.push_back(std::move(entry));
+          }
+        }
+
+        if (static_cast<int>(entries.size()) >= limit) {
+          break;
+        }
+      }
+    });
+
+  // Nearest first
+  std::sort(entries.begin(), entries.end(),
+            [](const PoiEntry& a, const PoiEntry& b) { return a.distance < b.distance; });
+
+  if (entries.size() > static_cast<size_t>(limit)) {
+    entries.resize(static_cast<size_t>(limit));
+  }
+
+  jmethodID entryCtor = env->GetMethodID(entryCls, "<init>", "()V");
+  if (entryCtor == nullptr) {
+    return nullptr;
+  }
+  jfieldID labelField = env->GetFieldID(entryCls, "label", "Ljava/lang/String;");
+  jfieldID objectTypeField = env->GetFieldID(entryCls, "objectType", "Ljava/lang/String;");
+  jfieldID latField = env->GetFieldID(entryCls, "lat", "D");
+  jfieldID lonField = env->GetFieldID(entryCls, "lon", "D");
+  jfieldID distanceField = env->GetFieldID(entryCls, "distance", "D");
+
+  jobjectArray resultArray = env->NewObjectArray(static_cast<jsize>(entries.size()), entryCls, nullptr);
+  if (resultArray == nullptr) {
+    return nullptr;
+  }
+
+  for (jsize i = 0; i < static_cast<jsize>(entries.size()); i++) {
+    const PoiEntry& entry = entries[static_cast<size_t>(i)];
+    jobject jEntry = env->NewObject(entryCls, entryCtor);
+    env->SetObjectField(jEntry, labelField, env->NewStringUTF(entry.label.c_str()));
+    env->SetObjectField(jEntry, objectTypeField, env->NewStringUTF(entry.objectType.c_str()));
+    env->SetDoubleField(jEntry, latField, entry.lat);
+    env->SetDoubleField(jEntry, lonField, entry.lon);
+    env->SetDoubleField(jEntry, distanceField, entry.distance);
+    env->SetObjectArrayElement(resultArray, i, jEntry);
+    env->DeleteLocalRef(jEntry);
+  }
+
+  return resultArray;
 }
