@@ -24,6 +24,7 @@
 
 #include <osmscoutclientqt/VoiceManager.h>
 #include <osmscoutclientqt/Voice.h>
+#include <osmscoutclientqt/TTSEngine.h>
 #include <osmscoutclientqt/ClientQtImportExport.h>
 
 #include <QAbstractListModel>
@@ -35,7 +36,6 @@
 namespace osmscout {
 
 class VoiceCorePlayer;
-class TTSEngine;
 class TTSMessageGeneratorQt;
 
 /**
@@ -48,6 +48,13 @@ class TTSMessageGeneratorQt;
  */
 class OSMSCOUT_CLIENT_QT_API InstalledVoicesModel : public QAbstractListModel {
   Q_OBJECT
+
+  //!< localized, human readable description of the current TTS engine state
+  //!< (e.g. "Synthesizing voice sample…"), useful for showing synthesis
+  //!< progress in the UI as the initial synthesis may take some time.
+  Q_PROPERTY(QString ttsStateText READ getTTSStateText NOTIFY ttsStateChanged)
+
+  Q_PROPERTY(TTSEngine::TTSEngineState ttsState READ getTTSState NOTIFY ttsStateChanged)
 
 private:
   Slot<std::string> voiceDirSlot{
@@ -62,10 +69,17 @@ signals:
   void initTTSVoiceRequested(const Voice &voice);
   void playTTSMessageRequested(QString message);
 
+  //!< emitted whenever getTTSStateText() changes
+  void ttsStateChanged();
+
 public slots:
   void update();
   void onVoiceChanged(const QString&);
   void playTTSAudio(const QList<QUrl> &audioFiles);
+
+private slots:
+  void onTTSStateChange(TTSEngine::TTSEngineState state);
+  void onTTSError(const QString &message);
 
 public:
   InstalledVoicesModel();
@@ -101,6 +115,19 @@ public:
    * invalid) voices, or when the library was built without libpiper support.
    */
   Q_INVOKABLE void playTTSSample(const QModelIndex &index);
+
+  /**
+   * Localized, human readable description of the current TTS engine state
+   * (see osmscout::TTSEngineState). Reads as "Ready" before any Piper sample
+   * was requested (or when the library was built without libpiper support).
+   */
+  QString getTTSStateText() const;
+
+  TTSEngine::TTSEngineState getTTSState() const
+  {
+    return ttsState;
+  }
+
 private:
   void EnsureTTSEngine();
 
@@ -118,6 +145,10 @@ private:
   TTSEngine *ttsEngine{nullptr};
   std::shared_ptr<TTSMessageGeneratorQt> ttsMessageGenerator;
   QString ttsMessageLanguage; // language currently loaded into ttsMessageGenerator
+
+  // state of ttsEngine, mirrored here to expose it as a Qt property
+  TTSEngine::TTSEngineState ttsState{TTSEngine::TTSEngineState::Idle};
+  QString ttsErrorMessage; // last error reported by ttsEngine (not localized)
 };
 }
 #endif //OSMSCOUT_CLIENT_QT_INSTALLEDVOICESMODEL_H

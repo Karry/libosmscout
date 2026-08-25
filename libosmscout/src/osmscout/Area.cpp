@@ -21,7 +21,11 @@
 
 #include <osmscout/util/String.h>
 
+#include <osmscout/util/Exception.h>
+
 #include <osmscout/system/Math.h>
+
+#include <string>
 
 namespace osmscout {
 
@@ -184,6 +188,17 @@ namespace osmscout {
 
     ringType=scanner.ReadTypeId(typeConfig.GetAreaTypeIdBytes());
 
+    // The type id is read from the raw data file. A stale or inconsistent
+    // search index (e.g. after a partial download or a dataset update) can
+    // reference an offset where this id is out of range for the current type
+    // configuration. GetAreaTypeInfo() asserts in that case and aborts the
+    // process, so validate here and fail gracefully instead: DataFile<N>::
+    // ReadData() catches the IOException and reports the read as failed.
+    if (ringType>typeConfig.GetAreaTypes().size()) {
+      throw IOException(scanner.GetFilename(),
+                        "Invalid area type id " + std::to_string(ringType));
+    }
+
     TypeInfoRef type=typeConfig.GetAreaTypeInfo(ringType);
 
     featureValueBuffer.SetType(type);
@@ -230,6 +245,11 @@ namespace osmscout {
       auto &ring = rings[i];
       ringType=scanner.ReadTypeId(typeConfig.GetAreaTypeIdBytes());
 
+      if (ringType>typeConfig.GetAreaTypes().size()) {
+        throw IOException(scanner.GetFilename(),
+                          "Invalid area type id " + std::to_string(ringType));
+      }
+
       type=typeConfig.GetAreaTypeInfo(ringType);
 
       ring.SetType(type);
@@ -274,6 +294,11 @@ namespace osmscout {
 
     ringType=scanner.ReadTypeId(typeConfig.GetAreaTypeIdBytes());
 
+    if (ringType>typeConfig.GetAreaTypes().size()) {
+      throw IOException(scanner.GetFilename(),
+                        "Invalid area type id " + std::to_string(ringType));
+    }
+
     TypeInfoRef type=typeConfig.GetAreaTypeInfo(ringType);
 
     featureValueBuffer.SetType(type);
@@ -308,6 +333,11 @@ namespace osmscout {
     for (size_t i=1; i<ringCount; i++) {
       auto &ring = rings[i];
       ringType=scanner.ReadTypeId(typeConfig.GetAreaTypeIdBytes());
+
+      if (ringType>typeConfig.GetAreaTypes().size()) {
+        throw IOException(scanner.GetFilename(),
+                          "Invalid area type id " + std::to_string(ringType));
+      }
 
       type=typeConfig.GetAreaTypeInfo(ringType);
 
@@ -345,6 +375,11 @@ namespace osmscout {
     fileOffset=scanner.GetPos();
 
     ringType=scanner.ReadTypeId(typeConfig.GetAreaTypeIdBytes());
+
+    if (ringType>typeConfig.GetAreaTypes().size()) {
+      throw IOException(scanner.GetFilename(),
+                        "Invalid area type id " + std::to_string(ringType));
+    }
 
     TypeInfoRef type=typeConfig.GetAreaTypeInfo(ringType);
 
@@ -391,6 +426,11 @@ namespace osmscout {
     for (size_t i=1; i<ringCount; i++) {
       auto &ring = rings[i];
       ringType=scanner.ReadTypeId(typeConfig.GetAreaTypeIdBytes());
+
+      if (ringType>typeConfig.GetAreaTypes().size()) {
+        throw IOException(scanner.GetFilename(),
+                          "Invalid area type id " + std::to_string(ringType));
+      }
 
       type=typeConfig.GetAreaTypeInfo(ringType);
 

@@ -344,8 +344,10 @@ TYPES
       {Name, NameAlt, Width}
       IGNORESEALAND
 
+  // waterway_waterfall also covers the deprecated natural=waterfall tag:
+  // both variants share this single type definition (see PR #1769).
   TYPE waterway_waterfall
-    = NODE WAY AREA ("waterway"=="waterfall")
+    = NODE WAY AREA ("waterway"=="waterfall") OR NODE WAY AREA ("natural"=="waterfall")
       {Name, NameAlt, Width}
       IGNORESEALAND
 
@@ -829,10 +831,10 @@ TYPES
       {Name, NameAlt}
       OPTIMIZE_LOW_ZOOM MERGE_AREAS
 
-  TYPE natural_coastline
-    = WAY ("natural"=="coastline")
-      {Name, NameAlt}
-
+  // natural_coastline is deliberately NOT defined as a regular import type:
+  // coastline ways are handled separately by the water/land tile index
+  // (GenWaterIndex) and the coastline baseline computation, so they must
+  // not be imported as a normal way type at this point (see PR #1769).
   TYPE natural_reef
     = AREA ("natural"=="reef")
       {Name, NameAlt}
@@ -875,10 +877,9 @@ TYPES
     = NODE ("natural"=="geyser")
       {Name, NameAlt}
 
-  TYPE natural_waterfall
-    = NODE WAY AREA ("natural"=="waterfall")
-      {Name, NameAlt}
-      MERGE_AREAS
+  // natural_waterfall is deliberately NOT defined as a regular import type:
+  // the deprecated natural=waterfall tag is merged into waterway_waterfall
+  // (see above), so both variants share a single type definition (PR #1769).
 
   TYPE natural_arch
     = NODE WAY AREA ("natural"=="arch")

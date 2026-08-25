@@ -1,5 +1,9 @@
 package com.framstag.libosmscout.client;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -45,6 +49,79 @@ public class OSMScoutClient {
     public native boolean isInitialized();
 
     /**
+     * Returns the configured stylesheet directory.
+     *
+     * @return absolute or relative path to the directory containing {@code *.oss}
+     *         stylesheet files, or {@code "stylesheets"} when unset
+     */
+    public native String getStyleSheetDirectory();
+
+    /**
+     * Returns the currently active stylesheet file name.
+     *
+     * @return file name (e.g. {@code "standard.oss"}), or {@code "standard.oss"}
+     *         by default
+     */
+    public native String getActiveStyleSheet();
+
+    /**
+     * Switches the active map style by name and redraws with it.
+     * <p>
+     * The name is the stylesheet file name without the {@code .oss} extension
+     * (e.g. {@code "cycle"}). The stylesheet is loaded on the native database
+     * thread; this call blocks until the load has completed. When the load
+     * fails (unknown name, unreadable or unparsable file) the previously
+     * active style is restored and {@code false} is returned.
+     *
+     * @param name style name, or file name including {@code .oss}
+     * @return true if the style was loaded, false on failure
+     */
+    public native boolean loadStyleSheet(String name);
+
+    /**
+     * Enables or disables a stylesheet flag (e.g. {@code "daylight"}) and
+     * reloads the active stylesheet with the flag applied.
+     *
+     * @param key   flag name
+     * @param value flag state
+     */
+    public native void setStyleSheetFlag(String key, boolean value);
+
+    /**
+     * Returns the names of all available map styles.
+     * <p>
+     * Styles are derived from the top-level {@code *.oss} files in the
+     * stylesheet directory; the name is the file name without the {@code .oss}
+     * extension. The result is sorted alphabetically.
+     *
+     * @return sorted style names, or an empty list when no stylesheet files
+     *         exist or the directory cannot be read
+     */
+    public List<String> getAvailableStyleSheets() {
+        String directory = getStyleSheetDirectory();
+        if (directory == null || directory.isEmpty()) {
+            return List.of();
+        }
+        Path dir = Path.of(directory);
+        if (!Files.isDirectory(dir)) {
+            return List.of();
+        }
+        List<String> styles = new ArrayList<>();
+        try (var stream = Files.list(dir)) {
+            stream
+                .filter(Files::isRegularFile)
+                .map(p -> p.getFileName().toString())
+                .filter(name -> name.endsWith(".oss"))
+                .map(name -> name.substring(0, name.length() - 4))
+                .sorted()
+                .forEach(styles::add);
+        } catch (IOException e) {
+            return List.of();
+        }
+        return styles;
+    }
+
+    /**
      * Render the current map view to an ARGB pixel array.
      * <p>
      * Uses the Cairo backend to render the map at the given position and zoom level.
@@ -65,12 +142,37 @@ public class OSMScoutClient {
                                int magnification);
 
     /**
+     * Sentinel for "no default admin region" — pass to
+     * {@link #searchLocations(String, int, long)} for an unconstrained search.
+     */
+    public static final long NO_ADMIN_REGION = 0L;
+
+    /**
      * Search for locations matching a free-text query.
      * <p>
      * Uses the core {@code LocationService::SearchForLocationByString()} to find
      * admin regions, locations, POIs, and addresses matching the query, and the
      * text search index for free-text hits on named objects.
      * Results are sorted by relevance (type priority, distance, match quality).
+     *
+     * @param query free-text search string (e.g. "Berlin", "Dortmund Hbf")
+     * @param limit maximum number of results to return
+     * @param adminRegionHandle handle of a resolved admin region (see
+     *        {@link #resolveAdminRegion(double, double)}) used as default region
+     *        fallback for incomplete queries, or {@link #NO_ADMIN_REGION} for an
+     *        unconstrained search
+     * @return array of matching LocationEntry objects, or empty array if none found
+     */
+    public native LocationEntry[] searchLocations(String query, int limit, long adminRegionHandle);
+
+    /**
+     * Search for locations matching a free-text query with a region-name
+     * default region and optional cancellation.
+     * <p>
+     * Uses the core {@code LocationService::SearchForLocationByString()} to find
+     * admin regions, locations, POIs, and addresses matching the query, and the
+     * text search index for free-text hits on named objects. Region scoping and
+     * cancellation mirror OSMScout2 behaviour.
      *
      * @param query         free-text search string (e.g. "Berlin", "Dortmund Hbf")
      * @param limit         maximum number of results to return
@@ -162,6 +264,36 @@ public class OSMScoutClient {
     public native String getRegion(double lat, double lon);
 
     /**
+     * Resolve the admin region containing the given coordinate.
+     * <p>
+     * Walks the location index region hierarchy and returns an opaque handle to
+     * the deepest admin region whose boundary contains the coordinate, or 0 if
+     * no region is found (or the database is not initialised). The returned
+     * handle SHALL be released with {@link #releaseAdminRegion(long)} when no
+     * longer needed.
+     *
+     * @param lat latitude in degrees
+     * @param lon longitude in degrees
+     * @return opaque admin region handle, or 0 if none found
+     */
+    public native long resolveAdminRegion(double lat, double lon);
+
+    /**
+     * Release a previously resolved admin region handle.
+     *
+     * @param handle handle returned by {@link #resolveAdminRegion(double, double)}
+     */
+    public native void releaseAdminRegion(long handle);
+
+    /**
+     * Get the name of a previously resolved admin region.
+     *
+     * @param handle handle returned by {@link #resolveAdminRegion(double, double)}
+     * @return region name, or null if the handle is unknown
+     */
+    public native String getAdminRegionName(long handle);
+
+    /**
      * Get a structured description of the most reasonable visible object
      * at the given geographic coordinate.
      * <p>
@@ -171,9 +303,26 @@ public class OSMScoutClient {
      *
      * @param lat latitude in degrees
      * @param lon longitude in degrees
+     * @param magnification current map magnification (zoom level)
      * @return ObjectDescription with entries, or empty description if no object found
      */
-    public native ObjectDescription getDescription(double lat, double lon);
+    public native ObjectDescription getDescription(double lat, double lon, int magnification);
+
+    /**
+     * Get the bounding box of the most reasonable visible object
+     * at the given geographic coordinate.
+     * <p>
+     * Queries objects in a small bounding box around the coordinate,
+     * ranks them by (has description data, visible at zoom, proximity),
+     * and returns the bounding box of the best match.
+     *
+     * @param lat latitude in degrees
+     * @param lon longitude in degrees
+     * @param magnification current map magnification (zoom level)
+     * @return double[]{minLat, maxLat, minLon, maxLon} for area/way objects,
+     *         or null if the best match is a node or no object found
+     */
+    public native double[] getObjectBoundingBox(double lat, double lon, int magnification);
 
     /**
      * Get a list of structured descriptions of all reasonable visible objects
@@ -442,6 +591,19 @@ public class OSMScoutClient {
     }
 
     /**
+     * Set or hide the GPS location marker that is drawn on top of the map during
+     * the next render. The marker is rendered in the same native pass as the map,
+     * so it always uses the exact same projection and cannot drift relative to the
+     * road. Call with {@code Double.NaN} for latitude to hide the marker.
+     *
+     * @param lat     marker latitude in degrees, or NaN to hide
+     * @param lon     marker longitude in degrees
+     * @param bearing marker bearing in degrees, 0 = north, clockwise, or -1 if unknown
+     * @param accuracy horizontal accuracy in meters, or -1/NaN if unknown
+     */
+    public native void setGpsMarker(double lat, double lon, double bearing, double accuracy);
+
+    /**
      * Project a geographic coordinate to screen pixels for the given map view.
      *
      * @param width      viewport width in pixels
@@ -502,6 +664,15 @@ public class OSMScoutClient {
      * @return true if deleted, false if not found
      */
     public native boolean deleteGroup(String name);
+
+    /**
+     * Rename a group.
+     *
+     * @param oldName current group name
+     * @param newName new group name (must be unique)
+     * @return true if renamed, false if oldName not found or newName already exists
+     */
+    public native boolean renameGroup(String oldName, String newName);
 
     /**
      * Add a favorite to a group.
