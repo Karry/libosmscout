@@ -60,7 +60,11 @@ namespace {
     ThreadFinalizer(const ThreadFinalizer &) = delete;
     ThreadFinalizer(ThreadFinalizer &&) = delete;
 
-    virtual ~ThreadFinalizer()
+    // Note: intentionally non-virtual. ThreadFinalizer is never used
+    // polymorphically (it is held by a std::unique_ptr of its exact type),
+    // and a vtable pointer would end up in the thread-local initial image
+    // (see the comment on GetThreadFinalizer() below).
+    ~ThreadFinalizer()
     {
       threadExit.Emit(std::this_thread::get_id());
     }
@@ -69,11 +73,33 @@ namespace {
     ThreadFinalizer &operator=(ThreadFinalizer &&) = delete;
   };
 
-  thread_local struct osmscout::ThreadFinalizer threadFinalizer{};
+  // The per-thread finalizer is kept behind a thread_local *pointer* that is
+  // dynamically initialised, instead of being a thread_local object with a
+  // non-trivial initial value. This is deliberate and important:
+  //
+  // A thread_local object whose initial image contains non-zero data (here the
+  // vtable pointers of ThreadFinalizer/Signal) is emitted into the module's
+  // static TLS block (.tdata) and is memcpy'd by the C runtime into the TLS
+  // area of *every* newly created thread -- even threads that never touch this
+  // variable. On Sailfish OS / aarch64 the process' static TLS block overlaps
+  // TLS slots that the Android GPU driver (loaded via libhybris) reserves for
+  // itself (TLS_SLOT_OPENGL / TLS_SLOT_OPENGL_API). A non-zero TLS init image
+  // then clobbers the GPU driver's context pointer and crashes the Mali driver
+  // on the Qt scene-graph render thread.
+  //
+  // Keeping the initial image all-zero (only a null pointer lives in .tbss)
+  // avoids the collision, and matches the behaviour of older toolchains that
+  // placed the whole object in .tbss and constructed it lazily.
+  // See https://github.com/Karry/osmscout-sailfish/issues/348
+  ThreadFinalizer &GetThreadFinalizer()
+  {
+    thread_local std::unique_ptr<ThreadFinalizer> finalizer = std::make_unique<ThreadFinalizer>();
+    return *finalizer;
+  }
 }
 
 Signal<std::thread::id>& ThreadExitSignal()
 {
-  return threadFinalizer.threadExit;
+  return GetThreadFinalizer().threadExit;
 }
 }
