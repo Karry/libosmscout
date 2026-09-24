@@ -21,6 +21,7 @@
 */
 
 #include <cmath>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -52,7 +53,7 @@ namespace TextMetricsAll {
   struct ReferenceMetrics
   {
     double                      width{0.0}; //!< Total advance width of the text
-    double                      height{0.0}; //!< Font height
+    double                      height{0.0}; //!< Ink height (union of the glyph ink boxes), not the font box
     std::vector<ReferenceGlyph> glyphs; //!< One entry per character
   };
 
@@ -124,7 +125,12 @@ namespace TextMetricsAll {
     }
 
     metrics = ReferenceMetrics{};
-    metrics.height = static_cast<double>(face->size->metrics.height) / 64.0;
+
+    // The label height is the ink height: the union of the ink boxes of the
+    // rendered glyphs (the backends report ink height, not the font box from
+    // face->size->metrics.height)
+    double inkMinY = std::numeric_limits<double>::max();
+    double inkMaxY = std::numeric_limits<double>::lowest();
 
     double penX = 0.0;
 
@@ -178,11 +184,61 @@ namespace TextMetricsAll {
       glyph.height = static_cast<double>(face->glyph->metrics.height) / 64.0;
       glyph.advance = static_cast<double>(face->glyph->advance.x) / 64.0;
 
+      inkMinY = std::min(inkMinY, glyph.y);
+      inkMaxY = std::max(inkMaxY, glyph.y + glyph.height);
+
       metrics.glyphs.push_back(glyph);
       penX += glyph.advance;
     }
 
     metrics.width = penX;
+
+    if (!metrics.glyphs.empty()) {
+      metrics.height = inkMaxY - inkMinY;
+    }
+
+    FT_Done_Face(face);
+    FT_Done_FreeType(library);
+
+    return true;
+  }
+
+  /**
+   * Get the family name stored inside the given font file (FreeType face
+   * family_name). Needed by backends that resolve fonts by family name via
+   * fontconfig (Cairo backend): the font file name is not the family name,
+   * and asking for a guessed name silently substitutes another font on
+   * systems without that family installed.
+   *
+   * Only available when the build has FreeType (HAVE_LIB_FREETYPE).
+   *
+   * @param fontFile path to a font file loadable by FreeType
+   * @param family the family name from the font file
+   * @param error error description on failure
+   * @return true on success, false on failure
+   */
+  inline bool ReferenceFontFamily(const std::string& fontFile,
+                                  std::string& family,
+                                  std::string& error)
+  {
+    FT_Library library;
+
+    if (FT_Init_FreeType(&library) != 0) {
+      error = "Cannot initialize FreeType";
+
+      return false;
+    }
+
+    FT_Face face;
+
+    if (FT_New_Face(library, fontFile.c_str(), 0, &face) != 0) {
+      error = "Cannot load font face: " + fontFile;
+      FT_Done_FreeType(library);
+
+      return false;
+    }
+
+    family = face->family_name;
 
     FT_Done_Face(face);
     FT_Done_FreeType(library);

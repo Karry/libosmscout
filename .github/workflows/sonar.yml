@@ -36,13 +36,14 @@ jobs:
         run: "sudo apt-get install -y
               catch2
               libxml2-dev
+              nlohmann-json3-dev
               libprotobuf-dev protobuf-compiler liblzma-dev
               libagg-dev
               libfreetype6-dev libcairo2-dev libpangocairo-1.0-0 libpango1.0-dev
               qtdeclarative5-dev libqt5svg5-dev qtlocation5-dev qtpositioning5-dev qttools5-dev-tools
               qttools5-dev qtmultimedia5-dev
               libglm-dev libglew-dev libglut-dev
-              libmarisa-dev"
+              fonts-liberation libmarisa-dev"
       - name: Configure build project
         run:  meson setup --buildtype debugoptimized -Db_coverage=true --unity on debug
         env:
