@@ -2,6 +2,18 @@ testIncDir = include_directories('include')
 
 testInstallDir = 'share/osmscout/tests'
 
+# Host-side comparison of the Java native declarations of the client with the JNI functions that
+# implement them: a parameter read with the wrong type yields garbage instead of an error (see the
+# magnification incident). Registered for both build systems, see Tests/CMakeLists.txt.
+#
+# The script is executed through the interpreter in its shebang, and a Windows runner resolves the
+# name `bash` to C:\Windows\System32\bash.exe, the WSL launcher, instead of the MSYS one, so the
+# check never runs there (the MSYS/meson job failed on exactly that, see the guard in
+# Tests/CMakeLists.txt for the same reason).
+if host_machine.system() != 'windows'
+  test('Check JNI signature parity', files('../scripts/check-jni-signatures.sh'))
+endif
+
 FavoriteLocationServiceTest = executable('FavoriteLocationServiceTest',
              'src/FavoriteLocationServiceTest.cpp',
              include_directories: [testIncDir, osmscoutclientIncDir],
@@ -274,6 +286,16 @@ test('Check MapDownloadService APIs',
      MapDownloadServiceTest,
      env: ['TESTS_TOP_DIR='+meson.current_source_dir()])
 
+MapManagerTest = executable('MapManagerTest',
+                               'src/MapManagerTest.cpp',
+                               include_directories: [testIncDir, osmscoutIncDir, osmscoutclientIncDir],
+                               dependencies: [mathDep, openmpDep, catch2MainDep],
+                               link_with: [osmscout, osmscoutclient],
+                               install: true,
+                               install_dir: testInstallDir)
+
+test('Check map manager', MapManagerTest)
+
 FileScannerWriterTest = executable('FileScannerWriterTest',
                                'src/FileScannerWriterTest.cpp',
                                include_directories: [testIncDir, osmscoutIncDir],
@@ -346,6 +368,16 @@ HighwayMilestoneFeatureTest = executable('HighwayMilestoneFeatureTest',
              install_dir: testInstallDir)
 
 test('Check HighwayMilestone feature parsing and labeling', HighwayMilestoneFeatureTest)
+
+LabelLayouterTest = executable('LabelLayouterTest',
+                               'src/LabelLayouterTest.cpp',
+                               include_directories: [testIncDir, osmscoutmapIncDir, osmscoutIncDir],
+                               dependencies: [mathDep, catch2MainDep],
+                               link_with: [osmscoutmap, osmscout],
+                               install: true,
+                               install_dir: testInstallDir)
+
+test('Check LabelLayouter code', LabelLayouterTest)
 
 LabelPathTest = executable('LabelPathTest',
                            'src/LabelPathTest.cpp',
@@ -738,6 +770,25 @@ StringUtilsTest = executable('StringUtilsTest',
 
 test('Check string utils', StringUtilsTest)
 
+StringMatcherTest = executable('StringMatcherTest',
+             'src/StringMatcherTest.cpp',
+             include_directories: [testIncDir, osmscoutIncDir],
+             dependencies: [mathDep, catch2MainDep],
+             link_with: [osmscout],
+             install: true,
+             install_dir: testInstallDir)
+
+test('Check string matcher', StringMatcherTest)
+
+SearchScopeTest = executable('SearchScopeTest',
+             'src/SearchScopeTest.cpp',
+             include_directories: [testIncDir, include_directories('../libosmscout-client-java/src')],
+             dependencies: [catch2MainDep],
+             install: true,
+             install_dir: testInstallDir)
+
+test('Check search scope', SearchScopeTest)
+
 if buildMapSVG
   SymbolRendererSVGTest = executable('SymbolRendererSVGTest',
                                'src/SymbolRendererSVGTest.cpp',
@@ -775,6 +826,34 @@ styleConfigSymbolsEnv.set('TESTS_TOP_DIR', meson.current_source_dir())
 styleConfigSymbolsEnv.set('TESTS_TMP_DIR', meson.current_build_dir())
 
 test('Check StyleConfig symbol enumeration', StyleConfigSymbolsTest, env: styleConfigSymbolsEnv)
+
+RouteStyleColorsTest = executable('RouteStyleColorsTest',
+                               'src/RouteStyleColorsTest.cpp',
+                               include_directories: [testIncDir, osmscoutIncDir, osmscoutmapIncDir],
+                               dependencies: [mathDep, openmpDep, catch2MainDep],
+                               link_with: [osmscout, osmscoutmap],
+                               install: true,
+                               install_dir: testInstallDir)
+
+routeStyleColorsEnv = environment()
+routeStyleColorsEnv.set('TESTS_TOP_DIR', meson.current_source_dir())
+routeStyleColorsEnv.set('TESTS_TMP_DIR', meson.current_build_dir())
+
+test('Check route style colours', RouteStyleColorsTest, env: routeStyleColorsEnv)
+
+RoadStyleColorsTest = executable('RoadStyleColorsTest',
+                               'src/RoadStyleColorsTest.cpp',
+                               include_directories: [testIncDir, osmscoutIncDir, osmscoutmapIncDir],
+                               dependencies: [mathDep, openmpDep, catch2MainDep],
+                               link_with: [osmscout, osmscoutmap],
+                               install: true,
+                               install_dir: testInstallDir)
+
+roadStyleColorsEnv = environment()
+roadStyleColorsEnv.set('TESTS_TOP_DIR', meson.current_source_dir())
+roadStyleColorsEnv.set('TESTS_TMP_DIR', meson.current_build_dir())
+
+test('Check road style colours', RoadStyleColorsTest, env: roadStyleColorsEnv)
 
 MapPainterFrameBuffersTest = executable('MapPainterFrameBuffersTest',
                                'src/MapPainterFrameBuffersTest.cpp',
@@ -845,6 +924,16 @@ MapPainterLabelCullingTest = executable('MapPainterLabelCullingTest',
                                install_dir: testInstallDir)
 
 test('Check MapPainterLabelCulling compilation', MapPainterLabelCullingTest)
+
+MapPainterLabelReuseTest = executable('MapPainterLabelReuseTest',
+                               'src/MapPainterLabelReuseTest.cpp',
+                               include_directories: [testIncDir, osmscoutIncDir, osmscoutmapIncDir],
+                               dependencies: [mathDep, openmpDep, catch2MainDep],
+                               link_with: [osmscout, osmscoutmap],
+                               install: true,
+                               install_dir: testInstallDir)
+
+test('Check MapPainterLabelReuse compilation', MapPainterLabelReuseTest)
 
 SunriseSunsetTest = executable('SunriseSunsetTest',
                            'src/SunriseSunsetTest.cpp',
