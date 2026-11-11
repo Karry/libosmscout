@@ -146,3 +146,81 @@ The MSYS font provisioning SHALL use the font file already in the repository and
 - **WHEN** inspecting the MSYS job setup in `.github/workflows/build_and test_on_msys.yml`
 - **THEN** the provisioned font SHALL originate from a file in the repository
 - **AND** no additional secret or service SHALL be required
+
+### Requirement: Required build dependencies are provided by every entry point that builds the component
+
+Every CI entry point that configures or builds a component SHALL provide that component's required
+build dependencies before configuring it. A configuration that deliberately does not build a
+component SHALL NOT be required to provide that component's dependencies, and SHALL be documented as
+exempt rather than left out. When a required build dependency cannot be satisfied, the run SHALL fail
+before any release artifact is published and SHALL report which dependency is missing.
+
+#### Scenario: Release workflows provide the import library's JSON dependency
+
+- **GIVEN** the import library declares a required JSON implementation
+- **WHEN** the dependency installation step of a release workflow is inspected
+- **THEN** the JSON implementation SHALL be installed by that workflow before the project is
+  configured
+
+#### Scenario: Every release entry point is covered
+
+- **GIVEN** more than one workflow can create a release
+- **WHEN** each release workflow's dependency installation step is inspected
+- **THEN** every release workflow that configures the project SHALL install the required JSON
+  implementation, and no release workflow SHALL rely on another workflow's installation step
+
+#### Scenario: Build and test workflows already provide it
+
+- **GIVEN** a workflow that builds the import library for pull-request validation
+- **WHEN** its dependency installation step is inspected
+- **THEN** the required JSON implementation SHALL be installed by that workflow
+
+#### Scenario: A configuration that does not build the import library is exempt
+
+- **GIVEN** a build configuration that disables the import library
+- **WHEN** that configuration is configured without the JSON implementation present
+- **THEN** configuration SHALL succeed without the JSON implementation being required
+
+#### Scenario: An unsatisfied required dependency stops the release
+
+- **GIVEN** a release workflow whose environment lacks a dependency the configured project requires
+- **WHEN** the workflow runs
+- **THEN** the run SHALL end in failure before any release artifact is published
+- **AND** the run SHALL report the name of the missing dependency
+
+### Requirement: A dependency the backends feature-gate is not a configure requirement
+
+A configure of the project SHALL complete when a dependency that the map backends feature-gate is
+disabled on the command line, and the corresponding feature gate SHALL then be off in the configured
+feature header of the backend that consumes it. Disabling such a dependency SHALL NOT abort the
+configure, and a configure that leaves it enabled SHALL still find it and define the gate.
+
+#### Scenario: A configure with the font configuration disabled completes
+
+- **GIVEN** a host whose font configuration is found by the project
+- **WHEN** `cmake -B <dir> -DCMAKE_BUILD_TYPE=Release -DCMAKE_DISABLE_FIND_PACKAGE_Fontconfig=ON` is run
+- **THEN** the configure SHALL reach `-- Configuring done` and exit 0
+- **AND** `OSMSCOUT_MAP_CAIRO_HAVE_LIB_FONTCONFIG` SHALL be undefined in the configured
+  `libosmscout-map-cairo/include/osmscoutmapcairo/MapCairoFeatures.h`
+
+#### Scenario: A configure with FreeType disabled completes
+
+- **GIVEN** a host whose FreeType is found by the project and whose OpenGL map backend is disabled
+- **WHEN** `cmake -B <dir> -DCMAKE_BUILD_TYPE=Release -DOSMSCOUT_BUILD_MAP_OPENGL=OFF -DCMAKE_DISABLE_FIND_PACKAGE_Freetype=ON` is run
+- **THEN** the configure SHALL reach `-- Configuring done` and exit 0
+- **AND** `OSMSCOUT_MAP_CAIRO_HAVE_LIB_FREETYPE` and `OSMSCOUT_MAP_CAIRO_HAVE_LIB_CAIRO_FT` SHALL be
+  undefined in the configured feature header
+
+#### Scenario: A configure that leaves both enabled still finds both
+
+- **GIVEN** a host that provides FreeType and the font configuration
+- **WHEN** `cmake -B <dir> -DCMAKE_BUILD_TYPE=Release` is run without disabling either
+- **THEN** the configure SHALL exit 0, report `Found Freetype` and `Found Fontconfig`, and define
+  `OSMSCOUT_MAP_CAIRO_HAVE_LIB_FREETYPE` and `OSMSCOUT_MAP_CAIRO_HAVE_LIB_FONTCONFIG` in the configured
+  feature header
+
+#### Scenario: The Cairo backend compiles with either dependency disabled
+
+- **GIVEN** a build directory configured as in the two disabled scenarios above
+- **WHEN** `cmake --build <dir> --target OSMScoutMapCairo` is run
+- **THEN** the target SHALL build and link without an error or warning

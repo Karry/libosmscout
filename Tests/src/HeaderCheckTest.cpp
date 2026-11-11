@@ -158,6 +158,14 @@ static const std::set<std::string> allowedDependencies{
     "osmscoutclient => osmscout.log",
     "osmscoutclient => osmscoutmap",
 
+    // The route step model is the client library's routing-facing view. It depends on the client's
+    // own export header and on the core types it projects (route descriptions, geometry, distance,
+    // time, lanes).
+    "osmscoutclient.routing => osmscoutclient",
+    "osmscoutclient.routing => osmscout",
+    "osmscoutclient.routing => osmscout.routing",
+    "osmscoutclient.routing => osmscout.util",
+
     "osmscoutclientqt => osmscout.system",
     "osmscoutclientqt => osmscout.async",
     "osmscoutclientqt => osmscout.log",
@@ -195,6 +203,11 @@ static const std::set<std::string> allowedDependencies{
     "osmscoutimport => osmscoutimport.private",
     "osmscoutimport => osmscoutimport.pbf",
 
+    // The private part of the import package. Its headers describe the import library's own
+    // helpers, so they depend on the same core packages the public import headers depend on.
+    "osmscoutimport.private => osmscout", // Id, Point
+    "osmscoutimport.private => osmscoutimport", // ImportImportExport.h
+
     "osmscoutmap.oss => osmscout.system",
     "osmscoutmap.oss => osmscout.log",
     "osmscoutmap.oss => osmscout.util",
@@ -231,7 +244,6 @@ static const std::set<std::string> allowedDependencies{
     "osmscoutmapgdi => osmscout.io",
     "osmscoutmapgdi => osmscoutmap",
 
-    "osmscoutmapopengl => osmscout.system",
     "osmscoutmapopengl => osmscout.log",
     "osmscoutmapopengl => osmscout.util",
     "osmscoutmapopengl => osmscout.projection",
@@ -456,4 +468,73 @@ TEST_CASE("Check include dependencies")
     }
 
     REQUIRE(violationCount==0);
+}
+
+/**
+ * Standard-library includes of a file must all precede its project includes
+ * (guidelines/CodeStyles.md, "Include Order"): own header, standard library, then the
+ * project headers. Returns the standard-library includes that follow a project include
+ * other than the file's own header.
+ */
+static std::list<std::string> IncludesAfterProjectHeaders(const fs::path& filename)
+{
+  std::list<std::string> violations;
+
+  std::regex             include("#include *[<\\\"]([a-zA-Z0-9/.]+)[>\\\"]");
+  std::string            ownHeader=filename.stem().string() + ".h";
+
+  std::string            line;
+  std::ifstream          file(filename);
+  bool                   projectRead=false;
+
+  if (file.is_open()) {
+    while (getline(file, line)) {
+      std::smatch match;
+
+      if (!std::regex_search(line, match, include)) {
+        continue;
+      }
+
+      std::string included=match[1];
+
+      if (included.starts_with("osmscout")) {
+        if (!(included.ends_with("/" + ownHeader) || included == ownHeader)) {
+          projectRead=true;
+        }
+
+        continue;
+      }
+
+      if (projectRead) {
+        violations.push_back(match[0]);
+      }
+    }
+    file.close();
+  }
+
+  return violations;
+}
+
+TEST_CASE("Check include order of util/StringMatcher.cpp")
+{
+  const char * sourceRoot = getenv("SOURCE_ROOT");
+
+  CHECK(sourceRoot!= nullptr);
+
+  fs::path file=fs::path(sourceRoot) / "libosmscout/src/osmscout/util/StringMatcher.cpp";
+
+  CHECK(exists(file));
+
+  std::list<std::string> violations=IncludesAfterProjectHeaders(file);
+
+  for (const auto& violation : violations) {
+    std::cerr << "File '" << file.generic_string()
+              << "' includes a standard library header after its project includes: '"
+              << violation << "'!" << '\n';
+  }
+
+  std::cout << "SOURCE=" << file.generic_string()
+            << " STD_INCLUDES_AFTER_PROJECT=" << violations.size() << std::endl;
+
+  REQUIRE(violations.size()==0);
 }

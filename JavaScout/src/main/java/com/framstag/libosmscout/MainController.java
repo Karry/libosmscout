@@ -12,7 +12,7 @@ import com.framstag.libosmscout.client.LaneTurn;
 import com.framstag.libosmscout.client.LocationEntry;
 import com.framstag.libosmscout.client.ObjectDescription;
 import com.framstag.libosmscout.client.PoiEntry;
-import com.framstag.libosmscout.client.RouteInstruction;
+import com.framstag.libosmscout.client.RouteStep;
 import com.framstag.libosmscout.client.RouteCallback;
 import com.framstag.libosmscout.client.RouteEntry;
 import com.framstag.libosmscout.client.TurnType;
@@ -36,6 +36,7 @@ import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.DialogPane;
 import javafx.scene.control.Label;
+import javafx.scene.control.Menu;
 import javafx.scene.control.MenuItem;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
@@ -253,6 +254,7 @@ public class MainController implements Initializable {
                         .withStyleSheetDirectory(stylesheetsDir)
                         .withPhysicalDpi(javafx.stage.Screen.getPrimary().getDpi())
                         .withUnits("metrics")
+                        .withDescriptionLanguage(DescriptionLanguage.forLocale(java.util.Locale.getDefault()))
                         .withCustomPoiType("_route_start")
                         .withCustomPoiType("_route_end")
                         .withCustomPoiType("_route")
@@ -486,6 +488,24 @@ public class MainController implements Initializable {
         } else {
             showDescriptionOverlay(desc);
         }
+    }
+
+    /**
+     * Switch the language the client reports type descriptions in.
+     *
+     * <p>Results built after the switch carry the description of their object type in the new
+     * language; a result list that is already on screen is not rebuilt, so the next search shows
+     * it. A client that is not built yet keeps the language derived from the platform locale.
+     */
+    private void onDescriptionLanguageSelected(String languageCode) {
+        if (client == null) {
+            Log.error("MainController: type description language changed before the client was built");
+            return;
+        }
+
+        client.setDescriptionLanguage(languageCode);
+
+        Log.info("MainController: type descriptions in " + DescriptionLanguage.label(languageCode));
     }
 
     private void openPoiSearch() {
@@ -933,7 +953,17 @@ public class MainController implements Initializable {
         MenuItem downloadMapsItem = new MenuItem("Download Maps…");
         downloadMapsItem.setOnAction(e -> onDownloadMaps());
 
-        mainMenu.getItems().addAll(favoritesItem, importTrackItem, switchStyleItem, poiSearchItem, liveGpsItem, downloadMapsItem);
+        // Type descriptions: the client reports the description of a result's object type in this
+        // language. It is derived from the platform locale when the client is built; the switch
+        // changes it for the searches that follow.
+        Menu languageMenu = new Menu("Type Descriptions");
+        MenuItem germanItem = new MenuItem("Deutsch");
+        germanItem.setOnAction(e -> onDescriptionLanguageSelected(DescriptionLanguage.GERMAN));
+        MenuItem englishItem = new MenuItem("English");
+        englishItem.setOnAction(e -> onDescriptionLanguageSelected(DescriptionLanguage.ENGLISH));
+        languageMenu.getItems().addAll(germanItem, englishItem);
+
+        mainMenu.getItems().addAll(favoritesItem, importTrackItem, switchStyleItem, poiSearchItem, liveGpsItem, downloadMapsItem, languageMenu);
 
         menuButton.setOnAction(e -> {
             if (mainMenu.isShowing()) {
@@ -1275,12 +1305,13 @@ public class MainController implements Initializable {
         thread.start();
     }
 
-    private void updateNextTurnOverlay(RouteInstruction instruction) {
-        if (instruction == null || nextTurnBox == null) return;
+    private void updateNextTurnOverlay(RouteStep step) {
+        if (step == null || nextTurnBox == null) return;
 
         // Row 1: next instruction
-        if (instruction.distanceTo > 0) {
-            nextTurnDistance.setText(formatDistance(instruction.distanceTo));
+        double distanceTo = NextTurnText.distanceTo(step);
+        if (distanceTo > 0) {
+            nextTurnDistance.setText(formatDistance(distanceTo));
         } else {
             nextTurnDistance.setText("");
         }
@@ -1294,32 +1325,25 @@ public class MainController implements Initializable {
                 default: vehicleIcon = ""; break;
             }
         }
-        nextTurnIcon.setText(vehicleIcon + turnTypeToIcon(instruction.turnType));
+        nextTurnIcon.setText(vehicleIcon + turnTypeToIcon(NextTurnText.turnType(step)));
 
-        String text;
-        if (instruction.description != null && !instruction.description.isEmpty()) {
-            text = instruction.description;
-        } else if (instruction.shortDescription != null && !instruction.shortDescription.isEmpty()) {
-            text = instruction.shortDescription;
-        } else if (instruction.streetName != null && !instruction.streetName.isEmpty()) {
-            text = instruction.streetName;
-        } else {
-            text = "";
-        }
+        String text = NextTurnText.line(step);
         nextTurnStreet.setText(text);
 
+        // The exit reference and the destination sign texts, taken from the instruction's fields.
+        // An instruction without them is rendered exactly as before (spec:
+        // turn-by-turn-instructions - the next-turn display shows the exit and the destination as
+        // data).
+        String detail = RouteRowBuilder.nextTurnDetail(step);
+        if (!detail.isEmpty()) {
+            nextTurnStreet.setText(text.isEmpty() ? detail : text + "\n" + detail);
+        }
+
         // Row 2: "next next" hint
-        if (instruction.hasNextNext()) {
-            nextNextDistance.setText(formatDistance(instruction.nextNextDistanceTo));
-            String nnText;
-            if (instruction.nextNextDescription != null && !instruction.nextNextDescription.isEmpty()) {
-                nnText = instruction.nextNextDescription;
-            } else if (instruction.nextNextShortDescription != null && !instruction.nextNextShortDescription.isEmpty()) {
-                nnText = instruction.nextNextShortDescription;
-            } else {
-                nnText = "";
-            }
-            nextNextStreet.setText(nnText);
+        RouteStep follower = step.nextNext;
+        if (follower != null) {
+            nextNextDistance.setText(formatDistance(NextTurnText.distanceTo(follower)));
+            nextNextStreet.setText(NextTurnText.line(follower));
             nextNextRow.setVisible(true);
             nextNextRow.setManaged(true);
         } else {
@@ -1638,23 +1662,26 @@ public class MainController implements Initializable {
             }
 
             @Override
-            public void onNextRouteInstruction(RouteInstruction instruction) {
+            public void onNextRouteStep(RouteStep step) {
                 if (isStale()) return;
-                double dist = instruction != null ? instruction.distanceTo : Double.POSITIVE_INFINITY;
+                double dist = step != null && step.remainingDistance != null
+                    ? step.remainingDistance : Double.POSITIVE_INFINITY;
+                final RouteStep stepAhead = step;
                 Platform.runLater(() -> {
                     if (isStale()) return;
                     nextTurnDistanceM = dist;
-                    updateNextTurnOverlay(instruction);
+                    updateNextTurnOverlay(stepAhead);
                 });
             }
 
             @Override
-            public void onRouteInstructions(RouteInstruction[] instructions) {
+            public void onRouteSteps(RouteStep[] steps) {
                 if (isStale()) return;
+                final RouteStep[] published = steps;
                 Platform.runLater(() -> {
                     if (isStale()) return;
                     if (routePanel != null) {
-                        routePanel.updateInstructionList(instructions);
+                        routePanel.updateInstructionList(published);
                     }
                 });
             }

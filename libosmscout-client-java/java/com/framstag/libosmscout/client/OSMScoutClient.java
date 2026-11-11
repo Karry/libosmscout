@@ -1,6 +1,7 @@
 package com.framstag.libosmscout.client;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -113,6 +114,23 @@ public class OSMScoutClient {
     public native boolean loadStyleSheet(String name);
 
     /**
+     * Set the language of the descriptions this client reports for the type of a found object.
+     *
+     * <p>Results of {@code searchLocations} and {@code searchPOIs} carry the description of
+     * their object type in this language when the database carries one. When the database does
+     * not carry that language, the English description answers; when the type carries no
+     * description at all, the description of the result is empty and the caller shows the
+     * technical type name (e.g. {@code amenity_bank}) instead.
+     *
+     * <p>The language can also be set when the client is built
+     * ({@link OSMScoutClientBuilder#withDescriptionLanguage(String)}); this method changes it on a
+     * running client. The next search reports descriptions in the new language.
+     *
+     * @param languageCode language code of the description, e.g. {@code "de"} or {@code "en"}
+     */
+    public native void setDescriptionLanguage(String languageCode);
+
+    /**
      * Enables or disables a stylesheet flag (e.g. {@code "daylight"}) and
      * reloads the active stylesheet with the flag applied.
      *
@@ -131,7 +149,7 @@ public class OSMScoutClient {
      * application runs takes effect without a restart; this call returns
      * without waiting for that reload to finish. Whether a basemap is drawn
      * afterwards is observable from {@link #render(int, int, double, double,
-     * double, int)} and from {@link #wasLastStyleLoadSuccessful()}.
+     * double, double, double)} and from {@link #wasLastStyleLoadSuccessful()}.
      *
      * @param directory path to the basemap OSMScout data, or an empty value to
      *                  unload the basemap
@@ -151,6 +169,21 @@ public class OSMScoutClient {
      *                  default
      */
     public native void setNativeDataCacheSize(int cacheSize);
+
+    /**
+     * Select which of a map style entry's two renderings is drawn when the
+     * active stylesheet carries both a raster icon name and a vector symbol
+     * for the same object.
+     * <p>
+     * Off by default: the raster icon keeps its precedence and the symbol
+     * stays the fallback. The value is stored natively and read when the next
+     * frame's render parameters are built, so it takes effect without a
+     * stylesheet reload.
+     *
+     * @param preferSymbolIcons true draws the symbol of such an entry, false
+     *                          keeps the raster icon in precedence
+     */
+    public native void setPreferSymbolIcons(boolean preferSymbolIcons);
 
     /**
      * Returns the names of all available map styles.
@@ -199,18 +232,51 @@ public class OSMScoutClient {
      * @param lon          center longitude in degrees
      * @param angle        map rotation angle in radians (0 = north-up)
      * @param magnification magnification scale factor (2^zoom level, 1 = world, fractional values supported)
+     * @param dpi          physical DPI of the display the frame is rendered for; {@code Double.NaN}
+     *                     or a non-positive value renders with the DPI configured on the client
      * @return int[] ARGB pixel data, or null if not initialised or invalid params
      */
     public native int[] render(int width, int height,
                                double lat, double lon,
                                double angle,
-                               double magnification);
+                               double magnification,
+                               double dpi);
+
+    /**
+     * Render the current map view to an ARGB pixel array.
+     * <p>
+     * Convenience overload that renders with the DPI configured on the client.
+     *
+     * @param width        viewport width in pixels
+     * @param height       viewport height in pixels
+     * @param lat          center latitude in degrees
+     * @param lon          center longitude in degrees
+     * @param angle        map rotation angle in radians (0 = north-up)
+     * @param magnification magnification scale factor (2^zoom level, 1 = world, fractional values supported)
+     * @return int[] ARGB pixel data, or null if not initialised or invalid params
+     */
+    public int[] render(int width, int height,
+                        double lat, double lon,
+                        double angle,
+                        double magnification) {
+        return render(width, height, lat, lon, angle, magnification, Double.NaN);
+    }
 
     /**
      * Sentinel for "no default admin region" — pass to
-     * {@link #searchLocations(String, int, long)} for an unconstrained search.
+     * {@link #searchLocations(String, int, long, long)} for an unconstrained search.
      */
     public static final long NO_ADMIN_REGION = 0L;
+
+    /**
+     * Search slots: one per search surface, so a supersede or a cancel stops exactly the
+     * request it names and nothing another surface is running. The same names are the
+     * registry's slot keys (search_breaker.h, spec `search-cancellation`).
+     */
+    public static final String SEARCH_SLOT_PLACES = "places";
+    public static final String SEARCH_SLOT_POI = "poi";
+    public static final String SEARCH_SLOT_ROUTE = "route";
+    public static final String SEARCH_SLOT_CAR = "car";
 
     /**
      * Search for locations matching a free-text query.
@@ -226,48 +292,84 @@ public class OSMScoutClient {
      *        {@link #resolveAdminRegion(double, double)}) used as default region
      *        fallback for incomplete queries, or {@link #NO_ADMIN_REGION} for an
      *        unconstrained search
+     * @param generation the request's generation, from {@link #beginSearch(String)}; every
+     *        abort check inside the search asks it, so a supersede or a cancel stops the
+     *        search at its next check
      * @return array of matching LocationEntry objects, or empty array if none found
      */
-    public native LocationEntry[] searchLocations(String query, int limit, long adminRegionHandle);
+    public native LocationEntry[] searchLocations(String query, int limit, long adminRegionHandle,
+                                                  long generation);
 
     /**
-     * Search for locations matching a free-text query with a region-name
-     * default region and optional cancellation.
+     * Search for locations matching a free-text query with a region-name default region.
      * <p>
      * Uses the core {@code LocationService::SearchForLocationByString()} to find
      * admin regions, locations, POIs, and addresses matching the query, and the
-     * text search index for free-text hits on named objects. Region scoping and
-     * cancellation mirror OSMScout2 behaviour.
+     * text search index for free-text hits on named objects.
      *
      * @param query         free-text search string (e.g. "Berlin", "Dortmund Hbf")
      * @param limit         maximum number of results to return
      * @param defaultRegion optional region name to scope the search, or null
-     * @param cancel        if true, cancel any in-progress search and return empty
+     * @param generation    the request's generation, from {@link #beginSearch(String)}
      * @return array of matching LocationEntry objects, or empty array if none found
      */
-    public native LocationEntry[] searchLocations(String query, int limit, String defaultRegion, boolean cancel);
+    public native LocationEntry[] searchLocations(String query, int limit, String defaultRegion,
+                                                  long generation);
 
     /**
      * Search for locations matching a free-text query without region context.
      * <p>
-     * Convenience overload of
-     * {@link #searchLocations(String, int, String, boolean)}.
+     * Convenience path for a caller that does not manage the request itself: it begins a
+     * request for the place slot, runs the search with it and ends it, so a previous
+     * search of that slot is superseded and a later one is not blocked. A caller that has
+     * to be able to cancel a running search begins its own request with
+     * {@link #beginSearch(String)} and uses the generation-carrying overload.
      *
      * @param query free-text search string
      * @param limit maximum number of results to return
      * @return array of matching LocationEntry objects, or empty array if none found
      */
     public LocationEntry[] searchLocations(String query, int limit) {
-        return searchLocations(query, limit, null, false);
+        return searchLocations(query, limit, null);
     }
 
     /**
-     * Cancel the currently running location search, if any.
-     * <p>
-     * A new search cancels the previously running one automatically; this
-     * method allows explicit cancellation (e.g. from a cancel button).
+     * Convenience overload of {@link #searchLocations(String, int, String, long)} that
+     * begins and ends the place slot's request itself (see the two-argument overload).
      */
-    public native void cancelSearch();
+    public LocationEntry[] searchLocations(String query, int limit, String defaultRegion) {
+        final long generation = beginSearch(SEARCH_SLOT_PLACES);
+
+        try {
+            return searchLocations(query, limit, defaultRegion, generation);
+        } finally {
+            cancelSearch(generation);
+        }
+    }
+
+    /**
+     * Begins a search request for a slot and returns its generation.
+     * <p>
+     * Beginning a request supersedes the slot's previous one, which stops at its next
+     * abort check. The generation identifies the request for every call that belongs to
+     * it and for {@link #cancelSearch(long)}.
+     *
+     * @param slot one of the {@code SEARCH_SLOT_*} constants
+     * @return the request's generation, or 0 when the client is not usable
+     */
+    public native long beginSearch(String slot);
+
+    /**
+     * Cancels the request with this generation and reports whether that request was live.
+     * <p>
+     * {@code false} means a newer request of its slot had already replaced it, or it had
+     * ended, so nothing was aborted — which is what makes a cancellation that arrives
+     * late harmless.
+     *
+     * @param generation generation returned by {@link #beginSearch(String)}
+     * @return true when the request was still running and is now cancelled
+     */
+    public native boolean cancelSearch(long generation);
 
     /**
      * Search for POIs of the given OSM types within a radius around a coordinate.
@@ -281,20 +383,23 @@ public class OSMScoutClient {
      * @param lon          center longitude in degrees
      * @param radiusMeters search radius in meters
      * @param limit        maximum number of results to return
+     * @param generation   the request's generation, from {@link #beginSearch(String)}
      * @return array of matching PoiEntry objects, or empty array if none found
      */
     public native PoiEntry[] searchPOIsByTypes(String[] typeNames,
                                                double lat,
                                                double lon,
                                                double radiusMeters,
-                                               int limit);
+                                               int limit,
+                                               long generation);
 
     /**
      * Search for POIs of the given category within a radius around a coordinate.
      * <p>
      * Resolves the category to its hardcoded OSM type names via
      * {@link PoiCategories} and delegates to
-     * {@link #searchPOIsByTypes(String[], double, double, double, int)}.
+     * {@link #searchPOIsByTypes(String[], double, double, double, int, long)}, beginning
+     * and ending the POI slot's request itself.
      *
      * @param category     category id (see {@link PoiCategories#HOTELS},
      *                     {@link PoiCategories#RESTAURANTS}, {@link PoiCategories#GROCERY})
@@ -313,7 +418,14 @@ public class OSMScoutClient {
         if (typeNames == null || typeNames.length == 0 || radiusMeters <= 0) {
             return new PoiEntry[0];
         }
-        return searchPOIsByTypes(typeNames, lat, lon, radiusMeters, limit);
+
+        final long generation = beginSearch(SEARCH_SLOT_POI);
+
+        try {
+            return searchPOIsByTypes(typeNames, lat, lon, radiusMeters, limit, generation);
+        } finally {
+            cancelSearch(generation);
+        }
     }
 
     /**
@@ -621,11 +733,111 @@ public class OSMScoutClient {
      * Render the current map view to an ARGB pixel array, with optional route,
      * track, and POI marker overlays.
      * <p>
-     * Same as {@link #render(int, int, double, double, double, int)} but also draws a route
+     * Same as {@link #render(int, int, double, double, double, double, double)} but also draws a route
      * polyline, an imported track polyline, start/end markers, favorite markers, and
      * a selected-search marker on the map. The route, track, and favorite waypoints are
      * passed as parallel arrays of latitudes and longitudes. The selected search
      * coordinate uses {@code Double.NaN} for latitude to mean "no selection".
+     *
+     * @param width        viewport width in pixels
+     * @param height       viewport height in pixels
+     * @param lat          center latitude in degrees
+     * @param lon          center longitude in degrees
+     * @param angle        map rotation angle in radians (0 = north-up)
+     * @param magnification magnification scale factor (2^zoom level, 1 = world, fractional values supported)
+     * @param dpi          physical DPI of the display the frame is rendered for; {@code Double.NaN}
+     *                     or a non-positive value renders with the DPI configured on the client
+     * @param routeLats    array of route waypoint latitudes, or null for no route
+     * @param routeLons    array of route waypoint longitudes, or null for no route
+     * @param favoriteLats array of favorite latitudes, or null for no favorites
+     * @param favoriteLons array of favorite longitudes, or null for no favorites
+     * @param searchSelLat latitude of the selected search result, or {@code Double.NaN}
+     * @param searchSelLon longitude of the selected search result, ignored when no selection
+     * @param trackLats        array of imported track latitudes, or null for no track
+     * @param trackLons        array of imported track longitudes, or null for no track
+     * @return int[] ARGB pixel data, or null if not initialised or invalid params
+     */
+    public native int[] renderWithRouteAndPois(int width, int height,
+                                               double lat, double lon,
+                                               double angle,
+                                               double magnification,
+                                               double dpi,
+                                               double[] routeLats,
+                                               double[] routeLons,
+                                               double[] favoriteLats,
+                                               double[] favoriteLons,
+                                               double searchSelLat,
+                                               double searchSelLon,
+                                               double[] trackLats,
+                                               double[] trackLons);
+
+    /**
+     * Render the current map view directly into pixel storage the caller owns, with
+     * optional route, track, and POI marker overlays.
+     * <p>
+     * Runs the same rendering as
+     * {@link #renderWithRouteAndPois(int, int, double, double, double, double, double, double[], double[], double[], double[], double, double, double[], double[])}
+     * but writes the frame into {@code pixels} instead of allocating and returning an
+     * {@code int[]}, so the bridge allocates no frame-sized storage of its own on this
+     * path. Use this when the destination already owns its pixels — for example a
+     * reused Android bitmap buffer.
+     * <p>
+     * {@code pixels} must be a <b>direct</b> {@link ByteBuffer} (as returned by
+     * {@link ByteBuffer#allocateDirect(int)}) with a capacity of at least
+     * {@code width * height * 4} bytes; a non-direct or too small buffer is rejected and
+     * nothing is written. The frame is written as four bytes per pixel, {@code R, G, B, A} — the
+     * byte order a bitmap's own storage uses (the little-endian word {@code 0xAABBGGRR},
+     * e.g. an {@code ARGB_8888} bitmap read with {@code Bitmap.copyPixelsFromBuffer}).
+     * This is <b>not</b> the {@code 0xAARRGGBB} word layout the allocating entry point
+     * returns; each destination gets the layout it reads. Pixels the style leaves
+     * unpainted are opaque black.
+     * <p>
+     * The buffer belongs to the caller: the bridge writes it only while this call runs
+     * and keeps no reference to it afterwards, so the caller may release, reuse or
+     * display it once the call returns. The bridge does not guard the storage against
+     * concurrent use, so one buffer must not serve two renders at once.
+     *
+     * @param width        viewport width in pixels
+     * @param height       viewport height in pixels
+     * @param lat          center latitude in degrees
+     * @param lon          center longitude in degrees
+     * @param angle        map rotation angle in radians (0 = north-up)
+     * @param magnification magnification scale factor (2^zoom level, 1 = world, fractional values supported)
+     * @param dpi          physical DPI of the display the frame is rendered for; {@code Double.NaN}
+     *                     or a non-positive value renders with the DPI configured on the client
+     * @param routeLats    array of route waypoint latitudes, or null for no route
+     * @param routeLons    array of route waypoint longitudes, or null for no route
+     * @param favoriteLats array of favorite latitudes, or null for no favorites
+     * @param favoriteLons array of favorite longitudes, or null for no favorites
+     * @param searchSelLat latitude of the selected search result, or {@code Double.NaN}
+     * @param searchSelLon longitude of the selected search result, ignored when no selection
+     * @param trackLats        array of imported track latitudes, or null for no track
+     * @param trackLons        array of imported track longitudes, or null for no track
+     * @param pixels       direct buffer of at least {@code width * height * 4} bytes that
+     *                     receives the frame as {@code R, G, B, A} bytes per pixel
+     * @return true if a frame was written, false for an unusable request (not initialised,
+     *         invalid viewport or magnification, or a missing, non-direct or too small buffer)
+     */
+    public native boolean renderInto(int width, int height,
+                                     double lat, double lon,
+                                     double angle,
+                                     double magnification,
+                                     double dpi,
+                                     double[] routeLats,
+                                     double[] routeLons,
+                                     double[] favoriteLats,
+                                     double[] favoriteLons,
+                                     double searchSelLat,
+                                     double searchSelLon,
+                                     double[] trackLats,
+                                     double[] trackLons,
+                                     ByteBuffer pixels);
+
+    /**
+     * Render the current map view to an ARGB pixel array, with optional route,
+     * track, and POI marker overlays.
+     * <p>
+     * Convenience overload that renders with the DPI configured on the client.
      *
      * @param width        viewport width in pixels
      * @param height       viewport height in pixels
@@ -643,24 +855,28 @@ public class OSMScoutClient {
      * @param trackLons        array of imported track longitudes, or null for no track
      * @return int[] ARGB pixel data, or null if not initialised or invalid params
      */
-    public native int[] renderWithRouteAndPois(int width, int height,
-                                               double lat, double lon,
-                                               double angle,
-                                               double magnification,
-                                               double[] routeLats,
-                                               double[] routeLons,
-                                               double[] favoriteLats,
-                                               double[] favoriteLons,
-                                               double searchSelLat,
-                                               double searchSelLon,
-                                               double[] trackLats,
-                                               double[] trackLons);
+    public int[] renderWithRouteAndPois(int width, int height,
+                                        double lat, double lon,
+                                        double angle,
+                                        double magnification,
+                                        double[] routeLats,
+                                        double[] routeLons,
+                                        double[] favoriteLats,
+                                        double[] favoriteLons,
+                                        double searchSelLat,
+                                        double searchSelLon,
+                                        double[] trackLats,
+                                        double[] trackLons) {
+        return renderWithRouteAndPois(width, height, lat, lon, angle, magnification, Double.NaN,
+                                      routeLats, routeLons, favoriteLats, favoriteLons,
+                                      searchSelLat, searchSelLon, trackLats, trackLons);
+    }
 
     /**
      * Render the current map view to an ARGB pixel array, with optional route overlay.
      * <p>
      * Convenience overload that calls {@link #renderWithRouteAndPois(int, int, double,
-     * double, double, double, double[], double[], double[], double[], double, double, double[], double[])}
+     * double, double, double, double, double[], double[], double[], double[], double, double, double[], double[])}
      * with no track, favorite, or selected-search markers.
      *
      * @param width        viewport width in pixels
@@ -718,6 +934,33 @@ public class OSMScoutClient {
                                           double magnification, double dpi,
                                           double angle,
                                           double lat, double lon);
+
+    /**
+     * Render the artwork the active stylesheet gives a single object type, into a
+     * square, without a map frame.
+     * <p>
+     * The type's icon style comes from the active stylesheet, resolved through
+     * the stylesheet's own selectors with no object loaded. A type whose rule
+     * selects on a tag value (a religion, a brand) therefore has no artwork and
+     * yields null rather than an invented icon. The call needs no position, no
+     * viewport and no projection of the caller's: it uses a projection of its
+     * own. {@link #setPreferSymbolIcons(boolean)} decides between the entry's
+     * vector symbol and its raster icon, on the same terms as a map render.
+     * <p>
+     * One element per pixel: the word {@code 0xAARRGGBB} with straight, not
+     * premultiplied, channels, index {@code y * sizePx + x} for the pixel at
+     * {@code (x, y)} — the layout {@link #renderWithRouteAndPois} returns. The
+     * artwork is centred in the square and scaled to fit it, and a pixel nothing
+     * was painted into is fully transparent.
+     *
+     * @param objectType name of the type in the loaded type configuration, e.g.
+     *                   {@code "amenity_parking"}; the name must be known to it
+     * @param sizePx     width and height of the square in pixels, from 1 to 512
+     * @return {@code sizePx * sizePx} pixels in {@code 0xAARRGGBB} layout, or
+     *         null when the type has no artwork, when its artwork cannot be
+     *         produced, or when the request is unusable
+     */
+    public native int[] renderTypeIcon(String objectType, int sizePx);
 
     // ---- Favorite Locations ----
 

@@ -53,6 +53,8 @@ set(HEADER_FILES
 
 set(SOURCE_FILES
     src/osmscoutimport/AreaIndexGenerator.cpp
+    src/osmscoutimport/AreaWayIdReferenceRule.cpp
+    src/osmscoutimport/BoundaryTypes.cpp
     src/osmscoutimport/GenAreaAreaIndex.cpp
     src/osmscoutimport/GenAreaNodeIndex.cpp
     src/osmscoutimport/GenAreaWayIndex.cpp

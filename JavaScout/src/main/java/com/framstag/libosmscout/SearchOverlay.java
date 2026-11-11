@@ -43,6 +43,14 @@ public class SearchOverlay extends StackPane {
     private static final int DEBOUNCE_MS = 400;
 
     private final OSMScoutClient client;
+
+    /**
+     * The place slot's running search request. Beginning a request supersedes the
+     * previous one, and the Cancel button cancels exactly this generation, so a
+     * cancellation arriving after a newer query started is a no-op (spec:
+     * `search-cancellation`). Written before the search task starts.
+     */
+    private volatile long searchGeneration;
     private final UIScale uiScale;
     private final OverlayLayout overlayLayout;
     private final Runnable onNavigate;
@@ -178,7 +186,7 @@ public class SearchOverlay extends StackPane {
         cancelButton.setMaxHeight(controlHeight);
         cancelButton.setStyle("-fx-font-size: " + uiScale.baseFontSize() + "px;");
         cancelButton.setOnAction(e -> {
-            client.cancelSearch();
+            client.cancelSearch(searchGeneration);
             collapse();
         });
 
@@ -205,12 +213,9 @@ public class SearchOverlay extends StackPane {
                         line2 = "   \u2192 " + item.adminRegionHierarchy;
                     }
 
-                    // Line 3: object type + offset
-                    String line3 = "";
-                    if (item.objectTypeName != null && !item.objectTypeName.isEmpty()) {
-                        String refType = item.type != null ? item.type : "object";
-                        line3 = "   - " + refType + " " + item.objectFileOffset + " " + item.objectTypeName;
-                    }
+                    // Line 3: object type + offset, named by the type description when the
+                    // database carries one
+                    String line3 = typeLine(item);
 
                     double distanceMeters = LocationSearchRanker.haversine(
                             mapCenterLat, mapCenterLon, item.lat, item.lon);
@@ -345,6 +350,26 @@ public class SearchOverlay extends StackPane {
     private void updatePanelAlignment() {
         double windowWidth = getScene() != null ? getScene().getWidth() : uiScale.panelSmallMaxWidth();
         overlayLayout.anchorPanel(this, searchPanel, windowWidth);
+    }
+
+    /**
+     * Return the line that names the object type of a result: its description when the client
+     * reported one, the technical type name otherwise. Empty when the result carries neither.
+     *
+     * @param item search result
+     * @return the rendered line, or an empty string when the result has no object type
+     */
+    static String typeLine(LocationEntry item) {
+        String typeLabel = DescriptionLanguage.typeLabel(item.objectTypeDescription,
+                                                        item.objectTypeName);
+
+        if (typeLabel.isEmpty()) {
+            return "";
+        }
+
+        String refType = item.type != null ? item.type : "object";
+
+        return "   - " + refType + " " + item.objectFileOffset + " " + typeLabel;
     }
 
     private String buildLine1(LocationEntry entry) {
@@ -537,13 +562,17 @@ public class SearchOverlay extends StackPane {
             return;
         }
 
+        // Begin this query's request: beginning it supersedes the predecessor (which then
+        // stops at its next abort check), and the Cancel button cancels this generation.
+        searchGeneration = client.beginSearch(OSMScoutClient.SEARCH_SLOT_PLACES);
+
         Task<List<LocationEntry>> searchTask = new Task<>() {
             @Override
             protected List<LocationEntry> call() {
                 // Scope the search to the current map region (OSMScout2 parity);
                 // falls back to the whole database when no region is resolvable.
                 String defaultRegion = client.getRegion(mapCenterLat, mapCenterLon);
-                LocationEntry[] results = client.searchLocations(query, DEFAULT_LIMIT, defaultRegion, false);
+                LocationEntry[] results = client.searchLocations(query, DEFAULT_LIMIT, defaultRegion, searchGeneration);
                 if (results == null) {
                     return List.of();
                 }

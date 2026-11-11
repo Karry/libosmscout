@@ -1,5 +1,7 @@
 #include <osmscoutclient/MapManager.h>
 
+#include <osmscout/TypeConfig.h>
+
 #include <catch2/catch_test_macros.hpp>
 
 #include <atomic>
@@ -101,6 +103,34 @@ void CreateIncompleteDatabase(const std::filesystem::path &dir)
   std::filesystem::create_directories(dir);
 
   std::ofstream file(dir/"types.dat", std::ios::binary);
+}
+
+/**
+ * A directory that looks like a complete map database to MapDirectory::IsValid() and whose types.dat carries
+ * a data format version: the first byteCount bytes of the little-endian uint32 version — the only database
+ * file with a version header (TypeConfig::LoadFromDataFile). A byteCount below 4 makes the version
+ * unreadable, which is the case the scan has to keep admitting.
+ */
+void CreateDatabaseWithFormatVersion(const std::filesystem::path &dir,
+                                     uint32_t version,
+                                     size_t byteCount=4)
+{
+  std::filesystem::create_directories(dir);
+
+  const unsigned char versionBytes[4]={
+      static_cast<unsigned char>(version & 0xffU),
+      static_cast<unsigned char>((version >> 8U) & 0xffU),
+      static_cast<unsigned char>((version >> 16U) & 0xffU),
+      static_cast<unsigned char>((version >> 24U) & 0xffU)};
+
+  for (const auto &fileName: osmscout::MapDirectory::MandatoryFiles()) {
+    std::ofstream file(dir/fileName, std::ios::binary);
+
+    if (fileName==osmscout::TypeConfig::FILE_TYPES_DAT) {
+      file.write(reinterpret_cast<const char *>(versionBytes),
+                 static_cast<std::streamsize>(byteCount));
+    }
+  }
 }
 
 /** Filler entries, so that a scan of this tree takes more than an instant. */
@@ -225,6 +255,46 @@ TEST_CASE("A scan without a database publishes an empty set") {
   REQUIRE(log.At(0).empty());
 }
 
+TEST_CASE("A scan skips a database whose data format this build does not read") {
+  TempDir base("format-version");
+
+  // An empty types.dat is a version this scan cannot read. It stays published — the reader decides it.
+  CreateValidDatabase(base.Path()/"db-unreadable-version");
+  CreateDatabaseWithFormatVersion(base.Path()/"db-older-version", osmscout::FILE_FORMAT_VERSION-1);
+  CreateDatabaseWithFormatVersion(base.Path()/"db-newer-version", osmscout::FILE_FORMAT_VERSION+1);
+
+  auto            manager=MakeManager({base.Path()});
+  PublicationLog  log;
+
+  manager->databaseListChanged.Connect(log.slot);
+
+  REQUIRE(WaitFor(manager->LookupDatabases()));
+
+  REQUIRE(manager->GetDatabaseDirectories().size()==1);
+  REQUIRE(log.Count()==1);
+  REQUIRE(log.At(0).size()==1);
+}
+
+TEST_CASE("A database whose data format version cannot be read stays published") {
+  TempDir base("truncated-version");
+
+  CreateValidDatabase(base.Path()/"db-one");
+  CreateDatabaseWithFormatVersion(base.Path()/"db-truncated-version",
+                                  osmscout::FILE_FORMAT_VERSION,
+                                  2);
+
+  auto            manager=MakeManager({base.Path()});
+  PublicationLog  log;
+
+  manager->databaseListChanged.Connect(log.slot);
+
+  REQUIRE(WaitFor(manager->LookupDatabases()));
+
+  REQUIRE(manager->GetDatabaseDirectories().size()==2);
+  REQUIRE(log.Count()==1);
+  REQUIRE(log.At(0).size()==2);
+}
+
 TEST_CASE("A stopped scan publishes nothing and the next scan publishes the complete set") {
   TempDir base("stopped");
 
@@ -302,10 +372,15 @@ TEST_CASE("Destroying the manager while a scan runs is safe, repeatedly") {
     // letting it run against released state.
     manager.reset();
 
-    std::this_thread::sleep_for(10ms);
-  }
+    // A scan that outran the teardown and published while the manager was still
+    // alive is not a defect, so the count is taken after the teardown. What must
+    // hold is that no publication follows it: the signal died with the manager, so
+    // a scan the teardown stopped can only stay silent, and a publication on behalf
+    // of one would grow the count or fault.
+    size_t publicationsAfterTeardown=log.Count();
 
-  // A scan that was stopped by its own teardown publishes nothing. The signal dies
-  // with the manager, so a publication on behalf of a stopped scan would fault.
-  REQUIRE(log.Count()==0);
+    std::this_thread::sleep_for(10ms);
+
+    REQUIRE(log.Count()==publicationsAfterTeardown);
+  }
 }

@@ -27,6 +27,7 @@
 #include <mutex>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #if defined(__WIN32__) || defined(WIN32)
   #include <cairo.h>
@@ -39,6 +40,21 @@
 #if defined(OSMSCOUT_MAP_CAIRO_HAVE_LIB_PANGO)
   #include <pango/pangocairo.h>
   #include <pango/pango-glyph.h>
+#endif
+
+/**
+ * Whether a configured font file can be drawn as the face it holds without a text stack that
+ * resolves fonts by family: the variant without Pango loads the file with FreeType and draws
+ * that face through the FreeType font backend of cairo. Internal to this backend; the feature
+ * macros above are its inputs.
+ */
+#if !defined(OSMSCOUT_MAP_CAIRO_HAVE_LIB_PANGO) && \
+    defined(OSMSCOUT_MAP_CAIRO_HAVE_LIB_FREETYPE) && \
+    defined(OSMSCOUT_MAP_CAIRO_HAVE_LIB_CAIRO_FT)
+  #define OSMSCOUT_MAP_CAIRO_LOAD_FONT_FILE 1
+
+  #include <ft2build.h>
+  #include FT_FREETYPE_H
 #endif
 
 #include <osmscoutmapcairo/MapCairoImportExport.h>
@@ -63,7 +79,10 @@ namespace osmscout {
 #else
     using CairoFont = cairo_scaled_font_t*;
     struct CairoNativeLabel {
-      std::wstring          wstr;
+      std::wstring                       wstr;        //!< The full text of the label
+      std::vector<std::wstring>          lines;       //!< The lines the text was wrapped into (one line when wrapping is off)
+      std::vector<cairo_text_extents_t>  lineExtents; //!< Ink extents of every line, relative to its baseline start
+      double                             lineAdvance{0}; //!< Distance of the baselines of two consecutive lines
       CairoFont             font;
       cairo_text_extents_t  textExtents;
       cairo_font_extents_t  fontExtents;
@@ -127,10 +146,55 @@ namespace osmscout {
 
     std::mutex                             mutex;            //! Mutex for locking concurrent calls
 
+#if defined(OSMSCOUT_MAP_CAIRO_HAVE_LIB_PANGO)
+    PangoFontMap                           *fontMap{nullptr};       //!< Font map of this painter, holding the configured font file
+    PangoContext                           *fontContext{nullptr};   //!< Context of that map, shared by the layouts of this painter
+    std::string                            fontMapFile;             //!< Font file added to the font map, empty if none was
+#endif
+
+#if defined(OSMSCOUT_MAP_CAIRO_LOAD_FONT_FILE)
+    FT_Library                             ftLibrary{nullptr}; //!< FreeType library of the fonts loaded from a configured file
+    std::vector<FT_Face>                   ftFaces;            //!< Faces of that library, kept alive for the scaled fonts
+    std::vector<cairo_font_face_t*>        loadedFontFaces;    //!< Font faces built from those faces
+#endif
+
   private:
     CairoFont GetFont(const Projection& projection,
                  const MapParameter& parameter,
                  double fontSize);
+
+#if defined(OSMSCOUT_MAP_CAIRO_HAVE_LIB_PANGO)
+    /**
+     * The font map of this painter, created and kept in step with the configured font.
+     *
+     * The map belongs to the painter and a configured font file is added to it, so that the
+     * family the file holds resolves to that file. The addition is confined to that map: the
+     * font map API adds a file to the configuration of that map, not to the font configuration
+     * of the process (where it is available at all).
+     */
+    PangoFontMap* GetFontMap(const MapParameter& parameter);
+
+    /**
+     * Create a layout on the font map of this painter and bind it to the current drawing
+     * target, so that the layout takes its scale and its font options from the target exactly
+     * as a layout created with pango_cairo_create_layout() would.
+     */
+    PangoLayout* CreateLayout(const MapParameter& parameter);
+
+    /**
+     * Release the font map and its context, if this painter has them.
+     */
+    void ReleaseFontMap();
+#endif
+
+#if defined(OSMSCOUT_MAP_CAIRO_LOAD_FONT_FILE)
+    /**
+     * Build a cairo font face for the face a configured font file holds. The face and its
+     * FreeType library are kept by this painter, so that the scaled fonts created from them stay
+     * usable; a null return means that the caller has to resolve a family instead.
+     */
+    cairo_font_face_t* CreateFontFaceFromFile(const std::string& fontFile);
+#endif
 
     /**
      * Return the environment the label measurements of this painter depend on: the state that
@@ -258,6 +322,19 @@ namespace osmscout {
                             const MapParameter& parameter,
                             const std::string& text,
                             double fontSize) override;
+
+    /**
+     * Measure a label as the renderer lays it out, including the line wrapping the map parameter
+     * configures (the character and pixel bounds GetProposedLabelWidth reads). `objectWidth` is the
+     * width of the object the label belongs to, 0 for a point label; the text is wrapped only when
+     * `enableWrapping` is true.
+     */
+    TextMetrics MeasureText(const Projection& projection,
+                            const MapParameter& parameter,
+                            const std::string& text,
+                            double fontSize,
+                            double objectWidth,
+                            bool enableWrapping);
 
     bool DrawMap(const Projection& projection,
                  const MapParameter& parameter,

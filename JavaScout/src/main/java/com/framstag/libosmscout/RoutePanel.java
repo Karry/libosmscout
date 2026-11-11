@@ -5,7 +5,7 @@ import com.framstag.libosmscout.client.LocationEntry;
 import com.framstag.libosmscout.client.OSMScoutClient;
 import com.framstag.libosmscout.client.RouteCallback;
 import com.framstag.libosmscout.client.RouteEntry;
-import com.framstag.libosmscout.client.RouteInstruction;
+import com.framstag.libosmscout.client.RouteStep;
 import com.framstag.libosmscout.client.RoutingProfile;
 import com.framstag.libosmscout.client.Vehicle;
 
@@ -698,10 +698,14 @@ public class RoutePanel extends StackPane {
 
     private void showDescription(RouteEntry route) {
         instructionBox.getChildren().clear();
-        if (route.descriptions != null && route.descriptions.length > 0) {
-            for (String d : route.descriptions) {
-                if (d == null || d.startsWith("---")) continue;
-                instructionBox.getChildren().add(createInstructionCard(d, ""));
+
+        // One row per published route step, taken from the route result's own steps. A result
+        // without steps falls back to its description lines inside the builder.
+        java.util.List<RouteRowBuilder.Row> rows = RouteRowBuilder.buildRows(route);
+
+        if (!rows.isEmpty()) {
+            for (RouteRowBuilder.Row row : rows) {
+                instructionBox.getChildren().add(createInstructionCard(row.primary, row.secondary));
             }
         } else {
             // Fallback: show distance/duration
@@ -1000,17 +1004,19 @@ public class RoutePanel extends StackPane {
     }
 
     /**
-     * Update the next-turn display with the current instruction.
+     * Update the next-turn display with the steps of the route ahead.
      * Called from MainController on each position update.
      */
-    public void updateInstructionList(RouteInstruction[] instructions) {
-        if (instructions == null || instructions.length == 0) return;
+    public void updateInstructionList(RouteStep[] steps) {
+        if (steps == null || steps.length == 0) return;
 
         instructionBox.getChildren().clear();
-        for (RouteInstruction instr : instructions) {
+        for (RouteStep step : steps) {
+            if (step == null) continue;
+
             instructionBox.getChildren().add(createInstructionCard(
-                instr.shortDescription + " \u2192 " + formatDistance(instr.distanceTo),
-                instr.streetName));
+                NextTurnText.line(step) + " \u2192 " + formatDistance(NextTurnText.distanceTo(step)),
+                NextTurnText.street(step)));
         }
         instructionScroll.setVisible(true);
     }

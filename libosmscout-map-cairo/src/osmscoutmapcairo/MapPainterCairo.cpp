@@ -26,6 +26,9 @@
 #include <string>
 #include <utility>
 
+#include <osmscoutmap/FontNameResolution.h>
+#include <osmscoutmap/PatternLookup.h>
+
 #include <osmscoutmapcairo/LoaderPNG.h>
 #include <osmscoutmapcairo/SymbolRendererCairo.h>
 
@@ -33,7 +36,79 @@
 #include <osmscout/system/Math.h>
 #include <osmscout/util/String.h>
 
+#if defined(OSMSCOUT_MAP_CAIRO_LOAD_FONT_FILE)
+  #include <cairo-ft.h>
+#endif
+
+#if defined(OSMSCOUT_MAP_CAIRO_HAVE_LIB_PANGO)
+  #if !PANGO_VERSION_CHECK(1, 56, 0) && defined(OSMSCOUT_MAP_CAIRO_HAVE_LIB_FONTCONFIG)
+    #include <fontconfig/fontconfig.h>
+  #endif
+#endif
+
 namespace osmscout {
+
+#if defined(OSMSCOUT_MAP_CAIRO_HAVE_LIB_PANGO)
+
+  namespace {
+
+    /**
+     * Make a font file resolvable to the given font map, so that the family the file holds
+     * resolves to that file.
+     *
+     * Pango 1.56 adds a font file to the configuration of a font map. Older Pango has no such
+     * API, so the file has to go into the font configuration of the process instead, which every
+     * font map of the process shares - the addition is then not confined to this painter.
+     */
+    bool AddFontFileToMap(PangoFontMap* map,
+                          const std::string& file,
+                          std::string& error)
+    {
+#if PANGO_VERSION_CHECK(1, 56, 0)
+      GError* pangoError=nullptr;
+
+      if (pango_font_map_add_font_file(map,
+                                      file.c_str(),
+                                      &pangoError)) {
+        return true;
+      }
+
+      if (pangoError!=nullptr) {
+        error=pangoError->message;
+        g_error_free(pangoError);
+      }
+      else {
+        error="the font map did not accept the file";
+      }
+
+      return false;
+#elif defined(OSMSCOUT_MAP_CAIRO_HAVE_LIB_FONTCONFIG)
+      if (!FcInit()) {
+        error="the font configuration cannot be initialized";
+
+        return false;
+      }
+
+      if (FcConfigAppFontAddFile(nullptr,
+                                reinterpret_cast<const FcChar8*>(file.c_str()))) {
+        return true;
+      }
+
+      error="the font configuration did not accept the file";
+
+      return false;
+#else
+      (void)map;
+      (void)file;
+
+      error="this build cannot make a font file resolvable to the text stack";
+
+      return false;
+#endif
+    }
+  }
+
+#endif
 
   /* Returns Euclidean distance between two points */
   static double CalculatePointDistance(cairo_path_data_t *a, cairo_path_data_t *b)
@@ -270,8 +345,11 @@ namespace osmscout {
 
   MapPainterCairo::~MapPainterCairo()
   {
-    for (const auto &image : images) {
-      if (image != nullptr) {
+#if defined(OSMSCOUT_MAP_CAIRO_HAVE_LIB_PANGO)
+    ReleaseFontMap();
+#endif
+
+    for (const auto &image : images) {      if (image != nullptr) {
         cairo_surface_destroy(image);
       }
     }
@@ -297,6 +375,26 @@ namespace osmscout {
 #endif
       }
     }
+
+#if defined(OSMSCOUT_MAP_CAIRO_LOAD_FONT_FILE)
+    // After the scaled fonts that use them: the faces loaded from a configured font file, and the
+    // FreeType library they were loaded with
+    for (auto *fontFace : loadedFontFaces) {
+      if (fontFace != nullptr) {
+        cairo_font_face_destroy(fontFace);
+      }
+    }
+
+    for (auto face : ftFaces) {
+      if (face != nullptr) {
+        FT_Done_Face(face);
+      }
+    }
+
+    if (ftLibrary!=nullptr) {
+      FT_Done_FreeType(ftLibrary);
+    }
+#endif
   }
 
   MapPainterCairo::CairoFont MapPainterCairo::GetFont(const Projection &projection,
@@ -319,9 +417,13 @@ namespace osmscout {
       return f->second;
     }
 
+    // A configured font file names the face it holds, so an interface resolving by family serves
+    // that face instead of whatever the host falls back to for the path it was given
+    FontNameResolution::Result resolved=FontNameResolution::Resolve(parameter.GetFontName());
+
     PangoFontDescription *font = pango_font_description_new();
 
-    pango_font_description_set_family(font, parameter.GetFontName().c_str());
+    pango_font_description_set_family(font, resolved.fontName.c_str());
     pango_font_description_set_absolute_size(font, fontSize * PANGO_SCALE);
 
     resolvedFontCount++;
@@ -349,9 +451,24 @@ namespace osmscout {
     cairo_font_options_t *options;
     cairo_scaled_font_t  *scaledFont;
 
-    fontFace=cairo_toy_font_face_create(parameter.GetFontName().c_str(),
-                                        CAIRO_FONT_SLANT_NORMAL,
-                                        CAIRO_FONT_WEIGHT_NORMAL);
+    // A configured font file names the face it holds. Where this variant can load it, it draws
+    // that face; the configured name is not a family name and asking for it as one would serve
+    // whatever the host substitutes.
+    FontNameResolution::Result resolved=FontNameResolution::Resolve(parameter.GetFontName());
+
+    fontFace=nullptr;
+
+#if defined(OSMSCOUT_MAP_CAIRO_LOAD_FONT_FILE)
+    if (!resolved.fontFile.empty()) {
+      fontFace=CreateFontFaceFromFile(resolved.fontFile);
+    }
+#endif
+
+    if (fontFace==nullptr) {
+      fontFace=cairo_toy_font_face_create(resolved.fontName.c_str(),
+                                          CAIRO_FONT_SLANT_NORMAL,
+                                          CAIRO_FONT_WEIGHT_NORMAL);
+    }
 
     cairo_matrix_init_scale(&scaleMatrix,fontSize,fontSize);
     cairo_matrix_init_identity(&transformMatrix);
@@ -378,6 +495,141 @@ namespace osmscout {
   {
     return resolvedFontCount;
   }
+
+#if defined(OSMSCOUT_MAP_CAIRO_LOAD_FONT_FILE)
+
+  cairo_font_face_t* MapPainterCairo::CreateFontFaceFromFile(const std::string& fontFile)
+  {
+    if (ftLibrary==nullptr &&
+        FT_Init_FreeType(&ftLibrary)!=0) {
+      log.Error() << "Cannot initialize FreeType, the configured font file '" << fontFile
+                  << "' cannot be loaded";
+
+      return nullptr;
+    }
+
+    FT_Face face=nullptr;
+
+    if (FT_New_Face(ftLibrary,
+                    fontFile.c_str(),
+                    0,
+                    &face)!=0) {
+      log.Error() << "Cannot load a font face from the configured font file '" << fontFile << "'";
+
+      return nullptr;
+    }
+
+    cairo_font_face_t *fontFace=cairo_ft_font_face_create_for_ft_face(face,
+                                                                      0);
+
+    if (fontFace==nullptr) {
+      log.Error() << "Cannot create a font face from the configured font file '" << fontFile << "'";
+
+      FT_Done_Face(face);
+
+      return nullptr;
+    }
+
+    // Kept for the lifetime of the painter: a scaled font created from this face uses the face,
+    // and the face uses the FreeType face and its library
+    ftFaces.push_back(face);
+    loadedFontFaces.push_back(fontFace);
+
+    return fontFace;
+  }
+
+#endif
+
+#if defined(OSMSCOUT_MAP_CAIRO_HAVE_LIB_PANGO)
+
+  void MapPainterCairo::ReleaseFontMap()
+  {
+    if (fontContext!=nullptr) {
+      g_object_unref(fontContext);
+      fontContext=nullptr;
+    }
+
+    if (fontMap!=nullptr) {
+      g_object_unref(fontMap);
+      fontMap=nullptr;
+    }
+  }
+
+  PangoFontMap* MapPainterCairo::GetFontMap(const MapParameter& parameter)
+  {
+    FontNameResolution::Result resolved=FontNameResolution::Resolve(parameter.GetFontName());
+
+    if (fontMap!=nullptr &&
+        fontMapFile==resolved.fontFile) {
+      return fontMap;
+    }
+
+    ReleaseFontMap();
+
+    fontMap=pango_cairo_font_map_new();
+    fontMapFile=resolved.fontFile;
+
+    if (fontMap==nullptr) {
+      log.Error() << "Cannot create a font map, no text can be laid out";
+
+      return nullptr;
+    }
+
+    fontContext=pango_font_map_create_context(fontMap);
+
+    if (fontContext==nullptr) {
+      log.Error() << "Cannot create the context of the font map, no text can be laid out";
+
+      ReleaseFontMap();
+
+      return nullptr;
+    }
+
+    if (!fontMapFile.empty()) {
+      std::string error;
+
+      if (!AddFontFileToMap(fontMap,
+                            fontMapFile,
+                            error)) {
+        // Reported once per configured font file: the map is kept until the configuration
+        // changes, so this is not reached again for the same file
+        log.Error() << "Cannot make the configured font file '" << fontMapFile
+                    << "' resolvable to the text stack: " << error;
+      }
+    }
+
+    return fontMap;
+  }
+
+  PangoLayout* MapPainterCairo::CreateLayout(const MapParameter& parameter)
+  {
+    if (GetFontMap(parameter)!=nullptr &&
+        fontContext!=nullptr) {
+      PangoLayout* layout=pango_layout_new(fontContext);
+
+      if (layout!=nullptr) {
+        if (draw!=nullptr) {
+          // Take the scale and the font options of the drawing target, as a layout created
+          // with pango_cairo_create_layout() would
+          pango_cairo_update_layout(draw,
+                                    layout);
+        }
+
+        return layout;
+      }
+    }
+
+    if (draw==nullptr) {
+      return nullptr;
+    }
+
+    log.Warn() << "Cannot create a layout on the font map of this painter, "
+                  "falling back to the layout of the drawing target";
+
+    return pango_cairo_create_layout(draw);
+  }
+
+#endif
 
   void MapPainterCairo::SetLineAttributes(const Color &color,
                                           double width,
@@ -549,9 +801,15 @@ namespace osmscout {
       return true;
     }
 
-    for (const auto & path : parameter.GetPatternPaths()) {
-      std::string filename = path + style.GetPatternName() + ".png";
+    const std::string patternName=style.GetPatternName();
+    std::string       filename;
 
+    auto status=PatternLookup::Resolve(parameter.GetPatternPaths(),
+                                       patternName,
+                                       ".png",
+                                       filename);
+
+    if (status==PatternLookup::Status::Found) {
       cairo_surface_t *image = osmscout::LoadPNG(filename);
 
       if (image != nullptr) {
@@ -577,9 +835,16 @@ namespace osmscout {
 
         return true;
       }
+
+      log.Error() << "ERROR while loading pattern image '" << filename << "'";
+    }
+    else {
+      log.Error() << PatternLookup::Describe(parameter.GetPatternPaths(),
+                                             patternName,
+                                             ".png",
+                                             status);
     }
 
-    log.Error() << "ERROR while loading pattern image '" << style.GetPatternName() << "'";
     style.SetPatternId(0);
 
     return false;
@@ -804,7 +1069,7 @@ namespace osmscout {
                                                                        bool /*contourLabel*/)
   {
     auto label = std::make_shared<MapPainterCairo::CairoLabel>(
-        std::shared_ptr<PangoLayout>(pango_cairo_create_layout(draw), g_object_unref));
+        std::shared_ptr<PangoLayout>(CreateLayout(parameter), g_object_unref));
 
     CairoFont font=GetFont(projection,
                            parameter,
@@ -926,26 +1191,33 @@ namespace osmscout {
   {
     std::vector<Glyph<MapPainterCairo::CairoNativeGlyph>> result;
 
-    double horizontalOffset = 0;
-    for (size_t ch = 0; ch < label.wstr.length(); ch++){
-      result.emplace_back();
+    double verticalOffset = 0;
 
-      result.back().glyph.character = WStringToUTF8String(label.wstr.substr(ch,1));
-      result.back().glyph.font = label.font;
+    for (const auto& line : label.lines) {
+      double horizontalOffset = 0;
 
-      cairo_text_extents_t  textExtents;
-      cairo_scaled_font_text_extents(label.font,
-                                     result.back().glyph.character.c_str(),
-                                     &textExtents);
+      for (size_t ch = 0; ch < line.length(); ch++){
+        result.emplace_back();
 
-      result.back().glyph.width = textExtents.width;
-      result.back().glyph.height = textExtents.height;
-      result.back().glyph.xBearing = textExtents.x_bearing;
-      result.back().glyph.yBearing = textExtents.y_bearing;
+        result.back().glyph.character = WStringToUTF8String(line.substr(ch,1));
+        result.back().glyph.font = label.font;
 
-      result.back().position=Vertex2D(horizontalOffset,0);
+        cairo_text_extents_t  textExtents;
+        cairo_scaled_font_text_extents(label.font,
+                                       result.back().glyph.character.c_str(),
+                                       &textExtents);
 
-      horizontalOffset += textExtents.x_advance;
+        result.back().glyph.width = textExtents.width;
+        result.back().glyph.height = textExtents.height;
+        result.back().glyph.xBearing = textExtents.x_bearing;
+        result.back().glyph.yBearing = textExtents.y_bearing;
+
+        result.back().position=Vertex2D(horizontalOffset,verticalOffset);
+
+        horizontalOffset += textExtents.x_advance;
+      }
+
+      verticalOffset += label.lineAdvance;
     }
 
     return result;
@@ -980,12 +1252,104 @@ namespace osmscout {
     cairo_set_matrix(draw, &matrix);
   }
 
+  /**
+   * Ink extents of a text string drawn with the given font, relative to the baseline
+   * start point of the string
+   */
+  static cairo_text_extents_t CairoTextExtents(MapPainterCairo::CairoFont font,
+                                               const std::wstring& text)
+  {
+    cairo_text_extents_t extents;
+
+    cairo_scaled_font_text_extents(font,
+                                   WStringToUTF8String(text).c_str(),
+                                   &extents);
+
+    return extents;
+  }
+
+  static bool IsCairoLabelSpace(wchar_t c)
+  {
+    return c==L' ' || c==L'\t' || c==L'\n' || c==L'\r';
+  }
+
+  /**
+   * Greedily wrap the text at word boundaries into lines no wider than proposedWidth
+   * (in pixels, measured as the advance of the text).
+   *
+   * A word wider than the line is kept on a line of its own: a word is never broken, so a
+   * label of a single word stays on one line whatever the width is - the rule Pango's
+   * PANGO_WRAP_WORD follows too. A proposedWidth of 0 or less leaves the text unbroken on
+   * a single line.
+   */
+  static std::vector<std::wstring> WrapCairoText(MapPainterCairo::CairoFont font,
+                                                 const std::wstring& text,
+                                                 double proposedWidth)
+  {
+    std::vector<std::wstring> lines;
+
+    if (proposedWidth<=0.0) {
+      lines.push_back(text);
+
+      return lines;
+    }
+
+    std::vector<std::wstring> words;
+    std::wstring              word;
+
+    for (wchar_t c : text) {
+      if (IsCairoLabelSpace(c)) {
+        if (!word.empty()) {
+          words.push_back(word);
+          word.clear();
+        }
+      }
+      else {
+        word.push_back(c);
+      }
+    }
+
+    if (!word.empty()) {
+      words.push_back(word);
+    }
+
+    if (words.empty()) {
+      lines.push_back(text);
+
+      return lines;
+    }
+
+    std::wstring line;
+
+    for (const auto& current : words) {
+      if (line.empty()) {
+        line=current;
+
+        continue;
+      }
+
+      std::wstring candidate=line+L' '+current;
+
+      if (CairoTextExtents(font,candidate).x_advance<=proposedWidth) {
+        line=candidate;
+      }
+      else {
+        lines.push_back(line);
+        line=current;
+      }
+    }
+
+    lines.push_back(line);
+
+    return lines;
+  }
+
   std::shared_ptr<MapPainterCairo::CairoLabel> MapPainterCairo::Layout(const Projection& projection,
                                                                        const MapParameter& parameter,
                                                                        const std::string& text,
                                                                        double fontSize,
-                                                                       double /*objectWidth*/,
-                                                                       bool /*enableWrapping*/,
+                                                                       double objectWidth,
+                                                                       bool enableWrapping,
                                                                        bool /*contourLabel*/)
   {
     auto label = std::make_shared<MapPainterCairo::CairoLabel>();
@@ -1000,12 +1364,53 @@ namespace osmscout {
     cairo_scaled_font_text_extents(label->label.font,
                                    text.c_str(),
                                    &(label->label.textExtents));
+
+    // The line width the text is wrapped into. The bounds are the map parameters of the
+    // line wrapping (minimum and maximum character count, fit to area, fit to width), read
+    // by GetProposedLabelWidth, as the Qt and Skia backends read them too.
+    double proposedWidth=-1.0;
+
+    if (enableWrapping && !label->label.wstr.empty()) {
+      cairo_text_extents_t sampleExtents;
+
+      cairo_scaled_font_text_extents(label->label.font,
+                                     "abcdefghijklmnopqrstuvwxyz",
+                                     &sampleExtents);
+
+      proposedWidth=GetProposedLabelWidth(parameter,
+                                          sampleExtents.x_advance/26.0,
+                                          objectWidth,
+                                          label->label.wstr.size());
+    }
+
+    label->label.lines=WrapCairoText(label->label.font,
+                                     label->label.wstr,
+                                     proposedWidth);
+    label->label.lineAdvance=label->label.fontExtents.height;
+
     label->text=text;
     label->fontSize=fontSize;
+
+    double width=0.0;
+
+    label->label.lineExtents.reserve(label->label.lines.size());
+
+    for (const auto& line : label->label.lines) {
+      cairo_text_extents_t extents=CairoTextExtents(label->label.font,
+                                                    line);
+
+      label->label.lineExtents.push_back(extents);
+
+      width=std::max(width,extents.width);
+    }
+
     // label dimensions describe the ink extents of the drawn text (unlike the
-    // font box from fontExtents, which is text independent)
-    label->width=label->label.textExtents.width;
-    label->height=label->label.textExtents.height;
+    // font box from fontExtents, which is text independent). A wrapped label is as
+    // wide as its widest line and as tall as its lines above each other.
+    label->width=width;
+    label->height=(label->label.lines.size()<=1)
+                    ? label->label.textExtents.height
+                    : static_cast<double>(label->label.lines.size())*label->label.lineAdvance;
 
     return label;
   }
@@ -1018,6 +1423,19 @@ namespace osmscout {
                                            double fontSize)
   {
     return MeasureLabel(Layout(projection, parameter, text, fontSize, 0, false, false),
+                        [this](const CairoNativeGlyph& glyph) {
+                          return GlyphBoundingBox(glyph);
+                        });
+  }
+
+  TextMetrics MapPainterCairo::MeasureText(const Projection& projection,
+                                           const MapParameter& parameter,
+                                           const std::string& text,
+                                           double fontSize,
+                                           double objectWidth,
+                                           bool enableWrapping)
+  {
+    return MeasureLabel(Layout(projection, parameter, text, fontSize, objectWidth, enableWrapping, false),
                         [this](const CairoNativeGlyph& glyph) {
                           return GlyphBoundingBox(glyph);
                         });
@@ -1072,28 +1490,34 @@ namespace osmscout {
         cairo_fill(draw);
       }
 #else
-      // draw so that the ink of the text starts exactly at the label rectangle
-      // origin: convert ink bearings (relative to the baseline start point) into
-      // a pen position at the baseline
+      // draw so that the ink of every line starts inside the label rectangle: convert
+      // ink bearings (relative to the baseline start point) into a pen position at the
+      // baseline. A wrapped label draws one line per element of layout.lines, centred in
+      // the width the label rectangle spans, one line advance further down each time.
       cairo_set_scaled_font(draw, layout.font);
-      cairo_move_to(draw,
-                    labelRectangle.x - layout.textExtents.x_bearing,
-                    labelRectangle.y - layout.textExtents.y_bearing);
 
-      if (style->GetStyle()==TextStyle::normal) {
-        cairo_show_text(draw,label.text.c_str());
-        cairo_stroke(draw);
-      }
-      else {
-        cairo_set_scaled_font(draw, layout.font);
-        cairo_text_path(draw,label.text.c_str());
+      for (size_t lineIndex = 0; lineIndex < layout.lines.size(); lineIndex++) {
+        const cairo_text_extents_t &lineExtents=layout.lineExtents[lineIndex];
+        const std::string          lineText=WStringToUTF8String(layout.lines[lineIndex]);
 
-        cairo_set_source_rgba(draw,1,1,1,label.alpha);
-        cairo_set_line_width(draw,2.0);
-        cairo_stroke_preserve(draw);
+        cairo_move_to(draw,
+                      labelRectangle.x+(labelRectangle.width-lineExtents.width)/2.0-lineExtents.x_bearing,
+                      labelRectangle.y+static_cast<double>(lineIndex)*layout.lineAdvance-lineExtents.y_bearing);
 
-        cairo_set_source_rgba(draw,r,g,b,label.alpha);
-        cairo_fill(draw);
+        if (style->GetStyle()==TextStyle::normal) {
+          cairo_show_text(draw,lineText.c_str());
+          cairo_stroke(draw);
+        }
+        else {
+          cairo_text_path(draw,lineText.c_str());
+
+          cairo_set_source_rgba(draw,1,1,1,label.alpha);
+          cairo_set_line_width(draw,2.0);
+          cairo_stroke_preserve(draw);
+
+          cairo_set_source_rgba(draw,r,g,b,label.alpha);
+          cairo_fill(draw);
+        }
       }
 
 #endif
@@ -1158,13 +1582,19 @@ namespace osmscout {
 
 #else
       cairo_set_scaled_font(draw, layout.font);
-      // see text style branch above: place the ink at the label rectangle origin
-      cairo_move_to(draw,
-                    labelRectangle.x - layout.textExtents.x_bearing,
-                    labelRectangle.y - layout.textExtents.y_bearing);
+      // see the text style branch above: a wrapped shield draws one line per element
+      // of layout.lines, each with its ink at the label rectangle origin
+      for (size_t lineIndex = 0; lineIndex < layout.lines.size(); lineIndex++) {
+        const cairo_text_extents_t &lineExtents=layout.lineExtents[lineIndex];
+        const std::string          lineText=WStringToUTF8String(layout.lines[lineIndex]);
 
-      cairo_show_text(draw,label.text.c_str());
-      cairo_stroke(draw);
+        cairo_move_to(draw,
+                      labelRectangle.x+(labelRectangle.width-lineExtents.width)/2.0-lineExtents.x_bearing,
+                      labelRectangle.y+static_cast<double>(lineIndex)*layout.lineAdvance-lineExtents.y_bearing);
+
+        cairo_show_text(draw,lineText.c_str());
+        cairo_stroke(draw);
+      }
 
 #endif
     }
@@ -1401,8 +1831,8 @@ namespace osmscout {
   {
     // The metrics of a measured label depend on the resolved font and on the resolution of the
     // projection: GetFont scales the requested size by the font size and the projection. On the
-    // Pango path they additionally depend on the font options of the drawing target, because
-    // pango_cairo_create_layout() takes them from it.
+    // Pango path they additionally depend on the font options of the drawing target, because the
+    // layout of this painter is bound to that target.
     std::string environment=BuildMeasurementEnvironment(parameter.GetFontName(),
                                                        parameter.GetFontSize(),
                                                        projection.GetDPI(),

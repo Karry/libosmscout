@@ -34,7 +34,7 @@ set(JAVA_SOURCES
   ${JAVA_SOURCES_DIR}/com/framstag/libosmscout/client/RoadInfo.java
   ${JAVA_SOURCES_DIR}/com/framstag/libosmscout/client/RouteCallback.java
   ${JAVA_SOURCES_DIR}/com/framstag/libosmscout/client/RouteEntry.java
-  ${JAVA_SOURCES_DIR}/com/framstag/libosmscout/client/RouteInstruction.java
+  ${JAVA_SOURCES_DIR}/com/framstag/libosmscout/client/RouteStep.java
   ${JAVA_SOURCES_DIR}/com/framstag/libosmscout/client/RoutingProfile.java
   ${JAVA_SOURCES_DIR}/com/framstag/libosmscout/client/StarredFavoriteLocation.java
   ${JAVA_SOURCES_DIR}/com/framstag/libosmscout/client/TrackPoint.java
@@ -58,6 +58,9 @@ add_custom_command(
   # jar forever; start from an empty directory so the jar mirrors the sources.
   COMMAND ${CMAKE_COMMAND} -E rm -rf ${JAVA_CLASSES_DIR}
   COMMAND ${CMAKE_COMMAND} -E make_directory ${JAVA_CLASSES_DIR}
+  # javac -h only adds headers, so a removed or renamed class would leave its
+  # header behind in the directory the C++ library includes; start from an empty one.
+  COMMAND ${CMAKE_COMMAND} -E rm -rf ${JNI_HEADERS_DIR}
   COMMAND ${CMAKE_COMMAND} -E make_directory ${JNI_HEADERS_DIR}
   COMMAND ${Java_JAVAC_EXECUTABLE} -h ${JNI_HEADERS_DIR} -d ${JAVA_CLASSES_DIR} ${JAVA_SOURCES}
   COMMAND ${CMAKE_COMMAND} -E touch ${JAVA_CLASSES_STAMP}
@@ -93,6 +96,9 @@ set(CMAKE_VISIBILITY_INLINES_HIDDEN ON)
 
 set(CLIENT_JAVA_SOURCES
   src/OSMScoutClient.cpp
+  # The search scope's extent derivation (issue #20): no JNI, compiled by
+  # Tests/SearchScopeExtentTest as well.
+  src/search_scope_extent.cpp
 )
 
 add_library(osmscout_client_java SHARED

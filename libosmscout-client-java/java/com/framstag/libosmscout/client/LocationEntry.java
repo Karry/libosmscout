@@ -34,6 +34,17 @@ public class LocationEntry {
     /** OSM type name of the referenced object (e.g. "building", "highway_residential"). */
     public String objectTypeName;
 
+    /**
+     * Description of the object type in the configured description language
+     * (see {@link OSMScoutClientBuilder#withDescriptionLanguage(String)}),
+     * e.g. "Haus".
+     * <p>
+     * Empty when the database carries no description for that type in that
+     * language and none in English either; a caller then shows
+     * {@link #objectTypeName}.
+     */
+    public String objectTypeDescription;
+
     /** OSM name of the referenced object (e.g. "Aldi", "Hauptstraße"), or empty if unknown. */
     public String name;
 
@@ -70,6 +81,20 @@ public class LocationEntry {
 
     /** True when the entry carries a house number. */
     public boolean hasHouseNumber;
+
+    /**
+     * Whether this entry lies inside the active search scope (the default admin
+     * region).
+     * <p>
+     * The bridge reports the verdict because the extent of the resolved region
+     * is a native-side fact: a caller receives it instead of re-deriving a
+     * region's area from positions. A search without a scope reports every
+     * entry as inside it, and a bridge that does not set the field leaves it
+     * true — the pre-change behaviour — so an app and a library of different
+     * vintages keep working together. A caller ordering results places entries
+     * outside the scope below entries inside it.
+     */
+    public boolean inSearchScope = true;
 
     /**
      * Name of the component that supplied {@link #label}: for a house-level

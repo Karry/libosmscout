@@ -36,16 +36,36 @@ The C++ `DispatchMessage` SHALL handle `RouteInstructionsMessage<JavaRouteInstru
 
 ### Requirement: Java RouteInstruction data class
 
-The system SHALL provide a Java `RouteInstruction` class with fields: `distanceTo` (double, meters), `timeTo` (double, seconds), `turnType` (TurnType enum), `streetName` (String), `description` (String), `shortDescription` (String).
+The system SHALL provide a Java `RouteInstruction` class with fields: `distanceTo` (double, meters), `timeTo` (double, seconds), `legDistance` (double, meters, 0 if unknown), `turnType` (TurnType enum), `streetName` (String), `description` (String), `shortDescription` (String), plus the manoeuvre facts of its route node as published by the client library's route step model: the motorway junction's exit reference and name, the destination sign texts, the way type and the maximum speed. Each added field SHALL be readable as data and SHALL NOT have to be derived from `description` or `shortDescription`.
 
 #### Scenario: RouteInstruction constructed from JNI
 - **WHEN** the JNI bridge creates a `RouteInstruction` object
-- **THEN** all of its fields SHALL be populated from the C++ `JavaRouteInstruction` struct, including the per-step time
+- **THEN** all of its fields SHALL be populated from the C++ `JavaRouteInstruction` struct, including the per-step time and the leg's length
 
 #### Scenario: RouteInstruction constructed without a time
-- **WHEN** a `RouteInstruction` is constructed through the constructor that takes no per-step time
-- **THEN** `timeTo` SHALL be 0.0
+- **WHEN** a `RouteInstruction` is constructed through the constructor that takes no per-step values
+- **THEN** `timeTo` and `legDistance` SHALL be 0.0
 - **AND** the remaining fields SHALL be populated as given
+
+#### Scenario: The manoeuvre facts arrive with the instruction
+
+- **GIVEN** a route node that carries a motorway-junction description with a reference and a name and a destination description
+- **WHEN** the instruction for that node is delivered to Java
+- **THEN** it SHALL carry the exit reference, the junction name and the destinations
+- **AND** `description` and `shortDescription` SHALL stay byte-identical to what they were before the fields were added
+
+#### Scenario: An instruction without those facts reports none
+
+- **GIVEN** a turn instruction whose node carries no junction, destination, way-type or max-speed description
+- **WHEN** the instruction is delivered to Java
+- **THEN** the added fields SHALL report "absent" rather than a zero or empty value indistinguishable from a known one
+- **AND** no error SHALL be raised
+
+#### Scenario: Every existing constructor keeps working
+
+- **WHEN** a caller constructs a `RouteInstruction` through any constructor that predates the added fields
+- **THEN** compilation SHALL succeed
+- **AND** the added fields SHALL take their "absent" values
 
 ### Requirement: Java TurnType enum
 
@@ -108,31 +128,34 @@ The JavaScout `RoutePanel` next-turn display SHALL include a lane guidance sub-c
 
 ### Requirement: An instruction carries the per-step time of its segment
 
-A Java `RouteInstruction` SHALL carry the estimated time of the route segment that ends at that instruction,
-in seconds. The value SHALL be the difference between the route description's time at that instruction's
-node and the time at the preceding node, truncated to whole seconds, and SHALL NOT be derived from the
-instruction's distance. When the route description provides no time for that segment, the instruction SHALL
-carry 0.0 and no error SHALL be raised, so that a client can treat 0.0 as "unknown".
+A Java `RouteInstruction` SHALL carry the estimated travel time of the leg that ends at that instruction's
+manoeuvre, in seconds. The value SHALL be the time between the instruction preceding it and its own
+manoeuvre, truncated to whole seconds, and SHALL NOT be derived from the instruction's distance or measured
+between two route nodes that carry no instruction. When the route description provides no time for that leg,
+the instruction SHALL carry 0.0 and no error SHALL be raised, so that a client can treat 0.0 as "unknown".
 
 #### Scenario: The full instruction list carries the time of each step
 
 - **GIVEN** a route whose description provides a time for every node
 - **WHEN** the full instruction list is delivered to Java
-- **THEN** each instruction SHALL carry the time between the node preceding it and its own node
+- **THEN** each instruction SHALL carry the time between the preceding instruction and its own manoeuvre
+- **AND** the entries SHALL NOT be required to add up to the route's published `duration`, which is the
+  length-derived estimate of `client-java-route-length` at one average speed, while these are the
+  description's own per-leg times
 - **AND** its distance SHALL be the distance from the start of the route, as before
 
 #### Scenario: The next instruction carries the time of its own step
 
 - **GIVEN** a route whose description provides times
-- **WHEN** the next instruction is delivered to Java
-- **THEN** it SHALL carry the time between the node preceding it and its own node
-- **AND** that time SHALL be reported as the time of the whole segment, independent of how much of the
-  segment has already been travelled
+- **WHEN** the next instruction is delivered to Java while the position approaches the manoeuvre
+- **THEN** it SHALL carry the remaining time of the leg ending at that manoeuvre, interpolated at the
+  position with the same progress the remaining distance uses
+- **AND** that time SHALL shrink as the manoeuvre is approached
 
 #### Scenario: A segment without a time reports zero
 
-- **GIVEN** a route description that provides no time for a segment
-- **WHEN** an instruction for that segment is delivered to Java
+- **GIVEN** a route description that provides no time for a leg
+- **WHEN** an instruction for that leg is delivered to Java
 - **THEN** its per-step time SHALL be 0.0
 - **AND** no error SHALL be raised
 
@@ -202,3 +225,137 @@ Every instruction SHALL carry the distance of its own route node from the start 
 - **THEN** it SHALL describe the arrival, not an empty instruction
 - **AND** the distance it carries SHALL be greater than zero
 - **AND** it SHALL be at most the distance from the route start to the destination
+
+### Requirement: A roundabout instruction carries the exit taken
+
+A Java `RouteInstruction` SHALL carry `roundaboutExitNumber` (int): the 1-based ordinal, counted in
+circulation order, of the exit the route takes, and 0 when the instruction is not a roundabout exit. It
+SHALL be the exit taken, which is what `RoundaboutLeaveDescription::GetExitCount()` carries
+(`RoutePostprocessor::roundaboutCrossingCounter` counts the exits passed), and SHALL NOT be the number of
+exits the ring has. The existing text fields SHALL stay byte-identical.
+
+#### Scenario: A roundabout exit instruction reports its ordinal
+
+- **WHEN** the bridge marshals an instruction built from a `RoundaboutLeaveDescription`
+- **THEN** `roundaboutExitNumber` SHALL be the ordinal of the exit taken
+- **AND** `description` and `shortDescription` SHALL stay byte-identical to what they were before
+
+#### Scenario: A non-roundabout instruction reports no exit
+
+- **WHEN** the bridge marshals a turn, a lane or an arrival instruction
+- **THEN** `roundaboutExitNumber` SHALL be 0
+
+### Requirement: A route instruction carries the ring's circulation direction
+
+A Java `RouteInstruction` SHALL carry `roundaboutClockwise` (boolean): the circulation direction of the
+roundabout the instruction is about. It SHALL default to `true` when the instruction is not a roundabout
+manoeuvre, so that a consumer reads a direction only where an ordinal exists.
+
+#### Scenario: Entering a roundabout reports the direction
+
+- **WHEN** the bridge marshals an instruction built from a `RoundaboutEnterDescription`
+- **THEN** `roundaboutClockwise` SHALL be that ring's circulation direction
+- **AND** `roundaboutExitNumber` SHALL be 0, because entering a ring does not take an exit
+
+#### Scenario: Leaving a roundabout reports the direction
+
+- **WHEN** the bridge marshals an instruction built from a `RoundaboutLeaveDescription`
+- **THEN** `roundaboutClockwise` SHALL be that ring's circulation direction
+
+#### Scenario: A non-roundabout instruction reports the default
+
+- **WHEN** the bridge marshals a turn, a lane or an arrival instruction
+- **THEN** `roundaboutClockwise` SHALL be `true`
+
+#### Scenario: A node without a roundabout description reports the defaults
+
+- **WHEN** the route description carries no roundabout description for an instruction's node
+- **THEN** the instruction SHALL report `roundaboutExitNumber` 0 and `roundaboutClockwise` `true`
+- **AND** no error SHALL be raised
+
+### Requirement: The next-next hint carries its own roundabout exit ordinal
+
+A Java `RouteInstruction` SHALL carry `nextNextRoundaboutExitNumber` (int) for the "next next" hint's own
+manoeuvre, on the same terms as `roundaboutExitNumber`, because that manoeuvre can be a different
+roundabout from the one the current instruction leaves. It SHALL be 0 when the hint is absent or when the
+hint's manoeuvre is not a roundabout exit.
+
+#### Scenario: The hint's own roundabout ordinal is reported
+
+- **GIVEN** an instruction whose following manoeuvre is close enough to be reported as the next-next hint
+- **WHEN** that hint's manoeuvre takes a roundabout exit
+- **THEN** `nextNextRoundaboutExitNumber` SHALL be that manoeuvre's own exit ordinal
+- **AND** it MAY describe a different roundabout from the one `roundaboutExitNumber` describes
+
+#### Scenario: A hint that is no roundabout exit reports zero
+
+- **GIVEN** an instruction with a next-next hint
+- **WHEN** the hint's manoeuvre is not a roundabout exit, or no hint is present
+- **THEN** `nextNextRoundaboutExitNumber` SHALL be 0
+
+### Requirement: A route instruction can be built without the roundabout values
+
+The Java `RouteInstruction` SHALL keep a constructor arity that predates the roundabout values, so a
+caller that constructs an instruction without them compiles unchanged. The roundabout values SHALL then
+take their "no roundabout" defaults (0, `true`, 0), which is the state such a caller observed before they
+existed.
+
+#### Scenario: The constructor with the roundabout fields but without the next-next ordinal
+
+- **WHEN** a `RouteInstruction` is constructed through the constructor that takes the roundabout fields but not the next-next ordinal
+- **THEN** `nextNextRoundaboutExitNumber` SHALL be 0
+- **AND** all other given values SHALL be carried
+
+#### Scenario: The constructor without the roundabout fields
+
+- **WHEN** a `RouteInstruction` is constructed through the full constructor that predates the roundabout fields
+- **THEN** `roundaboutExitNumber` SHALL be 0, `roundaboutClockwise` SHALL be `true` and `nextNextRoundaboutExitNumber` SHALL be 0
+- **AND** the remaining fields SHALL be populated as given
+
+### Requirement: An instruction carries the length of its own leg
+
+A Java `RouteInstruction` SHALL carry the length, in metres, of the leg that ends at its manoeuvre,
+independently of whether its distance field carries an absolute or a remaining distance. The value SHALL be
+0.0 when the leg is unknown, so that a client can tell "unknown" from "zero-length leg".
+
+#### Scenario: The length relates a remaining distance to its leg
+
+- **GIVEN** an instruction whose leg has a known length
+- **WHEN** the instruction is delivered to Java
+- **THEN** its leg length SHALL be that leg's length
+- **AND** it SHALL NOT change as the position moves along the leg
+
+#### Scenario: A leg whose beginning is behind the position reports unknown
+
+- **GIVEN** an instruction list that was rebuilt from the current position
+- **WHEN** the first instruction of that list is delivered to Java
+- **THEN** its leg length SHALL be 0.0
+- **AND** it SHALL NOT report a cumulative distance from the route start
+
+### Requirement: Route list instructions and the step model agree
+
+When the bridge derives both the description lines and the structured steps for the same route, the values of a manoeuvre that both represent SHALL be equal: the instruction for a manoeuvre SHALL NOT report a turn type, an exit reference or a destination that differs from what its step carries.
+
+#### Scenario: The dialog and the live guidance describe one manoeuvre alike
+
+- **GIVEN** a route whose description lines and steps are both published
+- **WHEN** the manoeuvre at a given node is read from the description-derived instruction and from its step
+- **THEN** turn type, exit reference, junction name and destinations SHALL be equal
+- **AND** no manoeuvre present in the steps SHALL be missing from the description lines
+
+### Requirement: The next-turn display shows the exit and the destination as data
+
+The JavaScout next-turn display SHALL show the exit reference and the destination sign texts when the delivered instruction carries them, rendering them from the instruction's fields and not from its description text. When they are absent the display SHALL keep its current appearance.
+
+#### Scenario: A motorway exit is announced with its number
+
+- **GIVEN** a next instruction that leaves a motorway at a junction with reference "12" and destination "Dortmund"
+- **WHEN** the next-turn display updates
+- **THEN** it SHALL show the exit reference 12 and the destination Dortmund
+- **AND** it SHALL obtain both from the instruction's fields
+
+#### Scenario: A turn without those facts renders as before
+
+- **GIVEN** a next instruction that carries no exit reference and no destination
+- **WHEN** the next-turn display updates
+- **THEN** it SHALL render the turn icon, distance and street name exactly as before

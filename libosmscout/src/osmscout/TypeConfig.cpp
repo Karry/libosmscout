@@ -285,6 +285,30 @@
     return "";
   }
 
+  /**
+   * Returns the description for the given language code. Returns the English description,
+   * if no description is available for the given language code. Returns an empty string,
+   * if the type has no description at all.
+   *
+   * @param languageCode
+   *    languageCode like for example 'de'
+   * @return
+   *    Description or empty string
+   */
+  std::string TypeInfo::GetLocalizedDescription(const std::string& languageCode) const
+  {
+    static const std::string fallbackLanguageCode="en";
+
+    std::string description=GetDescription(languageCode);
+
+    if (description.empty() &&
+        languageCode!=fallbackLanguageCode) {
+      description=GetDescription(fallbackLanguageCode);
+    }
+
+    return description;
+  }
+
   TypeInfoRef TypeInfo::Read(FileScanner& scanner, [[maybe_unused]] uint32_t fileFormatVersion)
   {
     std::string name=scanner.ReadString();
@@ -1027,22 +1051,35 @@
 
   void TypeConfig::BuildTypeResolutionIndex(const TypeInfoRef& typeInfo)
   {
-    auto addEntries=[this](std::unordered_map<TagId,std::vector<TypeConditionEntry>>& index,
+    auto addEntries=[this](std::unordered_map<TagId,TypeKeyIndex>& index,
                            std::vector<TypeConditionEntry>& fallback,
                            const std::vector<TagId>& keys,
                            bool guaranteed,
+                           const std::vector<TagValue>& values,
+                           bool exhaustive,
                            const TypeConditionEntry& entry) {
       // Guard the condition is reachable through one of its primary tags. A
       // condition that may match without any of its tags being present (e.g.
       // containing negation) goes to the fallback list and is always evaluated.
-      if (guaranteed &&
-          !keys.empty()) {
-        for (const auto& key : keys) {
-          index[key].push_back(entry);
-        }
-      }
-      else {
+      if (!guaranteed ||
+          keys.empty()) {
         fallback.push_back(entry);
+        return;
+      }
+
+      // A condition whose value report is exhaustive can only match for one of the
+      // reported (tag,value) pairs, so it is indexed under the value. Without such
+      // a report the condition has to stay reachable for every value of its keys.
+      if (exhaustive &&
+          !values.empty()) {
+        for (const auto& value : values) {
+          index[value.first].valueBuckets[value.second].push_back(entry);
+        }
+        return;
+      }
+
+      for (const auto& key : keys) {
+        index[key].keyOnly.push_back(entry);
       }
     };
 
@@ -1068,6 +1105,19 @@
         }
       }
 
+      std::vector<TagValue> values;
+      bool                  exhaustive=false;
+
+      cond.condition->CollectTagValues(values,
+                                       exhaustive);
+
+      // Remove duplicate values (e.g. from OR conditions with branches sharing a value)
+      std::sort(values.begin(),
+                values.end());
+      values.erase(std::unique(values.begin(),
+                               values.end()),
+                   values.end());
+
       TypeConditionEntry entry{typeInfo,
                                cond.condition,
                                cond.types,
@@ -1079,6 +1129,8 @@
                    nodeFallbackConditions,
                    keys,
                    guaranteed,
+                   values,
+                   exhaustive,
                    entry);
       }
 
@@ -1087,6 +1139,8 @@
                    wayAreaFallbackConditions,
                    keys,
                    guaranteed,
+                   values,
+                   exhaustive,
                    entry);
       }
 
@@ -1095,10 +1149,45 @@
                    relationFallbackConditions,
                    keys,
                    guaranteed,
+                   values,
+                   exhaustive,
                    entry);
       }
 
       conditionIndex++;
+    }
+  }
+
+  void TypeConfig::CollectCandidateStreams(const std::unordered_map<TagId,TypeKeyIndex>& index,
+                                           const std::vector<TypeConditionEntry>& fallback,
+                                           const TagMap& tagMap,
+                                           std::vector<const std::vector<TypeConditionEntry>*>& streams)
+  {
+    streams.reserve(tagMap.size()*2+1);
+
+    for (const auto& tagEntry : tagMap) {
+      auto entry=index.find(tagEntry.first);
+
+      if (entry==index.end()) {
+        continue;
+      }
+
+      const auto& keyIndex=entry->second;
+
+      auto bucket=keyIndex.valueBuckets.find(tagEntry.second);
+
+      if (bucket!=keyIndex.valueBuckets.end() &&
+          !bucket->second.empty()) {
+        streams.push_back(&bucket->second);
+      }
+
+      if (!keyIndex.keyOnly.empty()) {
+        streams.push_back(&keyIndex.keyOnly);
+      }
+    }
+
+    if (!fallback.empty()) {
+      streams.push_back(&fallback);
     }
   }
 
@@ -1179,20 +1268,10 @@
 
     std::vector<const std::vector<TypeConditionEntry>*> streams;
 
-    streams.reserve(tagMap.size()+1);
-
-    for (const auto& tagEntry : tagMap) {
-      auto index=nodeTypeIndex.find(tagEntry.first);
-
-      if (index!=nodeTypeIndex.end() &&
-          !index->second.empty()) {
-        streams.push_back(&index->second);
-      }
-    }
-
-    if (!nodeFallbackConditions.empty()) {
-      streams.push_back(&nodeFallbackConditions);
-    }
+    CollectCandidateStreams(nodeTypeIndex,
+                            nodeFallbackConditions,
+                            tagMap,
+                            streams);
 
     const TypeConditionEntry* match=FindFirstMatch(streams,
                                                    0,
@@ -1214,20 +1293,10 @@
 
     std::vector<const std::vector<TypeConditionEntry>*> streams;
 
-    streams.reserve(tagMap.size()+1);
-
-    for (const auto& tagEntry : tagMap) {
-      auto index=wayAreaTypeIndex.find(tagEntry.first);
-
-      if (index!=wayAreaTypeIndex.end() &&
-          !index->second.empty()) {
-        streams.push_back(&index->second);
-      }
-    }
-
-    if (!wayAreaFallbackConditions.empty()) {
-      streams.push_back(&wayAreaFallbackConditions);
-    }
+    CollectCandidateStreams(wayAreaTypeIndex,
+                            wayAreaFallbackConditions,
+                            tagMap,
+                            streams);
 
     const TypeConditionEntry* match=FindFirstMatch(streams,
                                                    0,
@@ -1261,20 +1330,10 @@
       // Multipolygon relations are resolved by scanning area conditions
       std::vector<const std::vector<TypeConditionEntry>*> streams;
 
-      streams.reserve(tagMap.size()+1);
-
-      for (const auto& tagEntry : tagMap) {
-        auto index=wayAreaTypeIndex.find(tagEntry.first);
-
-        if (index!=wayAreaTypeIndex.end() &&
-            !index->second.empty()) {
-          streams.push_back(&index->second);
-        }
-      }
-
-      if (!wayAreaFallbackConditions.empty()) {
-        streams.push_back(&wayAreaFallbackConditions);
-      }
+      CollectCandidateStreams(wayAreaTypeIndex,
+                              wayAreaFallbackConditions,
+                              tagMap,
+                              streams);
 
       const TypeConditionEntry* match=FindFirstMatch(streams,
                                                      TypeInfo::typeArea,
@@ -1285,20 +1344,10 @@
     else {
       std::vector<const std::vector<TypeConditionEntry>*> streams;
 
-      streams.reserve(tagMap.size()+1);
-
-      for (const auto& tagEntry : tagMap) {
-        auto index=relationTypeIndex.find(tagEntry.first);
-
-        if (index!=relationTypeIndex.end() &&
-            !index->second.empty()) {
-          streams.push_back(&index->second);
-        }
-      }
-
-      if (!relationFallbackConditions.empty()) {
-        streams.push_back(&relationFallbackConditions);
-      }
+      CollectCandidateStreams(relationTypeIndex,
+                              relationFallbackConditions,
+                              tagMap,
+                              streams);
 
       const TypeConditionEntry* match=FindFirstMatch(streams,
                                                      0,

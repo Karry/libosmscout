@@ -17,6 +17,8 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
+#include <cmath>
+
 #include <catch2/catch_test_macros.hpp>
 
 #include "search_scope.h"
@@ -76,4 +78,170 @@ TEST_CASE("The search cap admits a district parent but not a state parent")
                                         naviveylin::kMaxSearchRegionLevel));
   REQUIRE(naviveylin::ShouldExpandScope(naviveylin::NormalizeDepthToAdminLevel(5),
                                         naviveylin::kMaxSearchRegionLevel));
+}
+
+TEST_CASE("A scoped search admits a position inside the extent and rejects one outside")
+{
+  // Dortmund's own neighbourhood as the region's bounding box.
+  const auto box=naviveylin::BoxFromCorners(51.40, 7.30, 51.70, 7.70);
+
+  REQUIRE(box.isSet);
+  REQUIRE(naviveylin::IsInsideGeoBox(box, 51.5136, 7.4653));   // the city centre
+  REQUIRE(naviveylin::IsInsideGeoBox(box, 51.40, 7.30));       // the corner is inside
+  REQUIRE(naviveylin::IsInsideGeoBox(box, 51.70, 7.70));       // and so is its opposite
+  REQUIRE_FALSE(naviveylin::IsInsideGeoBox(box, 64.1466, -21.9426)); // Reykjavik
+  REQUIRE_FALSE(naviveylin::IsInsideGeoBox(box, 51.40, 7.29));       // a step west
+  REQUIRE_FALSE(naviveylin::IsInsideGeoBox(box, 51.71, 7.50));       // a step north
+}
+
+TEST_CASE("The extent normalizes the corner order and clamps the latitude")
+{
+  const auto reversed=naviveylin::BoxFromCorners(51.70, 7.70, 51.40, 7.30);
+  const auto ordered=naviveylin::BoxFromCorners(51.40, 7.30, 51.70, 7.70);
+
+  REQUIRE(reversed.minLat==ordered.minLat);
+  REQUIRE(reversed.maxLat==ordered.maxLat);
+  REQUIRE(reversed.minLon==ordered.minLon);
+  REQUIRE(reversed.maxLon==ordered.maxLon);
+
+  // The pole clamp keeps a box usable even when the fallback radius runs past it.
+  const auto polar=naviveylin::BoxFromCorners(89.9, 10.0, 90.1, 20.0);
+
+  REQUIRE(polar.maxLat==90.0);
+  REQUIRE(naviveylin::IsInsideGeoBox(polar, 90.0, 15.0));
+}
+
+TEST_CASE("An unavailable extent admits every position instead of emptying the search")
+{
+  const auto unset=naviveylin::UnsetGeoBox();
+
+  REQUIRE_FALSE(unset.isSet);
+  REQUIRE(naviveylin::IsInsideGeoBox(unset, 51.5136, 7.4653));
+  REQUIRE(naviveylin::IsInsideGeoBox(unset, 64.1466, -21.9426));
+  REQUIRE(naviveylin::IsInsideGeoBox(unset, 0.0, 0.0));
+}
+
+TEST_CASE("A non-finite position is never inside a set extent")
+{
+  const auto box=naviveylin::BoxFromCorners(51.40, 7.30, 51.70, 7.70);
+  const double nan=std::nan("");
+
+  REQUIRE_FALSE(naviveylin::IsInsideGeoBox(box, nan, 7.4653));
+  REQUIRE_FALSE(naviveylin::IsInsideGeoBox(box, 51.5136, nan));
+  REQUIRE_FALSE(naviveylin::IsInsideGeoBox(box, nan, nan));
+}
+
+TEST_CASE("The node-region fallback box contains its point at the documented size")
+{
+  const auto box=naviveylin::BoxAroundPoint(51.5136, 7.4653);
+
+  REQUIRE(box.isSet);
+  REQUIRE(naviveylin::IsInsideGeoBox(box, 51.5136, 7.4653));
+  REQUIRE(naviveylin::IsInsideGeoBox(box, 51.5136+naviveylin::kNodeRegionFallbackDegrees,
+                                     7.4653));
+  REQUIRE_FALSE(naviveylin::IsInsideGeoBox(box, 51.5136+2.0*naviveylin::kNodeRegionFallbackDegrees,
+                                          7.4653));
+
+  // An explicit half-size is honoured, which is what a caller with a known
+  // region radius would pass.
+  const auto tight=naviveylin::BoxAroundPoint(51.5136, 7.4653, 0.01);
+
+  REQUIRE(naviveylin::IsInsideGeoBox(tight, 51.5136+0.01, 7.4653));
+  REQUIRE_FALSE(naviveylin::IsInsideGeoBox(tight, 51.5136+0.02, 7.4653));
+}
+
+TEST_CASE("A region's bounding box never drops a position inside the region")
+{
+  /*
+   * The property the scope filter relies on: the extent derived from a region
+   * is a superset of that region, so filtering by it can only admit a position
+   * the region does not contain — it can never drop one the region does
+   * contain. A smaller box standing in for an object inside the region is
+   * therefore always contained.
+   */
+  const auto region=naviveylin::BoxFromCorners(51.40, 7.30, 51.70, 7.70);
+  const auto insideTheRegion=naviveylin::BoxAroundPoint(51.5136, 7.4653, 0.001);
+
+  REQUIRE(naviveylin::GeoBoxContains(region, insideTheRegion));
+  REQUIRE_FALSE(naviveylin::GeoBoxContains(insideTheRegion, region));
+
+  // An unavailable extent is contained by nothing, and contains nothing but itself.
+  const auto unset=naviveylin::UnsetGeoBox();
+
+  REQUIRE_FALSE(naviveylin::GeoBoxContains(region, unset));
+  REQUIRE(naviveylin::GeoBoxContains(unset, unset));
+}
+
+TEST_CASE("A scoped free-text walk collects the requested candidates, not fewer")
+{
+  /*
+   * The text index reports a query's whole hit set in one call, and the
+   * per-source budget bounds the object loads behind it. Counting *scanned* hits
+   * against the budget spent it on hits the scope then dropped: 60 reported hits
+   * of which 30 lie outside the extent delivered 15 candidates for a limit of 30
+   * (issue #19). The walk therefore offers every hit and spends the budget only
+   * on the ones it keeps.
+   */
+  const auto extent=naviveylin::BoxAroundPoint(51.5136, 7.4653, 0.5);
+  naviveylin::FreeTextBudget budget(30, extent);
+
+  size_t scanned=0;
+
+  // 60 reported hits: the first 30 outside the extent (Reykjavik), the last 30
+  // inside it (Dortmund).
+  for (size_t i=0; i<60; i++) {
+    const bool   inside=i>=30;
+    const double lat=inside ? 51.5136 : 64.1466;
+    const double lon=inside ? 7.4653  : -21.9426;
+
+    if (budget.Reached()) {
+      break;
+    }
+
+    scanned++;
+
+    budget.Admit(lat, lon);
+  }
+
+  // The walk passed every refused hit and still delivered the full candidate
+  // count, which is what the caller asked for.
+  REQUIRE(budget.Kept()==30);
+  REQUIRE(budget.Reached());
+  REQUIRE(budget.Dropped()==30);
+
+  // Every reported hit was inspected: the walk no longer stops at the limit's
+  // worth of hits, only at the limit's worth of candidates.
+  REQUIRE(scanned==60);
+  REQUIRE(budget.Scanned()==60);
+}
+
+TEST_CASE("Without a scope every hit spends the budget")
+{
+  // An unset extent admits every position (fail-open), so the budget is spent on
+  // the hits themselves and the walk stops at the limit as it always did.
+  naviveylin::FreeTextBudget budget(5, naviveylin::UnsetGeoBox());
+
+  for (size_t i=0; i<5; i++) {
+    REQUIRE(budget.Admit(64.1466, -21.9426));
+  }
+
+  REQUIRE(budget.Reached());
+  REQUIRE(budget.Scanned()==5);
+  REQUIRE(budget.Dropped()==0);
+}
+
+TEST_CASE("A refused hit does not spend the budget")
+{
+  // The single hit the limit allows is still available after a hit outside the
+  // extent was refused.
+  const auto extent=naviveylin::BoxAroundPoint(51.5136, 7.4653, 0.5);
+  naviveylin::FreeTextBudget budget(1, extent);
+
+  REQUIRE_FALSE(budget.Admit(64.1466, -21.9426)); // outside the extent
+  REQUIRE_FALSE(budget.Reached());
+  REQUIRE(budget.Dropped()==1);
+
+  REQUIRE(budget.Admit(51.5136, 7.4653)); // inside it
+  REQUIRE(budget.Reached());
+  REQUIRE(budget.Kept()==1);
 }
