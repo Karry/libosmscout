@@ -125,10 +125,10 @@ namespace osmscout {
       return fullIndexFileName;
     }
 
-    bool GetOffsets(const GeoBox& boundingBox,
-                    const TypeInfoSet& types,
-                    std::vector<FileOffset>& offsets,
-                    TypeInfoSet& loadedTypes) const;
+    virtual bool GetOffsets(const GeoBox& boundingBox,
+                            const TypeInfoSet& types,
+                            std::vector<FileOffset>& offsets,
+                            TypeInfoSet& loadedTypes) const;
 
     /**
      * The number of entries this index carries; the index file holds one entry per type it
